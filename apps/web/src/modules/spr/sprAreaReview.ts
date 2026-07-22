@@ -62,7 +62,10 @@ export function resolveSprAreaReviewContext(records: SprMonthlyRecordResponse[] 
   const signedDateLabel = formatSprDateLabel(anchorRecord?.submittedAt, SPR_AREA_REVIEW.signedDateFallback);
   const signedTimeLabel = formatSprTimeLabel(anchorRecord?.submittedAt, SPR_AREA_REVIEW.signedTimeFallback);
   const receivedDateLabel = formatSprDateLabel(anchorRecord?.submittedAt, SPR_AREA_REVIEW.submittedDateFallback);
-  const responsibleLabel = SPR_AREA_REVIEW.responsibleNameFallback;
+  const responsibleFromApi = cycleRecords
+    .map((record) => record.submittedByFullName?.trim())
+    .find((name): name is string => Boolean(name));
+  const responsibleLabel = responsibleFromApi || SPR_AREA_REVIEW.responsibleNameFallback;
 
   return {
     responsibleLabel,

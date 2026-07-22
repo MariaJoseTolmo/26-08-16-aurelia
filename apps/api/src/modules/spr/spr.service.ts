@@ -103,7 +103,10 @@ export class SprService {
   }
 
   async findMonthlyRecords(query: Record<string, string | undefined>): Promise<SprMonthlyRecordResponse[]> {
-    const builder = this.monthlyRecordsRepository.createQueryBuilder('record').orderBy('record.created_at', 'DESC');
+    const builder = this.monthlyRecordsRepository
+      .createQueryBuilder('record')
+      .leftJoinAndSelect('record.submittedByUser', 'submittedByUser')
+      .orderBy('record.created_at', 'DESC');
 
     if (query.parameterId) builder.andWhere('record.parameter_id = :parameterId', { parameterId: query.parameterId });
     if (query.areaId) builder.andWhere('record.area_id = :areaId', { areaId: query.areaId });
@@ -216,8 +219,9 @@ export class SprService {
     const saved = await this.monthlyRecordsRepository.save(record);
     const assignment = saved.assignmentId ? await this.assignmentsRepository.findOne({ where: { id: saved.assignmentId } }) : null;
     await this.upsertApproval(saved, SprApprovalStatus.PENDING, dto.approverUserId ?? assignment?.approverUserId ?? null, dto.comments ?? dto.notes ?? null);
-    await this.logAudit('spr.record.submitted', recordId, dto.submittedByUserId ?? null, oldValue, this.toMonthlyRecordResponse(saved));
-    return this.toMonthlyRecordResponse(saved);
+    const withSubmitter = await this.ensureRecordExists(saved.id);
+    await this.logAudit('spr.record.submitted', recordId, dto.submittedByUserId ?? null, oldValue, this.toMonthlyRecordResponse(withSubmitter));
+    return this.toMonthlyRecordResponse(withSubmitter);
   }
 
   async approveRecord(recordId: string, dto: SprRecordActionDto): Promise<SprMonthlyRecordResponse> {
@@ -273,7 +277,10 @@ export class SprService {
   }
 
   private async ensureRecordExists(id: string): Promise<SprMonthlyRecordEntity> {
-    const record = await this.monthlyRecordsRepository.findOne({ where: { id } });
+    const record = await this.monthlyRecordsRepository.findOne({
+      where: { id },
+      relations: { submittedByUser: true },
+    });
     if (!record) throw new NotFoundException('SPR monthly record not found');
     return record;
   }
@@ -359,13 +366,29 @@ export class SprService {
   }
 
   private toMonthlyRecordResponse(record: SprMonthlyRecordEntity): SprMonthlyRecordResponse {
+    const submittedByFullName = record.submittedByUser
+      ? `${record.submittedByUser.firstName} ${record.submittedByUser.lastName}`.trim() || null
+      : null;
+
     return {
-      ...record,
+      id: record.id,
+      parameterId: record.parameterId,
+      areaId: record.areaId,
+      assignmentId: record.assignmentId,
+      periodYear: record.periodYear,
+      periodMonth: record.periodMonth,
       numericValue: record.numericValue === null ? null : Number(record.numericValue),
+      textValue: record.textValue,
+      booleanValue: record.booleanValue,
+      status: record.status,
+      submittedByUserId: record.submittedByUserId,
+      submittedByFullName,
+      submittedAt: record.submittedAt?.toISOString() ?? null,
+      approvedByUserId: record.approvedByUserId,
+      approvedAt: record.approvedAt?.toISOString() ?? null,
+      notes: record.notes,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
-      submittedAt: record.submittedAt?.toISOString() ?? null,
-      approvedAt: record.approvedAt?.toISOString() ?? null,
     };
   }
 
