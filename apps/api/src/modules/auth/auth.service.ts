@@ -185,7 +185,7 @@ export class AuthService {
     const isGoldFieldsUser = user.email.endsWith('@goldfields.com');
     const fullName = `${user.firstName} ${user.lastName}`.trim();
     const companyName = user.company?.name ?? (isGoldFieldsUser ? 'Gold Fields' : null);
-    const areaName = user.area?.name ?? (isGoldFieldsUser ? 'Medio Ambiente' : null);
+    const areaName = user.area?.name ?? null;
     const token = this.jwtTokenService.sign({
       sub: user.id,
       email: user.email,
