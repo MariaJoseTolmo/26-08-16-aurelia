@@ -8,6 +8,43 @@ export function resolveSessionUserRoles(user: SessionUser | null | undefined): R
   return user?.roles ?? [];
 }
 
+const SPR_SIDEBAR_ROLE_PRIORITY: readonly Role[] = [
+  Role.SPR_ENVIRONMENT_MANAGER,
+  Role.SPR_SUSTAINABILITY_SPECIALIST,
+  Role.SPR_AREA_MANAGER,
+  Role.SPR_RESPONSIBLE,
+];
+
+/**
+ * Rol SPR a mostrar en el sidebar solo dentro de rutas /spr.
+ * Fuera de SPR devolver null para que el sidebar use el rol primario habitual.
+ */
+export function resolveSprSidebarRole(roles: Role[], pathname: string): Role | null {
+  if (pathname !== '/spr' && !pathname.startsWith('/spr/')) {
+    return null;
+  }
+
+  if (pathname.startsWith('/spr/mi-area') && roles.includes(Role.SPR_AREA_MANAGER)) {
+    return Role.SPR_AREA_MANAGER;
+  }
+
+  if (pathname.startsWith('/spr/reporte')) {
+    if (roles.includes(Role.SPR_ENVIRONMENT_MANAGER)) return Role.SPR_ENVIRONMENT_MANAGER;
+    if (roles.includes(Role.SPR_SUSTAINABILITY_SPECIALIST)) return Role.SPR_SUSTAINABILITY_SPECIALIST;
+  }
+
+  if (
+    roles.includes(Role.SPR_RESPONSIBLE) &&
+    (pathname === '/spr' || pathname.startsWith('/spr/')) &&
+    !pathname.startsWith('/spr/mi-area') &&
+    !pathname.startsWith('/spr/reporte')
+  ) {
+    return Role.SPR_RESPONSIBLE;
+  }
+
+  return SPR_SIDEBAR_ROLE_PRIORITY.find((role) => roles.includes(role)) ?? null;
+}
+
 /** Responsable de área — Mi formulario SPR. */
 export function canAccessSprForm(roles: Role[]): boolean {
   return roles.some((role) => role === Role.ADMIN || role === Role.SPR_RESPONSIBLE);

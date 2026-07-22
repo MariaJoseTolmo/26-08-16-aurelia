@@ -2,11 +2,18 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type R
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Role } from '@aurelia/contracts';
 import { DashboardSidebarTopBrandBar } from '../../modules/dashboard/components/DashboardSections';
-import { canAccessSprArea, canAccessSprForm, canAccessSprReport, resolveSessionUserRoles, resolveSprDefaultRoute } from '../../modules/spr/sprAccess';
+import {
+  canAccessSprArea,
+  canAccessSprForm,
+  canAccessSprReport,
+  resolveSessionUserRoles,
+  resolveSprDefaultRoute,
+  resolveSprSidebarRole,
+} from '../../modules/spr/sprAccess';
 import { useNotifications } from '../hooks/useNotifications';
 import { logout } from '../services/auth.service';
 import { useSessionStore } from '../stores/session.store';
-import { formatPrimaryRoleLabel, formatUserInitials } from '../utils/roles';
+import { formatPrimaryRoleLabel, formatUserInitials, roleLabel } from '../utils/roles';
 import { AppNotificationsPanel } from './AppNotificationsPanel';
 import { sidebarIconSvgs, type SidebarIconName } from './AppSidebarIcons';
 
@@ -267,6 +274,7 @@ function SidebarFooterOptions({ onNotificationsClick, unreadCount, notifications
 
 function SidebarUser() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useSessionStore((state) => state.user);
   const clearSession = useSessionStore((state) => state.clearSession);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -275,7 +283,9 @@ function SidebarUser() {
 
   const fullName = user?.fullName?.trim() || 'Usuario';
   const initials = formatUserInitials(fullName);
-  const roleLabelText = formatPrimaryRoleLabel(resolveSessionUserRoles(user));
+  const userRoles = resolveSessionUserRoles(user);
+  const sprSidebarRole = resolveSprSidebarRole(userRoles, location.pathname);
+  const roleLabelText = sprSidebarRole ? roleLabel(sprSidebarRole) : formatPrimaryRoleLabel(userRoles);
 
   useEffect(() => {
     if (!menuOpen) return;
