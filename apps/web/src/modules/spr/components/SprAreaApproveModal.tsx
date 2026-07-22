@@ -44,7 +44,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 // Modal de aprobación del gerente (Figma 1672:10058 overlay + 1672:10110).
 // Firma digital PLACEHOLDER (mismo patrón que SprSubmitModal del responsable).
-// VALIDACIÓN: no se probó visualmente en runtime (bloqueado por 8268 sin CTA / G2);
+// VALIDACIÓN: flujo post-corrección ahora abre SprAreaReviewView (Figma 1395:12112) con CTA;
 // aceptado por paridad de patrón con SprSubmitModal, ya validado en el flujo del responsable.
 export function SprAreaApproveModal({
   open,

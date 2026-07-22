@@ -340,7 +340,7 @@ export const SPR_AREA_REVIEW = {
   signedTimeFallback: '14:23',
   entryDateFallback: '05-06-2026 · 14:08',
   footerInfo:
-    'Al aprobar, AurelIA generará automáticamente las evidencias SOX y notificará al Gerente MA.',
+    'Al aprobar y firmar, AurelIA generará automáticamente las evidencias SOX y notificará al Gerente MA.',
   rejectLabel: 'Rechazar',
   approveLabel: 'Aprobar y firmar',
   pendingReviewBadge: 'Pendiente tu revisión',
@@ -414,18 +414,14 @@ export const SPR_MANAGER_REJECTED_WAITING_STATUS = {
   deliveredStepHelper: 'El responsable de área ha emitido el formulario',
 } as const;
 
-// Gerente de area — ciclo aprobado con historial completo (Figma 1760:22435).
-// MOCK: timeline y discrepancia sin endpoint; conectado con responsable Figma 1760:21616.
+// Gerente de área — formulario aprobado (sin mock de discrepancia KPI / Especialista).
+// La discrepancia Figma 1760:22435 queda fuera hasta que exista flujo real de Especialista.
 export const SPR_MANAGER_APPROVED_STATUS = {
-  cycleStatusLabel: 'Cerrado y reportado',
+  cycleStatusLabel: 'En curso',
   formStatusLabel: 'Completado ✓',
   formStatusHelper: 'Aprobado',
   reportStatusLabel: 'Aún no disponible',
   managerApprovalDateFallback: '05-06-2026',
-  discrepancyStepTitle: (cycleLabel: string) =>
-    `Formulario SPR ${cycleLabel} - El responsable del área ha reportado una discrepancia`,
-  discrepancyStepHelper: 'A la espera de la decisión de Especialista de Sustentabilidad',
-  discrepancyBadgeLabel: 'Pendiente',
   approvedStepTitle: (cycleLabel: string) => `Formulario SPR ${cycleLabel} aprobado`,
   approvedStepHelper: (dateLabel: string) => `Formulario firmado y aprobado el ${dateLabel}.`,
   rejectedStepTitle: (cycleLabel: string) => `Formulario SPR ${cycleLabel} ha sido rechazado por tí`,
