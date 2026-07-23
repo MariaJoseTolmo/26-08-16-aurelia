@@ -100,7 +100,7 @@ function SeverityBadge({ label, tone }: { label: string; tone: Tone }) {
 function CardRow({ label, tag, tone, icon }: CardRowProps) {
   const palette = tonePalette[tone];
   return (
-    <View style={[styles.cardRow, { backgroundColor: palette.bg }]}> 
+    <View style={styles.cardRow}>
       <View style={styles.cardRowLeft}>
         <StatusGlyph icon={icon} tone={tone} />
         <Text style={[styles.cardRowText, { color: palette.fg }]}>{label}</Text>
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   meta: { marginTop: 3, flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { color: colors.muted, fontSize: 11 },
   cardRows: { marginTop: 10, gap: 5 },
-  cardRow: { minHeight: 23, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 5 },
+  cardRow: { minHeight: 23, borderRadius: 7, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 5 },
   cardRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   cardRowText: { fontSize: 11, fontWeight: fontWeight.bold },
   severityBadge: { minHeight: 13, borderRadius: 4, justifyContent: 'center', paddingHorizontal: 6 },
