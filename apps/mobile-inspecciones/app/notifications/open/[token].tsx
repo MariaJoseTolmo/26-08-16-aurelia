@@ -27,9 +27,9 @@ export default function MobileNotificationDeepLinkScreen() {
     if (!hydrated || !token) return;
     let cancelled = false;
 
-    async function openNotification() {
+    async function openNotification(deepLinkToken: string) {
       try {
-        const result = await resolveMobileNotificationDeepLink(token);
+        const result = await resolveMobileNotificationDeepLink(deepLinkToken);
         if (cancelled) return;
         if (result.status === 'expired') {
           setState('expired');
@@ -52,7 +52,7 @@ export default function MobileNotificationDeepLinkScreen() {
       }
     }
 
-    void openNotification();
+    void openNotification(token);
     return () => {
       cancelled = true;
     };

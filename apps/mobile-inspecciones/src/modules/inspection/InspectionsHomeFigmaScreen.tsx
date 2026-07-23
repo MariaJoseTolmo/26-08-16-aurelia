@@ -670,10 +670,6 @@ function getInspectionTone(status: InspectionStatus): Tone {
   return 'gold';
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short' }).format(new Date(value));
-}
-
 const inspectionStatusLabel: Record<InspectionStatus, string> = {
   [InspectionStatus.DRAFT]: 'Borrador',
   [InspectionStatus.SCHEDULED]: 'Programada',
