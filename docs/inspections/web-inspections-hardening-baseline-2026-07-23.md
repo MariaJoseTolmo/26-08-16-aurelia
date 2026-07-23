@@ -27,7 +27,7 @@ Los modelos preliminares de esas materias pueden permanecer en contratos o migra
 | `inspections:reassign` | Cambiar responsables, empresa, área o fecha operativa permitida | Verificador autorizado Gold Fields |
 | `inspections:admin` | Cancelaciones y configuración crítica reservada | Administrador del módulo |
 
-`inspections:write` no constituye una capacidad válida de autorización para esta iteración. La API y web exigen capacidades granulares. Mobile puede conservar el string únicamente como alias interno de compatibilidad cuando la sesión ya contiene `inspections:create`; un token que solo contenga `inspections:write` no habilita creación ni continuidad de borradores.
+`inspections:write` no constituye una capacidad válida de autorización para esta iteración. La API, web y mobile exigen capacidades granulares. Mobile elimina el permiso legacy al guardar o hidratar la sesión; crear o continuar borradores depende exclusivamente de `inspections:create`, mientras `inspections:execute` permanece independiente.
 
 ## Reglas de scope
 

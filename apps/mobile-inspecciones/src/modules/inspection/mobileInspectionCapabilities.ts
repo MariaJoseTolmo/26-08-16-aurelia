@@ -21,15 +21,7 @@ export function hasMobileInspectionCapability(
   capability: InspectionCapability,
 ): boolean {
   if (user?.roles?.includes('ADMIN')) return true;
-  const permissions = user?.permissions ?? [];
-  if (permissions.includes(capability)) return true;
-
-  if (permissions.includes('inspections:write')) {
-    return capability === INSPECTION_CAPABILITIES.create
-      || capability === INSPECTION_CAPABILITIES.execute;
-  }
-
-  return false;
+  return (user?.permissions ?? []).includes(capability);
 }
 
 export function resolveMobileInspectionCapabilities(

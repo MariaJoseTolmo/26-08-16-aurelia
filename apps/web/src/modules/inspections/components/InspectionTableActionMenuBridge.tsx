@@ -34,22 +34,24 @@ function inspectionNumberFromMenu(menu: HTMLElement) {
   return normalizeInspectionNumber(firstCell?.textContent ?? '');
 }
 
-function isSourceMenu(element: Element) {
-  if (!(element instanceof HTMLElement)) return false;
-  if (element.closest('[data-inspection-actions-portal="true"]')) return false;
-  const buttons = getDirectButtons(element);
-  if (buttons.length !== 2 || element.children.length !== 2) return false;
-  const firstLabel = normalizeText(buttons[0]?.textContent ?? '');
-  const secondLabel = normalizeText(buttons[1]?.textContent ?? '');
-  return firstLabel === 'Ver detalles' && secondLabel === 'PDF (.pdf)';
-}
-
 function findMenu() {
-  const candidates = Array.from(document.querySelectorAll('div'));
-  return candidates.find(isSourceMenu) as HTMLElement | undefined;
+  const triggers = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="menu"][aria-expanded="true"]'),
+  );
+  for (const trigger of triggers) {
+    if (!trigger.closest('table')) continue;
+    const candidate = trigger.nextElementSibling;
+    if (!(candidate instanceof HTMLElement)) continue;
+    if (candidate.closest('[data-inspection-actions-portal="true"]')) continue;
+    if (candidate.parentElement !== trigger.parentElement) continue;
+    return candidate;
+  }
+  return undefined;
 }
 
 function getTrigger(menu: HTMLElement) {
+  const previous = menu.previousElementSibling;
+  if (previous instanceof HTMLButtonElement && previous.matches('button[aria-haspopup="menu"]')) return previous;
   const trigger = menu.parentElement?.querySelector('button[aria-haspopup="menu"]');
   return trigger instanceof HTMLButtonElement ? trigger : null;
 }
@@ -123,23 +125,33 @@ export function InspectionTableActionMenuBridge(): ReactElement | null {
       updateMenu(next);
     }
 
+    let animationFrame: number | null = null;
+    const scheduleMenuSync = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        syncMenu();
+      });
+    };
+
     const unsubscribeOverlay = subscribeToInspectionManagementOverlay((detail) => {
       const current = menuRef.current;
       if (!current || detail.sourceId === sourceIdRef.current) return;
       current.trigger?.click();
     });
 
-    const observer = new MutationObserver(syncMenu);
+    const observer = new MutationObserver(scheduleMenuSync);
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('resize', syncMenu);
-    window.addEventListener('scroll', syncMenu, true);
+    window.addEventListener('resize', scheduleMenuSync);
+    window.addEventListener('scroll', scheduleMenuSync, true);
     syncMenu();
 
     return () => {
       unsubscribeOverlay();
       observer.disconnect();
-      window.removeEventListener('resize', syncMenu);
-      window.removeEventListener('scroll', syncMenu, true);
+      window.removeEventListener('resize', scheduleMenuSync);
+      window.removeEventListener('scroll', scheduleMenuSync, true);
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
       restoreHiddenSource();
     };
   }, []);

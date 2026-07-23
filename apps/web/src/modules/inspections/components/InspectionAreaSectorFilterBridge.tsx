@@ -108,6 +108,30 @@ function updateSelectValue(select: HTMLSelectElement, value: string, label: stri
   select.value = value;
 }
 
+function observeInspectionDom(sync: () => void) {
+  let animationFrame: number | null = null;
+  const scheduleSync = () => {
+    if (animationFrame !== null) return;
+    animationFrame = window.requestAnimationFrame(() => {
+      animationFrame = null;
+      sync();
+    });
+  };
+
+  sync();
+  const observer = new MutationObserver(scheduleSync);
+  observer.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('focus', scheduleSync);
+  window.addEventListener('popstate', scheduleSync);
+
+  return () => {
+    observer.disconnect();
+    window.removeEventListener('focus', scheduleSync);
+    window.removeEventListener('popstate', scheduleSync);
+    if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+  };
+}
+
 function SelectFilterBridge({ selector, width, allLabel, detailTitle }: SelectBridgeConfig) {
   const [target, setTarget] = useState<SelectTarget | null>(null);
   const [value, setValue] = useState('');
@@ -143,15 +167,7 @@ function SelectFilterBridge({ selector, width, allLabel, detailTitle }: SelectBr
       setOptions((previous) => (sameOptions(previous, nextOptions) ? previous : nextOptions));
     }
 
-    syncTarget();
-    const interval = window.setInterval(syncTarget, 600);
-    window.addEventListener('focus', syncTarget);
-    window.addEventListener('popstate', syncTarget);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', syncTarget);
-      window.removeEventListener('popstate', syncTarget);
-    };
+    return observeInspectionDom(syncTarget);
   }, [allLabel, selector]);
 
   useEffect(() => {
@@ -211,15 +227,7 @@ function MultiSelectFilterBridge({ selector, width, allLabel }: MultiSelectBridg
       setOptions((previous) => (sameMultiOptions(previous, nextOptions) ? previous : nextOptions));
     }
 
-    syncTarget();
-    const interval = window.setInterval(syncTarget, 600);
-    window.addEventListener('focus', syncTarget);
-    window.addEventListener('popstate', syncTarget);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', syncTarget);
-      window.removeEventListener('popstate', syncTarget);
-    };
+    return observeInspectionDom(syncTarget);
   }, [allLabel, selector]);
 
   useEffect(() => {

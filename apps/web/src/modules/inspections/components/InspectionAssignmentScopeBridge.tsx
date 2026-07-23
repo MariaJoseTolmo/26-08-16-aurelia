@@ -105,16 +105,24 @@ export function InspectionAssignmentScopeBridge() {
       applyLockedManualCompanyUi();
     };
 
+    let animationFrame: number | null = null;
+    const scheduleUiSync = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        syncUi();
+      });
+    };
+
     syncUi();
     const unsubscribe = useNewInspectionDraftStore.subscribe(lockDraftCompany);
-    const observer = new MutationObserver(syncUi);
+    const observer = new MutationObserver(scheduleUiSync);
     observer.observe(document.body, { childList: true, subtree: true });
-    const interval = window.setInterval(syncUi, 150);
 
     return () => {
       unsubscribe();
       observer.disconnect();
-      window.clearInterval(interval);
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
     };
   }, [scopeQuery.data]);
 

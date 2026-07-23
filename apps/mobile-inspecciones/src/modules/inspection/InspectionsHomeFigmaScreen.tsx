@@ -15,6 +15,7 @@ import { useManualInspectionDraft } from './manualInspection.store';
 import { useManualInspectionFlowStore } from './manualInspectionFlow.store';
 import { getManualInspectionDraftById } from './manualInspectionDrafts.storage';
 import { useManualInspectionDrafts } from './hooks/useManualInspectionDrafts';
+import { useMobileInspectionCapabilities } from './mobileInspectionCapabilities';
 import { fetchInspectionFindings } from '../../shared/services/inspections.api';
 import BellIcon from '../../../assets/icons/home-bell.svg';
 import FilterIcon from '../../../assets/icons/home-filter.svg';
@@ -256,6 +257,7 @@ function StateCard({ title, detail, action, onPress, loading }: { title: string;
 export function InspectionsHomeFigmaScreen() {
   useAutoSyncPendingOperations();
   const user = useMobileSession((state) => state.user);
+  const capabilities = useMobileInspectionCapabilities();
   const hydrateDraft = useManualInspectionDraft((state) => state.hydrate);
   const hydrateFlow = useManualInspectionFlowStore((state) => state.hydrateFlow);
   const summaryQuery = useInspectionHomeSummary();
@@ -298,7 +300,7 @@ export function InspectionsHomeFigmaScreen() {
   const openInspections = prioritizedInspections.filter((inspection) => inspection.status !== InspectionStatus.CLOSED && inspection.status !== InspectionStatus.CANCELLED).length;
   const closedRate = prioritizedInspections.length === 0 ? '0%' : `${Math.round((prioritizedInspections.filter((inspection) => inspection.status === InspectionStatus.CLOSED).length / prioritizedInspections.length) * 100)}%`;
   const profileBadge = buildProfileBadge(user?.roles ?? [], user?.companyName ?? null, user?.areaName ?? null);
-  const canWriteInspections = (user?.permissions ?? []).includes('inspections:write');
+  const canCreateInspections = capabilities.create;
 
   function refetch() {
     summaryQuery.refetch();
@@ -307,7 +309,7 @@ export function InspectionsHomeFigmaScreen() {
   }
 
   async function resumeDraft(draftId: string) {
-    if (!canWriteInspections) {
+    if (!canCreateInspections) {
       Alert.alert('Sin permiso', 'Tu perfil no tiene permiso para crear o continuar inspecciones.');
       return;
     }
@@ -337,7 +339,7 @@ export function InspectionsHomeFigmaScreen() {
   }
 
   function openNewInspection() {
-    if (!canWriteInspections) {
+    if (!canCreateInspections) {
       Alert.alert('Sin permiso', 'Tu perfil no tiene permiso para crear inspecciones.');
       return;
     }
@@ -377,7 +379,7 @@ export function InspectionsHomeFigmaScreen() {
               <FilterIcon width={15} height={12} />
               <Text style={styles.filterText}>Filtrar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.newButton, !canWriteInspections && styles.newButtonDisabled]} onPress={openNewInspection}>
+            <TouchableOpacity style={[styles.newButton, !canCreateInspections && styles.newButtonDisabled]} onPress={openNewInspection}>
               <PlusIcon width={19} height={15} />
               <Text style={styles.newText}> Nueva inspección</Text>
             </TouchableOpacity>

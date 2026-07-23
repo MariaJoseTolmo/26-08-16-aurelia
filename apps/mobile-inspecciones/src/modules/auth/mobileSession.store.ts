@@ -1,4 +1,3 @@
-import { INSPECTION_CAPABILITIES } from '@aurelia/contracts';
 import { create } from 'zustand';
 import type { AuthUser } from '../../shared/services/api/auth.api';
 import { localStorageDriver } from '../../shared/storage/local-storage';
@@ -21,13 +20,10 @@ interface MobileSessionState {
 }
 
 function normalizeMobileUser(user: AuthUser): AuthUser {
-  const permissions = new Set(user.permissions ?? []);
-  if (permissions.has(INSPECTION_CAPABILITIES.create)) {
-    permissions.add(LEGACY_INSPECTIONS_WRITE_PERMISSION);
-  } else {
-    permissions.delete(LEGACY_INSPECTIONS_WRITE_PERMISSION);
-  }
-  return { ...user, permissions: Array.from(permissions) };
+  const permissions = (user.permissions ?? []).filter(
+    (permission) => permission !== LEGACY_INSPECTIONS_WRITE_PERMISSION,
+  );
+  return { ...user, permissions };
 }
 
 export const useMobileSession = create<MobileSessionState>((set) => ({
