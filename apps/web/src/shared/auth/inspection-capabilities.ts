@@ -28,14 +28,7 @@ export function hasInspectionCapability(
   const roles = rolesOf(user);
   if (roles.includes('ADMIN')) return true;
 
-  const permissions = user?.permissions ?? [];
-  if (permissions.includes(capability)) return true;
-
-  if (permissions.includes('inspections:write')) {
-    return capability === INSPECTION_CAPABILITIES.create || capability === INSPECTION_CAPABILITIES.execute;
-  }
-
-  return false;
+  return (user?.permissions ?? []).includes(capability);
 }
 
 export function resolveInspectionCapabilities(user: RuntimeInspectionUser | null): InspectionCapabilities {

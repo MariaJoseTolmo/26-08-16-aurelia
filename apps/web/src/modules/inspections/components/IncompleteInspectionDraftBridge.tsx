@@ -13,6 +13,7 @@ type DraftProgress = {
 const hostId = 'aurelia-incomplete-inspection-draft-host';
 const resumeDraftEventName = 'aurelia:resume-new-inspection-draft';
 const resumeDraftStorageKey = 'aurelia:resume-new-inspection-draft';
+const draftChangedEventName = 'aurelia:new-inspection-drafts-changed';
 
 function isInspectionsRoute() {
   return window.location.pathname.startsWith('/inspections');
@@ -161,12 +162,15 @@ export function IncompleteInspectionDraftBridge(): JSX.Element | null {
     }
 
     sync();
-    const interval = window.setInterval(sync, 500);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener(draftChangedEventName, sync);
     window.addEventListener('storage', sync);
     window.addEventListener('focus', sync);
     window.addEventListener('popstate', sync);
     return () => {
-      window.clearInterval(interval);
+      observer.disconnect();
+      window.removeEventListener(draftChangedEventName, sync);
       window.removeEventListener('storage', sync);
       window.removeEventListener('focus', sync);
       window.removeEventListener('popstate', sync);

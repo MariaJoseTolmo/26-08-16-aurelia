@@ -4,6 +4,7 @@ import type { AuthUser } from '../../shared/services/api/auth.api';
 import { localStorageDriver } from '../../shared/storage/local-storage';
 
 const MOBILE_SESSION_KEY = 'mobile_session:v1';
+const LEGACY_INSPECTIONS_WRITE_PERMISSION = 'inspections:write';
 
 interface PersistedMobileSession {
   accessToken: string;
@@ -22,7 +23,9 @@ interface MobileSessionState {
 function normalizeMobileUser(user: AuthUser): AuthUser {
   const permissions = new Set(user.permissions ?? []);
   if (permissions.has(INSPECTION_CAPABILITIES.create)) {
-    permissions.add('inspections:write');
+    permissions.add(LEGACY_INSPECTIONS_WRITE_PERMISSION);
+  } else {
+    permissions.delete(LEGACY_INSPECTIONS_WRITE_PERMISSION);
   }
   return { ...user, permissions: Array.from(permissions) };
 }

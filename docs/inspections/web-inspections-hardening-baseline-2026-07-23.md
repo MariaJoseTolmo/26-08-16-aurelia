@@ -27,7 +27,7 @@ Los modelos preliminares de esas materias pueden permanecer en contratos o migra
 | `inspections:reassign` | Cambiar responsables, empresa, área o fecha operativa permitida | Verificador autorizado Gold Fields |
 | `inspections:admin` | Cancelaciones y configuración crítica reservada | Administrador del módulo |
 
-Durante el rollout se admite `inspections:write` únicamente como compatibilidad temporal para `create` y `execute`. No concede `review`, `reassign` ni `admin`.
+`inspections:write` no constituye una capacidad válida de autorización para esta iteración. La API y web exigen capacidades granulares. Mobile puede conservar el string únicamente como alias interno de compatibilidad cuando la sesión ya contiene `inspections:create`; un token que solo contenga `inspections:write` no habilita creación ni continuidad de borradores.
 
 ## Reglas de scope
 
@@ -96,7 +96,10 @@ La interfaz consume capacidades desde una capa única. Los componentes deben:
 - no renderizar acciones que el usuario no puede ejecutar;
 - mostrar estado informativo cuando una observación espera revisión;
 - no usar búsqueda de texto, `MutationObserver` o reemplazo de nodos DOM para autorización;
+- resolver deep links por identificadores y estado React/API, sin polling ni búsqueda de labels;
 - tratar `403` como restricción esperada y refrescar permisos/sesión cuando corresponda.
+
+Los bridges DOM restantes solo pueden utilizarse como compatibilidad visual temporal. No pueden decidir permisos, scope, transiciones ni ejecutar mutaciones críticas.
 
 ## Gates de validación
 
