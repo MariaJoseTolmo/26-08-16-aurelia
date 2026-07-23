@@ -40,7 +40,7 @@ export class InspectionMutationAuditInterceptor implements NestInterceptor {
         void this.audit.logSafe({
           entityType: this.resolveEntityType(request.path),
           entityId,
-          actorUserId: request.user?.sub ?? null,
+          actorUserId: request.user?.sub,
           action,
           newValue: this.sanitize(result),
           metadata: {
@@ -61,13 +61,13 @@ export class InspectionMutationAuditInterceptor implements NestInterceptor {
     return request.path.startsWith('/inspections') || request.originalUrl.includes('/api/inspections');
   }
 
-  private resolveEntityId(params: Record<string, string | undefined>): string | null {
-    return params.findingId
+  private resolveEntityId(params: Record<string, string | string[] | undefined>): string | undefined {
+    const value = params.findingId
       ?? params.followupId
       ?? params.assessmentId
       ?? params.inspectionId
-      ?? params.id
-      ?? null;
+      ?? params.id;
+    return Array.isArray(value) ? value[0] : value;
   }
 
   private resolveEntityType(path: string): string {

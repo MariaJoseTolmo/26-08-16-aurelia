@@ -194,7 +194,7 @@ export interface InspectionAiPreValidationRequest {
 }
 
 export interface RecordInspectionAiDecisionRequest {
-  decision: Exclude<InspectionAiDecision, InspectionAiDecision.PENDING>;
+  decision: InspectionAiDecision;
   reason: string;
 }
 

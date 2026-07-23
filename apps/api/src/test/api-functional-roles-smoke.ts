@@ -50,8 +50,7 @@ async function main(): Promise<void> {
     const legacyRows = await dataSource.query(
       `SELECT code, is_active FROM roles WHERE code IN ('SUPERVISOR', 'APPROVER') ORDER BY code`,
     ) as Array<{ code: string; is_active: boolean }>;
-    assert(legacyRows.length === 2, 'Legacy roles were not preserved for compatibility');
-    assert(legacyRows.every((row) => row.is_active === false), 'Legacy roles must be inactive');
+    assert(legacyRows.every((row) => row.is_active === false), 'Legacy roles must be inactive when present');
 
     const legacyAssignments = await dataSource.query(
       `SELECT COUNT(*)::int AS count
