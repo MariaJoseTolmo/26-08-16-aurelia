@@ -29,6 +29,10 @@ interface SprProcessStatusSectionProps {
   managerApprovalDateLabel?: string;
   signDateLabel?: string;
   onKpiValidationClick?: () => void;
+  /** Figma 1672:8268 → 1672:8997: clic en el paso Pendiente abre la revisión accionable. */
+  onPendingReReviewClick?: () => void;
+  /** Si el ciclo tuvo rechazo real, el timeline post-aprobación incluye ese paso. */
+  hasCorrectionHistory?: boolean;
 }
 
 type ProcessStepIcon = 'document' | 'rejected' | 'corrected' | 'approved' | 'pending-report';
@@ -352,6 +356,8 @@ export function SprProcessStatusSection({
   managerApprovalDateLabel = SPR_APPROVED_STATUS.managerApprovalDateFallback,
   signDateLabel = SPR_SUBMITTED_STATUS.signDateFallbackLabel,
   onKpiValidationClick,
+  onPendingReReviewClick,
+  hasCorrectionHistory = false,
 }: SprProcessStatusSectionProps) {
   return (
     <div className="w-full overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
@@ -418,16 +424,36 @@ export function SprProcessStatusSection({
         </>
       ) : variant === 'manager_pending_re_review' ? (
         <>
-          <ProcessStepRow
-            icon="document"
-            iconBgClassName="bg-[#f7f7f7]"
-            iconClassName="text-[#acacac]"
-            title={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepTitle(SPR_ACTIVE_CYCLE.label)}
-            helper={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepHelper}
-            badgeLabel={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingBadgeLabel}
-            badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
-            withBottomBorder
-          />
+          {onPendingReReviewClick ? (
+            <button
+              type="button"
+              onClick={onPendingReReviewClick}
+              className="w-full text-left hover:bg-[#fafcff]"
+              aria-label="Revisar formulario con correcciones"
+            >
+              <ProcessStepRow
+                icon="document"
+                iconBgClassName="bg-[#f7f7f7]"
+                iconClassName="text-[#acacac]"
+                title={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepTitle(SPR_ACTIVE_CYCLE.label)}
+                helper={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepHelper}
+                badgeLabel={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingBadgeLabel}
+                badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
+                withBottomBorder
+              />
+            </button>
+          ) : (
+            <ProcessStepRow
+              icon="document"
+              iconBgClassName="bg-[#f7f7f7]"
+              iconClassName="text-[#acacac]"
+              title={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepTitle(SPR_ACTIVE_CYCLE.label)}
+              helper={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingStepHelper}
+              badgeLabel={SPR_MANAGER_PENDING_RE_REVIEW_STATUS.pendingBadgeLabel}
+              badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
+              withBottomBorder
+            />
+          )}
           <ProcessStepRow
             icon="corrected"
             iconBgClassName="bg-[#e0ffd3]"
@@ -492,16 +518,6 @@ export function SprProcessStatusSection({
       ) : variant === 'manager_approved' ? (
         <>
           <ProcessStepRow
-            icon="rejected"
-            iconBgClassName="bg-[#ffd0db]"
-            iconClassName="text-[#570b1d]"
-            title={SPR_MANAGER_APPROVED_STATUS.discrepancyStepTitle(SPR_ACTIVE_CYCLE.label)}
-            helper={SPR_MANAGER_APPROVED_STATUS.discrepancyStepHelper}
-            badgeLabel={SPR_MANAGER_APPROVED_STATUS.discrepancyBadgeLabel}
-            badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
-            withBottomBorder
-          />
-          <ProcessStepRow
             icon="approved"
             iconBgClassName="bg-[#e0ffd3]"
             iconClassName="text-[#2a5c16]"
@@ -511,16 +527,18 @@ export function SprProcessStatusSection({
             badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
             withBottomBorder
           />
-          <ProcessStepRow
-            icon="rejected"
-            iconBgClassName="bg-[#e0ffd3]"
-            iconClassName="text-[#2a5c16]"
-            title={SPR_MANAGER_APPROVED_STATUS.rejectedStepTitle(SPR_ACTIVE_CYCLE.label)}
-            helper={SPR_MANAGER_APPROVED_STATUS.rejectedStepHelper}
-            badgeLabel="Completado"
-            badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
-            withBottomBorder
-          />
+          {hasCorrectionHistory ? (
+            <ProcessStepRow
+              icon="rejected"
+              iconBgClassName="bg-[#e0ffd3]"
+              iconClassName="text-[#2a5c16]"
+              title={SPR_MANAGER_APPROVED_STATUS.rejectedStepTitle(SPR_ACTIVE_CYCLE.label)}
+              helper={SPR_MANAGER_APPROVED_STATUS.rejectedStepHelper}
+              badgeLabel="Completado"
+              badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
+              withBottomBorder
+            />
+          ) : null}
           <ProcessStepRow
             icon="document"
             iconBgClassName="bg-[#e0ffd3]"

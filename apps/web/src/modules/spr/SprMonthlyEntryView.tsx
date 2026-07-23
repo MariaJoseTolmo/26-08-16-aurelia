@@ -167,6 +167,7 @@ export function SprMonthlyEntryView({
   const navigate = useNavigate();
   const estimatesMode = isSprFormCycleEstimatesMode(cycle);
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const currentUserId = useSessionStore((state) => state.user?.id ?? null);
   const dataSources = useMemo(() => getSprFormDataSourcesForArea(areaName), [areaName]);
   const parametersQuery = useSprParameters();
   const unitsQuery = useSprUnits();
@@ -397,7 +398,10 @@ export function SprMonthlyEntryView({
 
     try {
       for (const recordId of recordIds) {
-        await submitMutation.mutateAsync({ recordId });
+        await submitMutation.mutateAsync({
+          recordId,
+          payload: { submittedByUserId: currentUserId },
+        });
       }
       setSubmitModalOpen(false);
     } catch {

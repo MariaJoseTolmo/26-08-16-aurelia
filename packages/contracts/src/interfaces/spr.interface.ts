@@ -49,6 +49,8 @@ export interface SprMonthlyRecord extends BaseEntity {
   booleanValue: boolean | null;
   status: SprRecordStatus;
   submittedByUserId: ID | null;
+  /** Nombre completo del usuario que envió (enriquecido en respuesta API; no es columna). */
+  submittedByFullName?: string | null;
   submittedAt: ISODateString | null;
   approvedByUserId: ID | null;
   approvedAt: ISODateString | null;

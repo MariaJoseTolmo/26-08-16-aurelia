@@ -51,6 +51,7 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
       { code: 'AREA-EXPLORACION', name: 'Exploraciones' },
       { code: 'AREA-MANTENCION', name: 'Mantención' },
       { code: 'AREA-SERVICIOS', name: 'Servicios Generales' },
+      { code: 'AREA-STECNICOS', name: 'Servicios Técnicos' },
       { code: 'AREA-SUSTAINING', name: 'Sustaining' },
       { code: 'AREA-MAMBIENTE', name: 'Medio Ambiente' },
     ];
@@ -115,17 +116,35 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
       );
     }
 
-    const gfUsers = [
+    const gfUsers: {
+      email: string;
+      first: string;
+      last: string;
+      pos: string;
+      areaCode: string | null;
+      roles: readonly string[];
+    }[] = [
       {
         email: 'karen.opazo@goldfields.com', first: 'Karen', last: 'Opazo', pos: 'Inspector Medio Ambiente',
+        areaCode: 'AREA-MAMBIENTE',
         roles: ['INSPECTOR', 'INSPECTION_CLOSURE_VERIFIER', 'SPR_RESPONSIBLE', 'INCIDENT_GENERATOR', 'CONTROL_VERIFIER'],
       },
       {
         email: 'pedro.silva@goldfields.com', first: 'Pedro', last: 'Silva', pos: 'Supervisor Medio Ambiente',
+        areaCode: 'AREA-STECNICOS',
         roles: ['INSPECTOR', 'INSPECTION_CLOSURE_VERIFIER', 'SPR_AREA_MANAGER', 'INCIDENT_SUPERINTENDENT', 'CONTROL_SUPERINTENDENT'],
       },
       {
+        email: 'laura.mendez@goldfields.com',
+        first: 'Laura',
+        last: 'Méndez',
+        pos: 'Responsable SPR Servicios Técnicos',
+        areaCode: 'AREA-STECNICOS',
+        roles: ['SPR_RESPONSIBLE'],
+      },
+      {
         email: 'carlos.aguirre@goldfields.com', first: 'Carlos', last: 'Aguirre', pos: 'Administrador Sistema',
+        areaCode: null,
         roles: ['ADMIN'],
       },
     ];
@@ -146,6 +165,15 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
          WHERE email = $1`,
         [user.email, demoPasswordHash],
       );
+      if (user.areaCode) {
+        await qr.query(
+          `UPDATE users u
+           SET area_id = a.id
+           FROM areas a
+           WHERE u.email = $1 AND a.code = $2`,
+          [user.email, user.areaCode],
+        );
+      }
       await assignRoles(qr, user.email, user.roles);
       await qr.query(
         `INSERT INTO user_companies (user_id, company_id)
@@ -210,9 +238,9 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
 
     await qr.commitTransaction();
     console.log('Demo seed completed successfully.');
-    console.log('  → 7 áreas, 18 sectores');
+    console.log('  → 8 áreas, 18 sectores');
     console.log('  → 8 empresas contratistas (EECC)');
-    console.log('  → 15 usuarios demo con roles funcionales');
+    console.log('  → 16 usuarios demo con roles funcionales');
   } catch (error) {
     await qr.rollbackTransaction();
     throw error;
