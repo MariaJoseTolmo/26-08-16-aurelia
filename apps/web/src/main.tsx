@@ -11,7 +11,6 @@ import { InspectionAssignmentScopeBridge } from './modules/inspections/component
 import { InspectionClosedReassignLockBridge } from './modules/inspections/components/InspectionClosedReassignLockBridge';
 import { InspectionEvidenceImageSourceBridge } from './modules/inspections/components/InspectionEvidenceImageSourceBridge';
 import { InspectionEvidenceViewerBridge } from './modules/inspections/components/InspectionEvidenceViewerBridge';
-import { InspectionExecutedReviewRoleBridge } from './modules/inspections/components/InspectionExecutedReviewRoleBridge';
 import { InspectionExportMenuBridge } from './modules/inspections/components/InspectionExportMenuBridge';
 import { InspectionFollowupProgressBridge } from './modules/inspections/components/InspectionFollowupProgressBridge';
 import { InspectionManagementCalendarOverlayBridge } from './modules/inspections/components/InspectionManagementCalendarOverlayBridge';
@@ -47,7 +46,6 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <InspectionManagementSelectMenuBridge />
       <InspectionManagementCalendarOverlayBridge />
       <InspectionManagementTableBorderBridge />
-      <InspectionExecutedReviewRoleBridge />
       <InspectionPdfDownloadBridge />
     </QueryClientProvider>
   </React.StrictMode>,

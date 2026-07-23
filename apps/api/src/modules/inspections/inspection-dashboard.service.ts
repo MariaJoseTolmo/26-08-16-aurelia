@@ -33,6 +33,10 @@ import {
   getDashboardPeriodMonths,
 } from './inspection-dashboard-period';
 
+export interface InspectionDataScope {
+  inspectionIds?: string[];
+}
+
 export interface ManagementTableQuery {
   page?: string;
   pageSize?: string;
@@ -69,8 +73,9 @@ export class InspectionDashboardService {
     private readonly inspectionTypes: Repository<InspectionTypeEntity>,
   ) {}
 
-  async getManagementKpis(): Promise<InspectionManagementKpisResponse> {
-    const [inspections, findings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+  async getManagementKpis(scope: InspectionDataScope = {}): Promise<InspectionManagementKpisResponse> {
+    const [allInspections, allFindings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const year = new Date().getFullYear();
     const previousYear = year - 1;
     const inspectionById = new Map(inspections.map((inspection) => [inspection.id, inspection]));
@@ -81,12 +86,14 @@ export class InspectionDashboardService {
     const currentYearFindings = findings.filter((finding) => {
       if (finding.status === InspectionFindingStatus.CANCELLED) return false;
       const inspection = inspectionById.get(finding.inspectionId);
-      return inspection ? this.inspectionBelongsToYear(inspection, year) : finding.createdAt.getFullYear() === year;
+      return inspection ? this.inspectionBelongsToYear(inspection, year) : false;
     });
     const closedFindings = currentYearFindings.filter((finding) => finding.status === InspectionFindingStatus.CLOSED).length;
     const openFindings = currentYearFindings.filter((finding) => this.isOpenFinding(finding)).length;
     const previousTotal = previousYearInspections.length;
-    const inspectionsDeltaPercent = previousTotal > 0 ? Number((((currentYearInspections.length - previousTotal) / previousTotal) * 100).toFixed(2)) : currentYearInspections.length > 0 ? 100 : 0;
+    const inspectionsDeltaPercent = previousTotal > 0
+      ? Number((((currentYearInspections.length - previousTotal) / previousTotal) * 100).toFixed(2))
+      : currentYearInspections.length > 0 ? 100 : 0;
 
     return {
       year,
@@ -94,15 +101,25 @@ export class InspectionDashboardService {
       totalInspections: currentYearInspections.length,
       previousYearInspections: previousTotal,
       inspectionsDeltaPercent,
-      openInspections: currentYearInspections.filter((inspection) => !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? [])).length,
+      openInspections: currentYearInspections.filter(
+        (inspection) => !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []),
+      ).length,
       openFindings,
-      pendingApprovalInspections: currentYearInspections.filter((inspection) => !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []) && (inspection.status === InspectionStatus.SUBMITTED || inspection.status === InspectionStatus.UNDER_REVIEW)).length,
-      closedFindingsRate: currentYearFindings.length > 0 ? Number(((closedFindings / currentYearFindings.length) * 100).toFixed(2)) : 0,
+      pendingApprovalInspections: currentYearInspections.filter((inspection) =>
+        !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? [])
+        && (inspection.status === InspectionStatus.SUBMITTED || inspection.status === InspectionStatus.UNDER_REVIEW),
+      ).length,
+      closedFindingsRate: currentYearFindings.length > 0
+        ? Number(((closedFindings / currentYearFindings.length) * 100).toFixed(2))
+        : 0,
     };
   }
 
-  async getManagementTable(query: ManagementTableQuery = {}): Promise<InspectionManagementTableResponse> {
-    const [inspections, findings, companies, areas, sectors, users, inspectionTypes] = await Promise.all([
+  async getManagementTable(
+    query: ManagementTableQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionManagementTableResponse> {
+    const [allInspections, allFindings, companies, areas, sectors, users, inspectionTypes] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
       this.companies.find(),
@@ -111,6 +128,7 @@ export class InspectionDashboardService {
       this.users.find(),
       this.inspectionTypes.find(),
     ]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const now = new Date();
     const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
     const areaNameById = new Map(areas.map((area) => [area.id, area.name]));
@@ -119,14 +137,22 @@ export class InspectionDashboardService {
     const typeById = new Map(inspectionTypes.map((type) => [type.id, type]));
     const findingsByInspection = this.groupFindingsByInspection(findings);
 
-    const activeInspections = inspections.filter((inspection) => inspection.status !== InspectionStatus.CANCELLED && !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []));
+    const activeInspections = inspections.filter((inspection) =>
+      inspection.status !== InspectionStatus.CANCELLED
+      && !this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []),
+    );
     const rows = activeInspections.map((inspection, index) => {
       const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
       const observations = this.createObservationSummary(inspectionFindings);
       const openFindings = inspectionFindings.filter((finding) => this.isOpenFinding(finding));
-      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>((current, finding) => this.resolveMaxSeverity(current, finding.severity), null);
+      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
       const date = getDashboardInspectionDate(inspection);
-      const closureRate = inspectionFindings.length > 0 ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2)) : 0;
+      const closureRate = inspectionFindings.length > 0
+        ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2))
+        : 0;
 
       return {
         inspectionId: inspection.id,
@@ -135,15 +161,25 @@ export class InspectionDashboardService {
         inspector: this.formatInspectorLabel(userById.get(inspection.inspectorId ?? '') ?? null),
         areaSector: this.formatAreaSectorLabel(inspection.areaId, inspection.sectorId, areaNameById, sectorNameById),
         company: this.formatCompanyLabel(inspection.companyId, companyNameById),
-        type: this.formatInspectionTypeLabel(inspection, typeById.get(inspection.inspectionTypeId) ?? null, inspectionFindings.length),
+        type: this.formatInspectionTypeLabel(
+          inspection,
+          typeById.get(inspection.inspectionTypeId) ?? null,
+          inspectionFindings.length,
+        ),
         urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
         urgencySeverity: maxSeverity,
         observationsCount: inspectionFindings.length,
         observations,
-        daysOpen: openFindings.length > 0 ? Math.max(...openFindings.map((finding) => this.daysBetween(finding.createdAt, now))) : 0,
+        daysOpen: openFindings.length > 0
+          ? Math.max(...openFindings.map((finding) => this.daysBetween(finding.createdAt, now)))
+          : 0,
         closureRate,
       };
-    }).sort((a, b) => this.getUrgencyWeight(b.urgencySeverity) - this.getUrgencyWeight(a.urgencySeverity) || b.daysOpen - a.daysOpen || b.observations.open - a.observations.open);
+    }).sort((a, b) =>
+      this.getUrgencyWeight(b.urgencySeverity) - this.getUrgencyWeight(a.urgencySeverity)
+      || b.daysOpen - a.daysOpen
+      || b.observations.open - a.observations.open,
+    );
     const pageSize = this.resolvePageSize(query.pageSize);
     const filteredRows = rows.filter((row) => this.managementTableRowMatches(row, query));
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
@@ -160,12 +196,18 @@ export class InspectionDashboardService {
     };
   }
 
-  async getSummary(query: DashboardQuery = {}): Promise<InspectionDashboardSummaryResponse> {
-    const [inspections, findings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+  async getSummary(
+    query: DashboardQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionDashboardSummaryResponse> {
+    const [allInspections, allFindings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const filter = buildDashboardDateFilter(query);
     const inspectionById = new Map(inspections.map((inspection) => [inspection.id, inspection]));
     const selectedInspections = inspections.filter((inspection) => dashboardInspectionMatches(inspection, filter));
-    const selectedFindings = findings.filter((finding) => dashboardFindingMatches(finding, inspectionById.get(finding.inspectionId) ?? null, filter));
+    const selectedFindings = findings.filter((finding) =>
+      dashboardFindingMatches(finding, inspectionById.get(finding.inspectionId) ?? null, filter),
+    );
     const findingsByInspection = this.groupFindingsByInspection(selectedFindings);
     const byStatus = this.createInspectionStatusCounter();
     const findingsByStatus = this.createFindingStatusCounter();
@@ -179,8 +221,12 @@ export class InspectionDashboardService {
     });
     const openFindings = selectedFindings.filter((finding) => this.isOpenFinding(finding));
     const withOpenFindings = new Set(openFindings.map((finding) => finding.inspectionId)).size;
-    const closedInspections = selectedInspections.filter((inspection) => this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? [])).length;
-    const closedRate = selectedInspections.length === 0 ? 0 : Number(((closedInspections / selectedInspections.length) * 100).toFixed(2));
+    const closedInspections = selectedInspections.filter((inspection) =>
+      this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []),
+    ).length;
+    const closedRate = selectedInspections.length === 0
+      ? 0
+      : Number(((closedInspections / selectedInspections.length) * 100).toFixed(2));
 
     return {
       inspections: { total: selectedInspections.length, byStatus, withOpenFindings, closedRate },
@@ -190,17 +236,23 @@ export class InspectionDashboardService {
         bySeverity: findingsBySeverity,
         open: openFindings.length,
         overdue: openFindings.filter((finding) => finding.dueAt && finding.dueAt < now).length,
-        dueSoonNext7Days: openFindings.filter((finding) => finding.dueAt && finding.dueAt >= now && finding.dueAt <= sevenDaysFromNow).length,
+        dueSoonNext7Days: openFindings.filter(
+          (finding) => finding.dueAt && finding.dueAt >= now && finding.dueAt <= sevenDaysFromNow,
+        ).length,
       },
     };
   }
 
-  async getCharts(query: DashboardQuery = {}): Promise<InspectionDashboardChartsResponse> {
-    const [inspections, findings, areas] = await Promise.all([
+  async getCharts(
+    query: DashboardQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionDashboardChartsResponse> {
+    const [allInspections, allFindings, areas] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
       this.areas.find(),
     ]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const filter = buildDashboardDateFilter(query);
     const currentYear = new Date().getFullYear();
     const inspectionById = new Map(inspections.map((inspection) => [inspection.id, inspection]));
@@ -211,7 +263,9 @@ export class InspectionDashboardService {
     const annualByYear = new Map(annualInspections.map((row) => [row.year, row]));
     const monthlyFindings = getDashboardPeriodMonths(filter.period).map((monthIndex) => ({
       month: monthIndex + 1,
-      label: new Intl.DateTimeFormat('es-CL', { month: 'short' }).format(new Date(filter.year, monthIndex, 1)).replace('.', ''),
+      label: new Intl.DateTimeFormat('es-CL', { month: 'short' })
+        .format(new Date(filter.year, monthIndex, 1))
+        .replace('.', ''),
       closed: 0,
       open: 0,
     }));
@@ -250,7 +304,12 @@ export class InspectionDashboardService {
       }
       const areaId = inspection?.areaId ?? null;
       const areaKey = areaId ?? 'sin-area';
-      const areaRow = areaObservations.get(areaKey) ?? { areaId, area: this.formatAreaLabel(areaId, areaNameById), closed: 0, open: 0 };
+      const areaRow = areaObservations.get(areaKey) ?? {
+        areaId,
+        area: this.formatAreaLabel(areaId, areaNameById),
+        closed: 0,
+        open: 0,
+      };
       if (finding.status === InspectionFindingStatus.CLOSED) areaRow.closed += 1;
       else areaRow.open += 1;
       areaObservations.set(areaKey, areaRow);
@@ -259,21 +318,29 @@ export class InspectionDashboardService {
     return {
       annualInspections,
       monthlyFindings,
-      areaObservations: Array.from(areaObservations.values()).sort((a, b) => b.closed + b.open - (a.closed + a.open)).slice(0, 10),
+      areaObservations: Array.from(areaObservations.values())
+        .sort((a, b) => b.closed + b.open - (a.closed + a.open))
+        .slice(0, 10),
       closure: {
-        historicalRate: totalForClosure > 0 ? Number(((closedForClosure / totalForClosure) * 100).toFixed(2)) : 0,
+        historicalRate: totalForClosure > 0
+          ? Number(((closedForClosure / totalForClosure) * 100).toFixed(2))
+          : 0,
         periodRate: periodTotal > 0 ? Number(((periodClosed / periodTotal) * 100).toFixed(2)) : 0,
         periodLabel: getDashboardPeriodLabel(filter),
       },
     };
   }
 
-  async getCompanyAnalysis(query: DashboardQuery = {}): Promise<InspectionDashboardCompanyAnalysisResponse> {
-    const [inspections, findings, companies] = await Promise.all([
+  async getCompanyAnalysis(
+    query: DashboardQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionDashboardCompanyAnalysisResponse> {
+    const [allInspections, allFindings, companies] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
       this.companies.find(),
     ]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const filter = buildDashboardDateFilter(query);
     const now = new Date();
     const inspectionById = new Map(inspections.map((inspection) => [inspection.id, inspection]));
@@ -294,7 +361,12 @@ export class InspectionDashboardService {
       }
       if (finding.status === InspectionFindingStatus.CANCELLED) return;
       const companyKey = companyId ?? 'sin-empresa';
-      const row = chartRowsByCompany.get(companyKey) ?? { companyId, company: this.formatCompanyLabel(companyId, companyNameById), closed: 0, open: 0 };
+      const row = chartRowsByCompany.get(companyKey) ?? {
+        companyId,
+        company: this.formatCompanyLabel(companyId, companyNameById),
+        closed: 0,
+        open: 0,
+      };
       if (finding.status === InspectionFindingStatus.CLOSED) row.closed += 1;
       else row.open += 1;
       chartRowsByCompany.set(companyKey, row);
@@ -306,19 +378,27 @@ export class InspectionDashboardService {
       openInspections: openInspections.size,
       openDays: {
         max: openAges.length > 0 ? Math.max(...openAges) : 0,
-        average: openAges.length > 0 ? Number((openAges.reduce((sum, value) => sum + value, 0) / openAges.length).toFixed(1)) : 0,
+        average: openAges.length > 0
+          ? Number((openAges.reduce((sum, value) => sum + value, 0) / openAges.length).toFixed(1))
+          : 0,
       },
-      chartRows: Array.from(chartRowsByCompany.values()).sort((a, b) => b.closed + b.open - (a.closed + a.open)).slice(0, 8),
+      chartRows: Array.from(chartRowsByCompany.values())
+        .sort((a, b) => b.closed + b.open - (a.closed + a.open))
+        .slice(0, 8),
     };
   }
 
-  async getOpenFindings(query: DashboardQuery = {}): Promise<InspectionDashboardOpenFindingsResponse> {
-    const [inspections, findings, companies, areas] = await Promise.all([
+  async getOpenFindings(
+    query: DashboardQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionDashboardOpenFindingsResponse> {
+    const [allInspections, allFindings, companies, areas] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
       this.companies.find(),
       this.areas.find(),
     ]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const filter = buildDashboardDateFilter(query);
     const now = new Date();
     const inspectionById = new Map(inspections.map((inspection, index) => [inspection.id, { inspection, index }]));
@@ -357,28 +437,59 @@ export class InspectionDashboardService {
         current.hasSevereOpenFindings = true;
         current.severityCounts.severe += 1;
         severeOpenFindings += 1;
-      } else if (finding.severity === InspectionFindingSeverity.MEDIUM) current.severityCounts.moderate += 1;
-      else current.severityCounts.minor += 1;
+      } else if (finding.severity === InspectionFindingSeverity.MEDIUM) {
+        current.severityCounts.moderate += 1;
+      } else {
+        current.severityCounts.minor += 1;
+      }
       rowsByInspection.set(inspection.id, current);
     });
 
     return {
       severeOpenFindings,
       openInspections: rowsByInspection.size,
-      rows: Array.from(rowsByInspection.values()).sort((a, b) => Number(b.hasSevereOpenFindings) - Number(a.hasSevereOpenFindings) || b.ageDays - a.ageDays || b.openFindings - a.openFindings).slice(0, 20),
+      rows: Array.from(rowsByInspection.values())
+        .sort((a, b) =>
+          Number(b.hasSevereOpenFindings) - Number(a.hasSevereOpenFindings)
+          || b.ageDays - a.ageDays
+          || b.openFindings - a.openFindings,
+        )
+        .slice(0, 20),
+    };
+  }
+
+  private applyScope(
+    inspections: InspectionEntity[],
+    findings: InspectionFindingEntity[],
+    scope: InspectionDataScope,
+  ): { inspections: InspectionEntity[]; findings: InspectionFindingEntity[] } {
+    if (scope.inspectionIds === undefined) return { inspections, findings };
+    const allowedIds = new Set(scope.inspectionIds);
+    return {
+      inspections: inspections.filter((inspection) => allowedIds.has(inspection.id)),
+      findings: findings.filter((finding) => allowedIds.has(finding.inspectionId)),
     };
   }
 
   private createInspectionStatusCounter(): Record<InspectionStatus, number> {
-    return Object.values(InspectionStatus).reduce((acc, status) => ({ ...acc, [status]: 0 }), {} as Record<InspectionStatus, number>);
+    return Object.values(InspectionStatus).reduce(
+      (acc, status) => ({ ...acc, [status]: 0 }),
+      {} as Record<InspectionStatus, number>,
+    );
   }
 
   private createFindingStatusCounter(): Record<InspectionFindingStatus, number> {
-    return Object.values(InspectionFindingStatus).reduce((acc, status) => ({ ...acc, [status]: 0 }), {} as Record<InspectionFindingStatus, number>);
+    return Object.values(InspectionFindingStatus).reduce(
+      (acc, status) => ({ ...acc, [status]: 0 }),
+      {} as Record<InspectionFindingStatus, number>,
+    );
   }
 
   private createFindingSeverityCounter(): Record<InspectionFindingSeverity, number> {
-    return Object.values(InspectionFindingSeverity).reduce((acc, severity) => ({ ...acc, [severity]: 0 }), {} as Record<InspectionFindingSeverity, number>);
+    return Object.values(InspectionFindingSeverity).reduce(
+      (acc, severity) => ({ ...acc, [severity]: 0 }),
+      {} as Record<InspectionFindingSeverity, number>,
+    );
   }
 
   private groupFindingsByInspection(findings: InspectionFindingEntity[]): Map<string, InspectionFindingEntity[]> {
@@ -408,7 +519,9 @@ export class InspectionDashboardService {
     }, { executed: 0, open: 0, closed: 0, rejected: 0 });
   }
 
-  private buildManagementTableFilterOptions(rows: InspectionManagementTableRowResponse[]): InspectionManagementTableFilterOptionsResponse {
+  private buildManagementTableFilterOptions(
+    rows: InspectionManagementTableRowResponse[],
+  ): InspectionManagementTableFilterOptionsResponse {
     return {
       inspectors: this.uniqueSorted(rows.map((row) => row.inspector)),
       areas: this.uniqueSorted(rows.map((row) => row.areaSector)),
@@ -419,7 +532,8 @@ export class InspectionDashboardService {
   }
 
   private uniqueSorted(values: string[]): string[] {
-    return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'es'));
   }
 
   private managementTableRowMatches(row: InspectionManagementTableRowResponse, query: ManagementTableQuery): boolean {
@@ -448,7 +562,10 @@ export class InspectionDashboardService {
     return value === filter;
   }
 
-  private observationMatches(observations: InspectionManagementTableObservationSummaryResponse, filter?: string): boolean {
+  private observationMatches(
+    observations: InspectionManagementTableObservationSummaryResponse,
+    filter?: string,
+  ): boolean {
     const filters = filter?.split(',').map((value) => value.trim()).filter(Boolean) ?? [];
     if (filters.length === 0) return true;
     return filters.some((value) => {
@@ -460,7 +577,11 @@ export class InspectionDashboardService {
     });
   }
 
-  private numberMatches(value: number, filter: string | undefined, comparator: 'min' | 'max' | 'equals'): boolean {
+  private numberMatches(
+    value: number,
+    filter: string | undefined,
+    comparator: 'min' | 'max' | 'equals',
+  ): boolean {
     if (!filter?.trim()) return true;
     const parsed = Number(filter.replace(',', '.'));
     if (Number.isNaN(parsed)) return true;
@@ -506,7 +627,12 @@ export class InspectionDashboardService {
     return initials ? `${user.firstName} ${initials.slice(-1)}.` : user.email;
   }
 
-  private formatAreaSectorLabel(areaId: string | null, sectorId: string | null, areaNames: Map<string, string>, sectorNames: Map<string, string>): string {
+  private formatAreaSectorLabel(
+    areaId: string | null,
+    sectorId: string | null,
+    areaNames: Map<string, string>,
+    sectorNames: Map<string, string>,
+  ): string {
     const area = areaId ? areaNames.get(areaId) : null;
     const sector = sectorId ? sectorNames.get(sectorId) : null;
     if (area && sector) return `${area} · ${sector}`;
@@ -521,7 +647,11 @@ export class InspectionDashboardService {
     return companyId ? companyNames.get(companyId) ?? 'Sin empresa' : 'Sin empresa';
   }
 
-  private formatInspectionTypeLabel(inspection: InspectionEntity, type: InspectionTypeEntity | null, findingsCount: number): string {
+  private formatInspectionTypeLabel(
+    inspection: InspectionEntity,
+    type: InspectionTypeEntity | null,
+    findingsCount: number,
+  ): string {
     if (inspection.templateId) return 'Checklist normativo';
     if (!type) return findingsCount > 0 ? 'Hallazgo' : 'Checklist normativo';
     const label = `${type.code} ${type.name}`.toLowerCase();
@@ -540,7 +670,10 @@ export class InspectionDashboardService {
     return `${inspection.status === InspectionStatus.UNDER_REVIEW ? 'Ejecutada' : 'Abierta'} · ${labelBySeverity[severity]}`;
   }
 
-  private resolveMaxSeverity(current: InspectionFindingSeverity | null, next: InspectionFindingSeverity): InspectionFindingSeverity {
+  private resolveMaxSeverity(
+    current: InspectionFindingSeverity | null,
+    next: InspectionFindingSeverity,
+  ): InspectionFindingSeverity {
     return this.getUrgencyWeight(next) > this.getUrgencyWeight(current) ? next : current ?? next;
   }
 
@@ -557,7 +690,8 @@ export class InspectionDashboardService {
   }
 
   private isSevereFinding(finding: InspectionFindingEntity): boolean {
-    return finding.severity === InspectionFindingSeverity.CRITICAL || finding.severity === InspectionFindingSeverity.HIGH;
+    return finding.severity === InspectionFindingSeverity.CRITICAL
+      || finding.severity === InspectionFindingSeverity.HIGH;
   }
 
   private inspectionBelongsToYear(inspection: InspectionEntity, year: number): boolean {

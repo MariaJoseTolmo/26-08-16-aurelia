@@ -4,6 +4,7 @@ import { LoginPage } from '../modules/auth/LoginPage';
 import { DashboardPage } from '../modules/dashboard/DashboardPage';
 import { InspectionsPage } from '../modules/inspections/InspectionsPage';
 import { InspectionsHistoryPage } from '../modules/inspections/InspectionsHistoryPage';
+import { NotificationDeepLinkPage } from '../modules/notifications/NotificationDeepLinkPage';
 import { SprPage } from '../modules/spr/SprPage';
 import { SprAreaPage } from '../modules/spr/SprAreaPage';
 import { SprReportPage } from '../modules/spr/SprReportPage';
@@ -23,6 +24,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/notifications/open/:token',
+    element: <NotificationDeepLinkPage />,
   },
   {
     path: '/migrations',

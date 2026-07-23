@@ -1,14 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InspectionFindingStatus, InspectionStatus } from '@aurelia/contracts';
+import {
+  InspectionFindingStatus,
+  InspectionStatus,
+  NotificationDeliveryStatus,
+} from '@aurelia/contracts';
 import { In, Repository } from 'typeorm';
 import { MessagingService } from '../messaging/messaging.service';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CompanyEntity } from '../organization/entities/company.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { InspectionFindingResponsibleEntity } from './entities/inspection-finding-responsible.entity';
 import { InspectionFindingEntity } from './entities/inspection-finding.entity';
 import { InspectionEntity } from './entities/inspection.entity';
+
+type TrackedAssignmentLink = {
+  platformUrl: string;
+  deliveryId: string | null;
+  skipEmail: boolean;
+};
 
 @Injectable()
 export class InspectionAssignmentEmailService {
@@ -26,6 +38,8 @@ export class InspectionAssignmentEmailService {
     @InjectRepository(CompanyEntity)
     private readonly companies: Repository<CompanyEntity>,
     private readonly messaging: MessagingService,
+    private readonly notifications: NotificationsService,
+    private readonly notificationDeliveries: NotificationDeliveryService,
     private readonly config: ConfigService,
   ) {}
 
@@ -35,8 +49,8 @@ export class InspectionAssignmentEmailService {
 
     const activeFindings = (await this.findings.find({ where: { inspectionId } })).filter(
       (finding) =>
-        finding.status !== InspectionFindingStatus.CLOSED &&
-        finding.status !== InspectionFindingStatus.CANCELLED,
+        finding.status !== InspectionFindingStatus.CLOSED
+        && finding.status !== InspectionFindingStatus.CANCELLED,
     );
     if (activeFindings.length === 0) return;
 
@@ -77,7 +91,6 @@ export class InspectionAssignmentEmailService {
       : [];
     const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
     const inspectionReference = this.resolveInspectionReference(inspection);
-    const platformUrl = this.buildInspectionUrl(inspection.id, inspectionReference);
 
     for (const user of users) {
       const assignedFindingIds = findingIdsByUser.get(user.id) ?? new Set<string>();
@@ -86,7 +99,19 @@ export class InspectionAssignmentEmailService {
         .map((findingId) => findingById.get(findingId)?.responsibleCompanyId ?? null)
         .find((companyId): companyId is string => Boolean(companyId));
       const companyId = user.companyId ?? responsibleCompanyId ?? inspection.companyId;
-      const companyName = companyId ? companyNameById.get(companyId) ?? 'Empresa asignada' : 'Empresa asignada';
+      const companyName = companyId
+        ? companyNameById.get(companyId) ?? 'Empresa asignada'
+        : 'Empresa asignada';
+      const trackedLink = await this.createTrackedAssignmentLink({
+        inspection,
+        inspectionReference,
+        user,
+        findingIds: Array.from(assignedFindingIds),
+      });
+      if (trackedLink.skipEmail) {
+        this.logger.log(`Inspection assignment email skipped as duplicate inspection=${inspection.id} user=${user.id}`);
+        continue;
+      }
 
       try {
         const delivery = await this.messaging.sendInspectionFindingAssigned({
@@ -96,18 +121,100 @@ export class InspectionAssignmentEmailService {
             companyName,
             inspectionNumber: inspectionReference,
             observationCount: assignedFindingIds.size,
-            platformUrl,
+            platformUrl: trackedLink.platformUrl,
           },
         });
+        if (trackedLink.deliveryId) {
+          await this.notificationDeliveries.markSent(trackedLink.deliveryId, {
+            messageId: delivery.messageId ?? null,
+            inspectionId: inspection.id,
+            recipientUserId: user.id,
+          }).catch((error) => this.logDeliveryTrackingFailure(trackedLink.deliveryId, error));
+        }
         this.logger.log(
           `Inspection assignment email sent inspection=${inspection.id} user=${user.id} messageId=${delivery.messageId ?? 'n/a'}`,
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
+        if (trackedLink.deliveryId) {
+          await this.notificationDeliveries.markFailed(trackedLink.deliveryId, detail, false, {
+            inspectionId: inspection.id,
+            recipientUserId: user.id,
+          }).catch((trackingError) => this.logDeliveryTrackingFailure(trackedLink.deliveryId, trackingError));
+        }
         this.logger.error(
           `Inspection assignment email failed inspection=${inspection.id} user=${user.id}: ${detail}`,
         );
       }
+    }
+  }
+
+  private async createTrackedAssignmentLink(input: {
+    inspection: InspectionEntity;
+    inspectionReference: string;
+    user: UserEntity;
+    findingIds: string[];
+  }): Promise<TrackedAssignmentLink> {
+    const fallbackUrl = this.buildInspectionUrl(input.inspection.id, input.inspectionReference);
+    const eventKey = `inspection.assigned:${input.inspection.id}:${input.user.id}`;
+    try {
+      const existingNotifications = await this.notifications.findForUser(input.user.id);
+      const existing = existingNotifications.find((notification) => notification.metadata?.eventKey === eventKey);
+      const notification = existing ?? await this.notifications.create({
+        title: `Inspección asignada · ${input.inspectionReference}`,
+        body: `Tienes ${input.findingIds.length} observación${input.findingIds.length === 1 ? '' : 'es'} pendiente${input.findingIds.length === 1 ? '' : 's'} de gestión.`,
+        category: 'inspection.assigned',
+        entityType: 'inspection',
+        entityId: input.inspection.id,
+        triggeredByUserId: input.inspection.inspectorId ?? undefined,
+        recipientUserIds: [input.user.id],
+        metadata: {
+          event: 'inspection.assigned',
+          eventKey,
+          inspectionId: input.inspection.id,
+          inspectionNumber: input.inspectionReference,
+          findingIds: input.findingIds,
+          group: 'open',
+          occurredAt: new Date().toISOString(),
+        },
+      });
+      const existingDeliveries = await this.notificationDeliveries.findByNotification(notification.id);
+      const duplicateDelivery = existingDeliveries.find((delivery) =>
+        delivery.channel === 'email'
+        && delivery.destination?.toLowerCase() === input.user.email.toLowerCase()
+        && delivery.status !== NotificationDeliveryStatus.FAILED
+        && delivery.status !== NotificationDeliveryStatus.BOUNCED,
+      );
+      if (duplicateDelivery) {
+        return {
+          platformUrl: fallbackUrl,
+          deliveryId: duplicateDelivery.id,
+          skipEmail: true,
+        };
+      }
+
+      const deepLink = await this.notificationDeliveries.createDeepLink(notification.id, input.user.id, {});
+      if (!deepLink.token) throw new Error('Notification deep link token was not generated');
+      const delivery = await this.notificationDeliveries.registerEmailAttempt({
+        notificationId: notification.id,
+        destination: input.user.email,
+        metadata: {
+          inspectionId: input.inspection.id,
+          recipientUserId: input.user.id,
+          findingIds: input.findingIds,
+        },
+      });
+      return {
+        platformUrl: this.buildNotificationDeepLinkUrl(deepLink.token),
+        deliveryId: delivery.id,
+        skipEmail: false,
+      };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Unable to create tracked assignment link inspection=${input.inspection.id} user=${input.user.id}: ${detail}`,
+      );
+      return { platformUrl: fallbackUrl, deliveryId: null, skipEmail: false };
     }
   }
 
@@ -118,7 +225,9 @@ export class InspectionAssignmentEmailService {
   }
 
   private isNotifiableStatus(status: InspectionStatus): boolean {
-    return status !== InspectionStatus.DRAFT && status !== InspectionStatus.CLOSED && status !== InspectionStatus.CANCELLED;
+    return status !== InspectionStatus.DRAFT
+      && status !== InspectionStatus.CLOSED
+      && status !== InspectionStatus.CANCELLED;
   }
 
   private resolveInspectionReference(inspection: InspectionEntity): string {
@@ -137,6 +246,12 @@ export class InspectionAssignmentEmailService {
     url.searchParams.set('inspectionId', inspectionId);
     url.searchParams.set('inspectionNumber', inspectionNumber);
     url.searchParams.set('group', 'open');
+    return url.toString();
+  }
+
+  private buildNotificationDeepLinkUrl(token: string): string {
+    const baseUrl = this.resolveWebAppUrl();
+    const url = new URL(`/notifications/open/${encodeURIComponent(token)}`, `${baseUrl}/`);
     return url.toString();
   }
 
@@ -164,6 +279,11 @@ export class InspectionAssignmentEmailService {
       throw new Error(`${source} must use http or https`);
     }
     return parsed.toString().replace(/\/$/, '');
+  }
+
+  private logDeliveryTrackingFailure(deliveryId: string | null, error: unknown): void {
+    const detail = error instanceof Error ? error.message : String(error);
+    this.logger.warn(`Unable to update notification delivery=${deliveryId ?? 'n/a'}: ${detail}`);
   }
 
   private userFullName(user: UserEntity): string {

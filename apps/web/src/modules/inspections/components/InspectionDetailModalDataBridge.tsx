@@ -1,4 +1,5 @@
 import type { InspectionDetailResponse } from '@aurelia/contracts';
+import { useInspectionCapabilities } from '../../../shared/auth/inspection-capabilities';
 import { useInspectionDetail } from '../../../shared/hooks/useInspectionDetail';
 import { InspectionDetailModal, type InspectionDetailModalRecord } from './InspectionDetailModal';
 import { InspectionDetailRealDataModal } from './InspectionDetailRealDataModal';
@@ -52,11 +53,15 @@ function StatusShell({ record, title, message, onClose }: { record: InspectionDe
 
 export function InspectionDetailModalDataBridge({ open, inspectionId, record, onClose }: InspectionDetailModalDataBridgeProps) {
   const detailQuery = useInspectionDetail(inspectionId, open && Boolean(record));
+  const capabilities = useInspectionCapabilities();
   const isHistoryRoute = typeof window !== 'undefined' && window.location.pathname.includes('/inspections/history');
+  const isReadOnly = !capabilities.execute && !capabilities.review && !capabilities.reassign;
   if (!open) return null;
   if (detailQuery.data && record) {
     const detailRecord = buildRecordFromDetail(detailQuery.data, record);
-    if (isHistoryRoute) return <InspectionHistoryDetailModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
+    if (isHistoryRoute || isReadOnly) {
+      return <InspectionHistoryDetailModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
+    }
     return <InspectionDetailRealDataModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
   }
   if (detailQuery.isError) return <StatusShell record={record} title="No fue posible cargar el detalle real" message="Revisa Network para la llamada /api/inspections/:id/detail. Ya no se muestra el mock como fallback cuando esa llamada falla." onClose={onClose} />;

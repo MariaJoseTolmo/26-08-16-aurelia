@@ -17,7 +17,7 @@ import { InspectionFindingEntity } from './entities/inspection-finding.entity';
 import { InspectionTypeEntity } from './entities/inspection-type.entity';
 import { InspectionEntity } from './entities/inspection.entity';
 import { getDashboardInspectionDate } from './inspection-dashboard-period';
-import type { ManagementTableQuery } from './inspection-dashboard.service';
+import type { InspectionDataScope, ManagementTableQuery } from './inspection-dashboard.service';
 
 @Injectable()
 export class InspectionHistoryService {
@@ -38,30 +38,49 @@ export class InspectionHistoryService {
     private readonly inspectionTypes: Repository<InspectionTypeEntity>,
   ) {}
 
-  async getHistoryKpis(): Promise<InspectionHistoryKpisResponse> {
-    const [inspections, findings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+  async getHistoryKpis(scope: InspectionDataScope = {}): Promise<InspectionHistoryKpisResponse> {
+    const [allInspections, allFindings] = await Promise.all([this.inspections.find(), this.findings.find()]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const findingsByInspection = this.groupFindingsByInspection(findings);
     const year = new Date().getFullYear();
-    const closedInspections = inspections.filter((inspection) => this.isClosedInspectionInYear(inspection, findingsByInspection.get(inspection.id) ?? [], year));
+    const closedInspections = inspections.filter((inspection) =>
+      this.isClosedInspectionInYear(inspection, findingsByInspection.get(inspection.id) ?? [], year),
+    );
     const closedInspectionIds = new Set(closedInspections.map((inspection) => inspection.id));
-    const currentFindings = findings.filter((finding) => closedInspectionIds.has(finding.inspectionId) && finding.status !== InspectionFindingStatus.CANCELLED);
+    const currentFindings = findings.filter((finding) =>
+      closedInspectionIds.has(finding.inspectionId)
+      && finding.status !== InspectionFindingStatus.CANCELLED,
+    );
     const closedFindings = currentFindings.filter((finding) => finding.status === InspectionFindingStatus.CLOSED).length;
-    const closureDays = closedInspections.map((inspection) => this.resolveClosureDays(inspection, findingsByInspection.get(inspection.id) ?? []));
+    const closureDays = closedInspections.map((inspection) =>
+      this.resolveClosureDays(inspection, findingsByInspection.get(inspection.id) ?? []),
+    );
     const validClosureDays = closureDays.filter((value) => Number.isFinite(value));
-    const averageClosureDays = validClosureDays.length > 0 ? Number((validClosureDays.reduce((sum, value) => sum + value, 0) / validClosureDays.length).toFixed(1)) : 0;
-    const contractorCompanies = new Set(closedInspections.map((inspection) => inspection.companyId).filter((value): value is string => Boolean(value))).size;
+    const averageClosureDays = validClosureDays.length > 0
+      ? Number((validClosureDays.reduce((sum, value) => sum + value, 0) / validClosureDays.length).toFixed(1))
+      : 0;
+    const contractorCompanies = new Set(
+      closedInspections
+        .map((inspection) => inspection.companyId)
+        .filter((value): value is string => Boolean(value)),
+    ).size;
 
     return {
       year,
       closedInspections: closedInspections.length,
       averageClosureDays,
-      closedFindingsRate: currentFindings.length > 0 ? Number(((closedFindings / currentFindings.length) * 100).toFixed(2)) : 0,
+      closedFindingsRate: currentFindings.length > 0
+        ? Number(((closedFindings / currentFindings.length) * 100).toFixed(2))
+        : 0,
       contractorCompanies,
     };
   }
 
-  async getHistoryTable(query: ManagementTableQuery = {}): Promise<InspectionManagementTableResponse> {
-    const [inspections, findings, companies, areas, sectors, users, inspectionTypes] = await Promise.all([
+  async getHistoryTable(
+    query: ManagementTableQuery = {},
+    scope: InspectionDataScope = {},
+  ): Promise<InspectionManagementTableResponse> {
+    const [allInspections, allFindings, companies, areas, sectors, users, inspectionTypes] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
       this.companies.find(),
@@ -70,6 +89,7 @@ export class InspectionHistoryService {
       this.users.find(),
       this.inspectionTypes.find(),
     ]);
+    const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
     const areaNameById = new Map(areas.map((area) => [area.id, area.name]));
     const sectorNameById = new Map(sectors.map((sector) => [sector.id, sector.name]));
@@ -77,13 +97,20 @@ export class InspectionHistoryService {
     const typeById = new Map(inspectionTypes.map((type) => [type.id, type]));
     const findingsByInspection = this.groupFindingsByInspection(findings);
 
-    const closedInspections = inspections.filter((inspection) => this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []));
+    const closedInspections = inspections.filter((inspection) =>
+      this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []),
+    );
     const rows = closedInspections.map((inspection, index) => {
       const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
       const observations = this.createObservationSummary(inspectionFindings);
-      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>((current, finding) => this.resolveMaxSeverity(current, finding.severity), null);
+      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
       const closeDate = this.resolveCloseDate(inspection, inspectionFindings);
-      const closureRate = inspectionFindings.length > 0 ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2)) : 0;
+      const closureRate = inspectionFindings.length > 0
+        ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2))
+        : 0;
 
       return {
         inspectionId: inspection.id,
@@ -92,7 +119,11 @@ export class InspectionHistoryService {
         inspector: this.formatInspectorLabel(userById.get(inspection.inspectorId ?? '') ?? null),
         areaSector: this.formatAreaSectorLabel(inspection.areaId, inspection.sectorId, areaNameById, sectorNameById),
         company: this.formatCompanyLabel(inspection.companyId, companyNameById),
-        type: this.formatInspectionTypeLabel(inspection, typeById.get(inspection.inspectionTypeId) ?? null, inspectionFindings.length),
+        type: this.formatInspectionTypeLabel(
+          inspection,
+          typeById.get(inspection.inspectionTypeId) ?? null,
+          inspectionFindings.length,
+        ),
         urgencyLabel: this.formatHistoryUrgencyLabel(maxSeverity),
         urgencySeverity: maxSeverity,
         observationsCount: inspectionFindings.length,
@@ -117,7 +148,24 @@ export class InspectionHistoryService {
     };
   }
 
-  private isClosedInspectionInYear(inspection: InspectionEntity, findings: InspectionFindingEntity[], year: number): boolean {
+  private applyScope(
+    inspections: InspectionEntity[],
+    findings: InspectionFindingEntity[],
+    scope: InspectionDataScope,
+  ): { inspections: InspectionEntity[]; findings: InspectionFindingEntity[] } {
+    if (scope.inspectionIds === undefined) return { inspections, findings };
+    const allowedIds = new Set(scope.inspectionIds);
+    return {
+      inspections: inspections.filter((inspection) => allowedIds.has(inspection.id)),
+      findings: findings.filter((finding) => allowedIds.has(finding.inspectionId)),
+    };
+  }
+
+  private isClosedInspectionInYear(
+    inspection: InspectionEntity,
+    findings: InspectionFindingEntity[],
+    year: number,
+  ): boolean {
     if (!this.isInspectionEffectivelyClosed(inspection, findings)) return false;
     const closeDate = this.resolveCloseDate(inspection, findings);
     return Boolean(closeDate && closeDate.getFullYear() === year);
@@ -134,7 +182,12 @@ export class InspectionHistoryService {
       if (!finding.closedAt) return current;
       return !current || finding.closedAt > current ? finding.closedAt : current;
     }, null);
-    return inspection.closedAt ?? inspection.completedAt ?? latestFindingClose ?? inspection.updatedAt ?? getDashboardInspectionDate(inspection) ?? null;
+    return inspection.closedAt
+      ?? inspection.completedAt
+      ?? latestFindingClose
+      ?? inspection.updatedAt
+      ?? getDashboardInspectionDate(inspection)
+      ?? null;
   }
 
   private resolveClosureDays(inspection: InspectionEntity, findings: InspectionFindingEntity[]): number {
@@ -190,7 +243,10 @@ export class InspectionHistoryService {
     return true;
   }
 
-  private observationMatches(observations: InspectionManagementTableObservationSummaryResponse, filter?: string): boolean {
+  private observationMatches(
+    observations: InspectionManagementTableObservationSummaryResponse,
+    filter?: string,
+  ): boolean {
     const filters = filter?.split(',').map((value) => value.trim()).filter(Boolean) ?? [];
     if (filters.length === 0) return true;
     return filters.some((value) => {
@@ -212,7 +268,11 @@ export class InspectionHistoryService {
     return value === filter;
   }
 
-  private numberMatches(value: number, filter: string | undefined, comparator: 'min' | 'max' | 'equals'): boolean {
+  private numberMatches(
+    value: number,
+    filter: string | undefined,
+    comparator: 'min' | 'max' | 'equals',
+  ): boolean {
     if (!filter?.trim()) return true;
     const parsed = Number(filter.replace(',', '.'));
     if (Number.isNaN(parsed)) return true;
@@ -258,7 +318,12 @@ export class InspectionHistoryService {
     return initials ? `${user.firstName} ${initials.slice(-1)}.` : user.email;
   }
 
-  private formatAreaSectorLabel(areaId: string | null, sectorId: string | null, areaNames: Map<string, string>, sectorNames: Map<string, string>): string {
+  private formatAreaSectorLabel(
+    areaId: string | null,
+    sectorId: string | null,
+    areaNames: Map<string, string>,
+    sectorNames: Map<string, string>,
+  ): string {
     const area = areaId ? areaNames.get(areaId) : null;
     const sector = sectorId ? sectorNames.get(sectorId) : null;
     if (area && sector) return `${area} · ${sector}`;
@@ -269,7 +334,11 @@ export class InspectionHistoryService {
     return companyId ? companyNames.get(companyId) ?? 'Sin empresa' : 'Sin empresa';
   }
 
-  private formatInspectionTypeLabel(inspection: InspectionEntity, type: InspectionTypeEntity | null, findingsCount: number): string {
+  private formatInspectionTypeLabel(
+    inspection: InspectionEntity,
+    type: InspectionTypeEntity | null,
+    findingsCount: number,
+  ): string {
     if (inspection.templateId) return 'Checklist normativo';
     if (!type) return findingsCount > 0 ? 'Hallazgo' : 'Checklist normativo';
     const label = `${type.code} ${type.name}`.toLowerCase();
@@ -287,7 +356,10 @@ export class InspectionHistoryService {
     return `Cerrada · ${labelBySeverity[severity]}`;
   }
 
-  private resolveMaxSeverity(current: InspectionFindingSeverity | null, next: InspectionFindingSeverity): InspectionFindingSeverity {
+  private resolveMaxSeverity(
+    current: InspectionFindingSeverity | null,
+    next: InspectionFindingSeverity,
+  ): InspectionFindingSeverity {
     if (!current) return next;
     return this.getUrgencyWeight(next) > this.getUrgencyWeight(current) ? next : current;
   }
@@ -306,7 +378,8 @@ export class InspectionHistoryService {
   }
 
   private uniqueSorted(values: string[]): string[] {
-    return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'es'));
   }
 
   private parseDate(value: string | null): number {
