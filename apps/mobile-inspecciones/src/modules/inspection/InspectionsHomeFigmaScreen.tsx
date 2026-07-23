@@ -6,7 +6,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useQueries } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { InspectionFindingResponse, InspectionResponse } from '@aurelia/contracts';
-import { InspectionFindingSeverity, InspectionFindingStatus, InspectionStatus } from '@aurelia/contracts';
+import { InspectionFindingSeverity, InspectionFindingStatus, InspectionStatus, InspectionType } from '@aurelia/contracts';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useAutoSyncPendingOperations } from '../../shared/hooks/useAutoSyncPendingOperations';
 import { useMobileSession } from '../auth/mobileSession.store';
@@ -51,6 +51,20 @@ function Metric({ value, label, color }: { value: string; label: string; color: 
       <Text style={[styles.metricValue, { color }]}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
+  );
+}
+
+function HeaderGradient() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient id="headerGradient" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor="#012659" />
+          <Stop offset="100%" stopColor="#002659" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#headerGradient)" />
+    </Svg>
   );
 }
 
@@ -106,32 +120,73 @@ function TypeChip({ label }: { label: string }) {
   );
 }
 
-function StatusChip({ status }: { status: InspectionStatus }) {
-  const tone = getInspectionTone(status);
-  const palette = tonePalette[tone];
+type SummaryStatusPresentation = {
+  label: string;
+  tone: Tone;
+  icon: CardRowProps['icon'];
+};
+
+function summaryStatusPresentation(inspection: InspectionResponse, summary: FindingSummary | null): SummaryStatusPresentation {
+  if (summary?.executed.count) {
+    const severity = summary.executed.topSeverity;
+    return {
+      label: ['Ejecutada', severityLabel(severity)].filter(Boolean).join(' · '),
+      tone: toneForSeverity(severity, 'orange'),
+      icon: 'executed',
+    };
+  }
+  if (summary?.open.count) {
+    const severity = summary.open.topSeverity;
+    return {
+      label: ['Abierta', severityLabel(severity)].filter(Boolean).join(' · '),
+      tone: toneForSeverity(severity, 'gold'),
+      icon: 'open',
+    };
+  }
+  if (summary?.rejected.count) {
+    const severity = summary.rejected.topSeverity;
+    return {
+      label: ['Rechazada', severityLabel(severity)].filter(Boolean).join(' · '),
+      tone: toneForSeverity(severity, 'gray'),
+      icon: 'rejected',
+    };
+  }
+  if (summary?.closed.count) return { label: 'Cerrada', tone: 'green', icon: 'closed' };
+
+  const tone = getInspectionTone(inspection.status);
+  return {
+    label: inspectionStatusLabel[inspection.status],
+    tone,
+    icon: inspection.status === InspectionStatus.CLOSED ? 'closed' : 'open',
+  };
+}
+
+function StatusChip({ presentation }: { presentation: SummaryStatusPresentation }) {
+  const palette = tonePalette[presentation.tone];
   return (
-    <View style={[styles.statusChip, { backgroundColor: palette.bg }]}> 
-      <StatusGlyph icon={status === InspectionStatus.CLOSED ? 'closed' : 'open'} tone={tone} />
-      <Text style={[styles.statusChipText, { color: palette.fg }]}>{inspectionStatusLabel[status]}</Text>
+    <View style={[styles.statusChip, { backgroundColor: palette.bg }]}>
+      <StatusGlyph icon={presentation.icon} tone={presentation.tone} />
+      <Text style={[styles.statusChipText, { color: palette.fg }]}>{presentation.label}</Text>
     </View>
   );
 }
 
 function InspectionCard({ inspection, index, findingSummary }: { inspection: InspectionResponse; index: number; findingSummary: FindingSummary | null }) {
-  const tone = getInspectionTone(inspection.status);
-  const displayId = `#${String(index + 1).padStart(3, '0')}`;
-  const locationMeta = inspection.scheduledAt ? `Programada · ${formatDate(inspection.scheduledAt)}` : 'Sin fecha programada';
+  const presentation = summaryStatusPresentation(inspection, findingSummary);
+  const displayId = inspectionDisplayId(inspection, index);
+  const eventDate = inspection.startedAt ?? inspection.scheduledAt ?? inspection.createdAt;
+  const locationMeta = eventDate ? formatInspectionAge(eventDate) : 'Sin fecha registrada';
   const rows = buildCardRows(inspection, findingSummary);
 
   return (
     <View style={styles.card}>
-      <View style={[styles.topLine, { backgroundColor: tonePalette[tone].line }]} />
+      <View style={[styles.topLine, { backgroundColor: tonePalette[presentation.tone].line }]} />
       <View style={styles.cardInner}>
         <View style={styles.cardTop}>
           <Text style={styles.id}>{displayId}</Text>
           <View style={styles.pills}>
             <TypeChip label={inspection.templateId ? 'Checklist' : 'Hallazgo'} />
-            <StatusChip status={inspection.status} />
+            <StatusChip presentation={presentation} />
           </View>
         </View>
         <Text style={styles.cardTitle}>{inspection.title}</Text>
@@ -139,9 +194,11 @@ function InspectionCard({ inspection, index, findingSummary }: { inspection: Ins
           <FontAwesome5 name="map-marker-alt" size={10} color="#aaa" />
           <Text style={styles.metaText}>{locationMeta}</Text>
         </View>
-        {rows.map((row) => (
-          <CardRow key={`${inspection.id}-${row.label}-${row.icon}`} label={row.label} tag={row.tag} tone={row.tone} icon={row.icon} />
-        ))}
+        <View style={styles.cardRows}>
+          {rows.map((row) => (
+            <CardRow key={`${inspection.id}-${row.label}-${row.icon}`} label={row.label} tag={row.tag} tone={row.tone} icon={row.icon} />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -240,9 +297,7 @@ export function InspectionsHomeFigmaScreen() {
   }, [visibleInspections, inspectionsById]);
   const openInspections = prioritizedInspections.filter((inspection) => inspection.status !== InspectionStatus.CLOSED && inspection.status !== InspectionStatus.CANCELLED).length;
   const closedRate = prioritizedInspections.length === 0 ? '0%' : `${Math.round((prioritizedInspections.filter((inspection) => inspection.status === InspectionStatus.CLOSED).length / prioritizedInspections.length) * 100)}%`;
-  const roleLabel = normalizeRoleLabel(user?.roles?.[0] ?? 'Inspector');
-  const orgLabel = buildOrgLabel(user?.companyName ?? null, user?.areaName ?? null);
-  const profileBadge = orgLabel ? `${roleLabel} · ${orgLabel}` : roleLabel;
+  const profileBadge = buildProfileBadge(user?.roles ?? [], user?.companyName ?? null, user?.areaName ?? null);
   const canWriteInspections = (user?.permissions ?? []).includes('inspections:write');
 
   function refetch() {
@@ -294,6 +349,7 @@ export function InspectionsHomeFigmaScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.screen}>
           <View style={styles.header}>
+            <HeaderGradient />
             <View style={styles.brandRow}>
               <LogoMobile width={137} height={45} />
               <TouchableOpacity style={styles.bell}>
@@ -327,7 +383,16 @@ export function InspectionsHomeFigmaScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-            {drafts.map((draftRecord) => <DraftBox key={draftRecord.draftId} title={`${draftRecord.draft.findingTypeLabel ?? draftRecord.draft.inspectionTypeLabel} · ${draftRecord.draft.areaName ?? 'Sin área'}`} detail={[draftRecord.draft.areaName, draftRecord.draft.sectorName, draftRecord.draft.findingCompanyName].filter(Boolean).join(' · ') || draftRecord.updatedAt} progress={draftRecord.progressPercentage} currentStep={draftRecord.currentStep} onPress={() => { void resumeDraft(draftRecord.draftId); }} />)}
+            {drafts.map((draftRecord) => (
+              <DraftBox
+                key={draftRecord.draftId}
+                title={draftDisplayTitle(draftRecord)}
+                detail={draftDisplayDetail(draftRecord)}
+                progress={draftRecord.progressPercentage}
+                currentStep={draftRecord.currentStep}
+                onPress={() => { void resumeDraft(draftRecord.draftId); }}
+              />
+            ))}
             {isLoading ? (
               <StateCard loading title="Cargando inspecciones" detail="Obteniendo resumen y listado desde la API." />
             ) : isError ? (
@@ -359,7 +424,22 @@ export function InspectionsHomeFigmaScreen() {
 }
 
 function normalizeRoleLabel(value: string): string {
-  return value.replace(/_/g, ' ').trim().toUpperCase();
+  return value
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)\p{L}/gu, (letter) => letter.toUpperCase());
+}
+
+function buildProfileBadge(roles: string[], companyName: string | null, areaName: string | null): string {
+  const normalizedRoles = roles.map(normalizeRoleLabel).filter(Boolean);
+  const primaryRole = normalizedRoles.find((role) => role.toLowerCase().includes('inspector'))
+    ?? normalizedRoles[0]
+    ?? 'Inspector';
+  const adminRole = normalizedRoles.find((role) => role.toLowerCase().includes('admin'));
+  const orgLabel = buildOrgLabel(companyName, areaName);
+  const context = [adminRole, orgLabel].filter(Boolean).join(' ');
+  return context ? `${primaryRole} · ${context}` : primaryRole;
 }
 
 function extractAcronym(value: string | null): string {
@@ -382,6 +462,43 @@ function buildOrgLabel(companyName: string | null, areaName: string | null): str
   return companyAcronym || areaAcronym;
 }
 
+function draftDisplayTitle(record: import('./manualInspectionDrafts.storage').PersistedManualInspectionDraft): string {
+  const typeLabel = record.inspectionType === InspectionType.ENVIRONMENTAL ? 'Hallazgo' : 'Checklist';
+  return `${typeLabel} · ${record.draft.areaName ?? 'Sin área'}`;
+}
+
+function draftDisplayDetail(record: import('./manualInspectionDrafts.storage').PersistedManualInspectionDraft): string {
+  const detail = [record.draft.sectorName, record.draft.findingCompanyName, formatRelativeTime(record.updatedAt)]
+    .filter(Boolean)
+    .join(' · ');
+  return detail || formatRelativeTime(record.updatedAt);
+}
+
+function formatRelativeTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const now = new Date();
+  const elapsed = now.getTime() - date.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const time = new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit' }).format(date);
+  if (elapsed >= 0 && elapsed < day && now.getDate() === date.getDate()) return `Hoy ${time}`;
+  if (elapsed >= 0 && elapsed < day * 2) return `Ayer ${time}`;
+  return new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+function inspectionDisplayId(inspection: InspectionResponse, index: number): string {
+  const numericSuffix = inspection.id.match(/(?:^|\D)(\d{1,6})$/)?.[1];
+  return `#${numericSuffix ?? String(index + 1).padStart(3, '0')}`;
+}
+
+function formatInspectionAge(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Fecha no disponible';
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / (24 * 60 * 60 * 1000)));
+  if (days === 0) return 'Hoy';
+  return `${days} ${days === 1 ? 'día' : 'días'}`;
+}
+
 function severityOrder(severity: InspectionFindingSeverity | null): number {
   if (severity === InspectionFindingSeverity.CRITICAL) return 4;
   if (severity === InspectionFindingSeverity.HIGH) return 3;
@@ -392,9 +509,9 @@ function severityOrder(severity: InspectionFindingSeverity | null): number {
 
 function severityLabel(severity: InspectionFindingSeverity | null): string | undefined {
   if (severity === InspectionFindingSeverity.CRITICAL) return 'Crítico';
-  if (severity === InspectionFindingSeverity.HIGH) return 'Alto';
-  if (severity === InspectionFindingSeverity.MEDIUM) return 'Medio';
-  if (severity === InspectionFindingSeverity.LOW) return 'Bajo';
+  if (severity === InspectionFindingSeverity.HIGH) return 'Grave';
+  if (severity === InspectionFindingSeverity.MEDIUM) return 'Moderado';
+  if (severity === InspectionFindingSeverity.LOW) return 'Menor';
   return undefined;
 }
 
@@ -436,8 +553,8 @@ function summarizeFindings(findings: InspectionFindingResponse[]): FindingSummar
 }
 
 function toneForSeverity(severity: InspectionFindingSeverity | null, fallback: Tone): Tone {
-  if (severity === InspectionFindingSeverity.CRITICAL) return 'red';
-  if (severity === InspectionFindingSeverity.HIGH || severity === InspectionFindingSeverity.MEDIUM) return 'gold';
+  if (severity === InspectionFindingSeverity.CRITICAL || severity === InspectionFindingSeverity.HIGH) return 'red';
+  if (severity === InspectionFindingSeverity.MEDIUM) return fallback === 'orange' ? 'orange' : 'gold';
   if (severity === InspectionFindingSeverity.LOW) return 'green';
   return fallback;
 }
@@ -448,7 +565,7 @@ function buildCardRows(inspection: InspectionResponse, summary: FindingSummary |
     return [
       {
         label: pluralLabel(inspection.openFindingsCount, 'abierta', 'abiertas'),
-        tag: inspection.openFindingsCount > 0 ? 'Alto' : undefined,
+        tag: inspection.openFindingsCount > 0 ? 'Grave' : undefined,
         tone: inspection.openFindingsCount > 0 ? 'gold' : 'green',
         icon: 'open',
       },
@@ -579,7 +696,7 @@ const tonePalette: Record<Tone, { bg: string; fg: string; line: string; badgeBg:
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.navyDark },
   screen: { flex: 1, backgroundColor: '#f7f7f7' },
-  header: { backgroundColor: colors.navyDark, paddingHorizontal: 20, paddingTop: 26, paddingBottom: 20 },
+  header: { position: 'relative', overflow: 'hidden', backgroundColor: colors.navyDark, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 20 },
   brandRow: { height: 51, flexDirection: 'row', alignItems: 'center' },
   bell: { marginLeft: 'auto', width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   hello: { marginTop: 16, color: 'rgba(255,255,255,0.5)', fontSize: 13 },
@@ -603,40 +720,41 @@ const styles = StyleSheet.create({
   draftHeader: { padding: 14, flexDirection: 'row', justifyContent: 'space-between' },
   draftTitle: { color: colors.primary, fontSize: 15, fontWeight: fontWeight.bold },
   draftSub: { marginTop: 2, color: colors.muted, fontSize: 11 },
-  redDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#c4365a' },
-  draftBody: { borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', minHeight: 76, paddingHorizontal: 12, gap: 10 },
-  draftIcon: { width: 46, height: 46, borderRadius: 10, backgroundColor: '#ffeab8', alignItems: 'center', justifyContent: 'center' },
+  redDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#c4365a' },
+  draftBody: { borderTopWidth: 1.5, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', minHeight: 88, paddingHorizontal: 14, paddingVertical: 14, gap: 12 },
+  draftIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#ffeab8', alignItems: 'center', justifyContent: 'center' },
   draftCopy: { flex: 1 },
   draftName: { color: colors.primary, fontSize: 13, fontWeight: fontWeight.bold },
   draftMeta: { marginTop: 2, color: colors.muted, fontSize: 11 },
   progressWrap: { marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  progressRail: { flex: 1, height: 5, borderRadius: 5, backgroundColor: colors.border },
-  progressFill: { height: 5, borderRadius: 5, backgroundColor: colors.gold },
+  progressRail: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.gold },
   progressText: { color: colors.muted, fontSize: 10, fontWeight: fontWeight.bold },
   chev: { color: colors.muted, fontSize: 24 },
-  step: { position: 'absolute', top: 8, right: 10, borderRadius: 9, backgroundColor: '#f7f7f7', paddingHorizontal: 6, paddingVertical: 2 },
-  stepText: { color: colors.muted, fontSize: 9, fontWeight: fontWeight.bold },
-  card: { borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-  topLine: { height: 4 },
-  cardInner: { padding: 12 },
+  step: { position: 'absolute', top: 10, right: 14, borderRadius: 6, borderWidth: 1, borderColor: '#e8c86a', backgroundColor: '#ffeab8', paddingHorizontal: 7, paddingVertical: 2 },
+  stepText: { color: '#463100', fontSize: 10, fontWeight: fontWeight.bold },
+  card: { borderRadius: 12, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  topLine: { height: 3 },
+  cardInner: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  id: { color: colors.muted, fontSize: 11, fontWeight: fontWeight.bold },
-  pills: { flexDirection: 'row', gap: 5 },
-  typeChip: { height: 21, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6 },
-  typeChipTeal: { backgroundColor: '#d6fff8' },
+  id: { color: '#24588b', fontSize: 12, fontWeight: fontWeight.bold },
+  pills: { flexDirection: 'row', gap: 8, flexShrink: 1 },
+  typeChip: { minHeight: 18, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2 },
+  typeChipTeal: { backgroundColor: '#c5fff6' },
   typeChipBlue: { backgroundColor: '#e6f3ff' },
-  typeChipText: { fontSize: 9, fontWeight: fontWeight.bold },
+  typeChipText: { fontSize: 10, fontWeight: fontWeight.bold },
   typeChipTextTeal: { color: '#006153' },
   typeChipTextBlue: { color: '#24588b' },
-  statusChip: { height: 21, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6 },
-  statusChipText: { fontSize: 9, fontWeight: fontWeight.bold },
-  cardTitle: { marginTop: 8, color: colors.primary, fontSize: 13, fontWeight: fontWeight.bold },
-  meta: { marginTop: 5, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusChip: { minHeight: 18, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1 },
+  statusChipText: { fontSize: 10, fontWeight: fontWeight.bold },
+  cardTitle: { marginTop: 6, color: colors.primary, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
+  meta: { marginTop: 3, flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { color: colors.muted, fontSize: 11 },
-  cardRow: { marginTop: 7, minHeight: 26, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
+  cardRows: { marginTop: 10, gap: 5 },
+  cardRow: { minHeight: 23, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 5 },
   cardRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   cardRowText: { fontSize: 11, fontWeight: fontWeight.bold },
-  severityBadge: { height: 18, borderRadius: 6, justifyContent: 'center', paddingHorizontal: 6 },
+  severityBadge: { minHeight: 13, borderRadius: 4, justifyContent: 'center', paddingHorizontal: 6 },
   severityText: { fontSize: 9, fontWeight: fontWeight.bold },
   stateCard: { minHeight: 150, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: 16 },
   stateTitle: { marginTop: 8, color: colors.primary, fontSize: 15, fontWeight: fontWeight.bold, textAlign: 'center' },
@@ -645,9 +763,9 @@ const styles = StyleSheet.create({
   stateButtonText: { color: colors.white, fontSize: 12, fontWeight: fontWeight.bold },
   tabs: { height: 84, position: 'relative', backgroundColor: colors.navyDark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', overflow: 'hidden', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24 },
   tabActive: { alignItems: 'center', justifyContent: 'center', flex: 1, borderRadius: 8, backgroundColor: 'rgba(0,179,152,0.1)', paddingTop: 4, paddingBottom: 2 },
-  tabCount: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#c4365a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  tabCountText: { color: colors.white, fontSize: 11, fontWeight: fontWeight.bold },
-  tabActiveText: { marginTop: 4, color: colors.teal, fontSize: 13, fontWeight: fontWeight.bold },
+  tabCount: { minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#c4365a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  tabCountText: { color: colors.white, fontSize: 9, fontWeight: fontWeight.bold },
+  tabActiveText: { marginTop: 7, color: colors.teal, fontSize: 13, fontWeight: fontWeight.semibold },
   tabLine: { marginTop: 5, width: '88%', height: 2, borderRadius: 2, backgroundColor: colors.teal },
   tabInactive: { alignItems: 'center', justifyContent: 'center', flex: 1, paddingTop: 8 },
   tabDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.45)' },
