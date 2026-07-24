@@ -116,9 +116,22 @@ function daysLabel(value: string | null | undefined, fallback = 'Sin plazo'): st
   if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
-  if (days < 0) return `${Math.abs(days)} días vencido`;
+  const days = Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86_400_000));
   return `${days} ${days === 1 ? 'día' : 'días'}`;
+}
+
+function slaCalculatedLabel(value: string | null | undefined): string {
+  if (!value) return 'Sin plazo';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sin plazo';
+  const days = Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86_400_000));
+  return `${days} ${days === 1 ? 'día hábil' : 'días hábiles'}`;
+}
+
+function dueDateFromDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
 }
 
 function evidenceUrl(evidence: InspectionDetailEvidenceResponse | undefined): string | null {
@@ -147,11 +160,6 @@ function severityColors(label: string): { background: string; color: string; bor
     return { background: colors.warnSurf, color: colors.warnTxt, border: '#e8c45f' };
   }
   return { background: colors.successSurf, color: colors.successTxt, border: '#9bd98a' };
-}
-
-function responsibleLabel(item: InspectionDetailFindingItemResponse): string {
-  const person = item.responsibleUsers[0]?.fullName;
-  return [person, item.responsibleCompanyName].filter(Boolean).join(' · ') || 'Responsable no asignado';
 }
 
 function coordinates(detail: InspectionDetailResponse): string {
@@ -204,6 +212,90 @@ function CompactInfoRow({ label, value, valueColor = colors.primary }: { label: 
   );
 }
 
+function SlaReassignSheet({
+  visible,
+  item,
+  pending,
+  onClose,
+  onApply,
+}: {
+  visible: boolean;
+  item: InspectionDetailFindingItemResponse;
+  pending: boolean;
+  onClose: () => void;
+  onApply: (days: number) => void;
+}) {
+  const [days, setDays] = useState(0);
+  const severity = severityColors(item.severityLabel);
+  const canApply = days > 0 && !pending;
+
+  useEffect(() => {
+    if (visible) setDays(0);
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.slaSheetOverlay}>
+        <TouchableOpacity style={styles.slaSheetBackdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.slaSheetPanel}>
+          <View style={styles.slaSheetHandle} />
+          <Text style={styles.slaSheetTitle}>Reasignar SLA</Text>
+
+          <View style={styles.slaContent}>
+            <View style={styles.slaSummary}>
+            <View style={styles.slaSummaryRow}>
+              <Text style={styles.slaSummaryLabel}>SLA calculado</Text>
+              <Text style={styles.slaSummaryValue}>{slaCalculatedLabel(item.dueAt)}</Text>
+            </View>
+            <View style={[styles.slaSummaryRow, styles.slaSummaryLastRow]}>
+              <Text style={styles.slaSummaryLabel}>Criticidad</Text>
+              <View style={[styles.slaSeverity, { backgroundColor: severity.background }]}>
+                <Text style={[styles.slaSeverityText, { color: severity.color }]}>{item.severityLabel}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.slaEditor}>
+            <Text style={styles.slaEditorLabel}>INGRESE EL NUEVO SLA</Text>
+            <View style={styles.slaStepper}>
+              <TouchableOpacity style={styles.slaStepButton} onPress={() => setDays((value) => Math.max(0, value - 1))}>
+                <FontAwesome5 name="minus" size={14} color={colors.muted} />
+              </TouchableOpacity>
+              <View style={styles.slaStepValue}>
+                <Text style={styles.slaStepValueText}>{days} {days === 1 ? 'Día hábil' : 'Días hábiles'}</Text>
+              </View>
+              <TouchableOpacity style={styles.slaStepButton} onPress={() => setDays((value) => value + 1)}>
+                <FontAwesome5 name="plus" size={14} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
+              <Text style={styles.slaEditorHint}>Este será el SLA final para esta observación</Text>
+            </View>
+          </View>
+
+          <View style={styles.slaActions}>
+            <TouchableOpacity style={styles.slaCancelButton} onPress={onClose} disabled={pending}>
+              <Text style={styles.slaCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.slaApplyButton, !canApply && styles.slaApplyDisabled]}
+              onPress={() => onApply(days)}
+              disabled={!canApply}
+            >
+              {pending ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={[styles.slaApplyText, !canApply && styles.slaApplyTextDisabled]}>Reasignar SLA</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function FindingCard({
   inspectionId,
   item,
@@ -229,6 +321,17 @@ function FindingCard({
     && actions.canExecute
     && (item.statusGroup === 'open' || item.statusGroup === 'rejected');
   const canReview = !readOnly && actions.canReview && item.statusGroup === 'executed';
+  const canReassignSla = !readOnly && actions.canReassign && item.statusGroup === 'open';
+  const [slaSheetOpen, setSlaSheetOpen] = useState(false);
+
+  async function reschedule(days: number) {
+    try {
+      await actions.rescheduleFinding(inspectionId, item.findingId, dueDateFromDays(days));
+      setSlaSheetOpen(false);
+    } catch (error) {
+      Alert.alert('No se pudo reasignar el SLA', error instanceof Error ? error.message : 'Intenta nuevamente.');
+    }
+  }
 
   function approve() {
     Alert.alert('Aprobar cierre', '¿Confirmas el cierre de esta observación?', [
@@ -262,7 +365,7 @@ function FindingCard({
       </View>
 
       <View style={styles.findingCopy}>
-        <View style={styles.textBlock}>
+        <View style={[styles.textBlock, styles.conditionTextBlock]}>
           <Text style={styles.blockLabel}>CONDICIÓN DETECTADA</Text>
           <Text style={styles.blockValue}>{item.condition || '—'}</Text>
         </View>
@@ -283,11 +386,6 @@ function FindingCard({
           </View>
         ) : null}
 
-        <View style={styles.responsibleLine}>
-          <FontAwesome5 name="user" size={10} color={colors.placeholder} solid />
-          <Text style={styles.responsibleLineText}>{responsibleLabel(item)}</Text>
-        </View>
-
         <View style={styles.evidenceRow}>
           <EvidenceBox title="ANTES" evidence={item.beforeEvidence[0]} emptyLabel="Pendiente" />
           <EvidenceBox title="DESPUÉS" evidence={item.afterEvidence[0]} after emptyLabel="Pendiente EECC" />
@@ -295,8 +393,19 @@ function FindingCard({
 
         {item.statusGroup === 'open' ? (
           <View style={styles.openSlaCard}>
-            <Text style={styles.openSlaLabel}>SLA CALCULADO</Text>
-            <Text style={styles.openSlaValue}>{daysLabel(item.dueAt, 'X Días')}</Text>
+            <View style={styles.openSlaCopy}>
+              <Text style={styles.openSlaLabel}>SLA CALCULADO</Text>
+              <Text style={styles.openSlaValue}>{daysLabel(item.dueAt, 'X Días')}</Text>
+            </View>
+            {canReassignSla ? (
+              <TouchableOpacity
+                style={styles.reassignSlaButton}
+                disabled={actions.isPending}
+                onPress={() => setSlaSheetOpen(true)}
+              >
+                <Text style={styles.reassignSlaButtonText}>Reasignar SLA</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : null}
         {item.statusGroup === 'executed' || item.statusGroup === 'rejected' ? (
@@ -334,6 +443,13 @@ function FindingCard({
           </View>
         ) : null}
       </View>
+      <SlaReassignSheet
+        visible={slaSheetOpen}
+        item={item}
+        pending={actions.isPending}
+        onClose={() => setSlaSheetOpen(false)}
+        onApply={(days) => { void reschedule(days); }}
+      />
     </View>
   );
 }
@@ -1023,7 +1139,7 @@ const styles = StyleSheet.create({
   groupLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.6, fontWeight: fontWeight.bold },
   groupCount: { minWidth: 20, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   groupCountText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
-  groupBody: { gap: 12, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 20, backgroundColor: colors.white },
+  groupBody: { gap: 24, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 24, backgroundColor: colors.white },
   emptyGroup: { minHeight: 92, paddingVertical: 32, color: colors.muted, fontSize: 12, textAlign: 'center', fontWeight: fontWeight.semibold },
   findingCard: { borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#f7f7f7', paddingHorizontal: 13, paddingVertical: 13, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
   findingTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -1034,29 +1150,33 @@ const styles = StyleSheet.create({
   severityPillText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
   statusPill: { minHeight: 19, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2 },
   statusPillText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
-  findingCopy: { marginTop: 12, gap: 12 },
-  textBlock: { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 },
+  findingCopy: { marginTop: 12, gap: 4 },
+  textBlock: { borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 10, paddingVertical: 8 },
+  conditionTextBlock: { borderWidth: 1, borderColor: colors.border, paddingHorizontal: 11, paddingVertical: 9 },
   rejectBlock: { borderRadius: 8, backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf, paddingHorizontal: 10, paddingVertical: 8 },
   blockLabel: { color: colors.muted, fontSize: 9, lineHeight: 11, letterSpacing: 1.2, fontWeight: fontWeight.bold },
   blockValue: { marginTop: 3, color: colors.primary, fontSize: 12, lineHeight: 17 },
   rejectValue: { color: colors.dangerTxt },
   responsibleLine: { minHeight: 21, flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 6 },
   responsibleLineText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
-  evidenceRow: { flexDirection: 'row', gap: 6, paddingTop: 4 },
+  evidenceRow: { flexDirection: 'row', gap: 4, paddingTop: 8 },
   evidenceBox: { flex: 1, height: 91, borderRadius: 6, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.white },
   evidenceHeader: { height: 20, justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.navy },
   evidenceTitle: { color: 'rgba(255,255,255,0.7)', fontSize: 9, lineHeight: 11, letterSpacing: 0.45, fontWeight: fontWeight.bold },
   evidenceImage: { flex: 1, width: '100%' },
   evidenceEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#d8eff9' },
-  evidenceAfterEmpty: { backgroundColor: '#f7f7f7' },
+  evidenceAfterEmpty: { backgroundColor: '#d8eff9' },
   evidenceEmptyText: { color: colors.placeholder, fontSize: 10, lineHeight: 12 },
-  openSlaCard: { minHeight: 64, marginTop: 4, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: '#f7f7f7', justifyContent: 'center', paddingHorizontal: 15 },
+  openSlaCard: { minHeight: 64, marginTop: 4, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 15 },
+  openSlaCopy: { flexShrink: 1 },
   openSlaLabel: { color: colors.body, fontSize: 9, lineHeight: 11, letterSpacing: 0.63, fontWeight: fontWeight.bold },
-  openSlaValue: { marginTop: 2, color: colors.ocreTxt, fontSize: 20, lineHeight: 22, fontWeight: fontWeight.bold },
+  openSlaValue: { marginTop: 2, color: '#532a0e', fontSize: 20, lineHeight: 20, fontWeight: fontWeight.bold },
+  reassignSlaButton: { height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15.5 },
+  reassignSlaButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },
   compactInfoRow: { minHeight: 33, marginTop: 4, borderRadius: 8, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
   compactInfoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
   compactInfoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },
-  primaryAction: { height: 52, marginTop: 4, borderRadius: 14, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
+  primaryAction: { height: 52, marginTop: 0, borderRadius: 14, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
   primaryActionText: { color: colors.white, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
   reviewActions: { marginTop: 4, flexDirection: 'row', gap: 8, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 9 },
   rejectAction: { height: 40, flex: 1, borderRadius: 9, borderWidth: 2, borderColor: '#c4365a', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
@@ -1065,6 +1185,33 @@ const styles = StyleSheet.create({
   approveActionText: { color: colors.white, fontSize: 12, fontWeight: fontWeight.bold },
   waitingReview: { marginTop: 4, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
   waitingReviewText: { color: colors.muted, fontSize: 11, textAlign: 'center', fontWeight: fontWeight.semibold },
+  slaSheetOverlay: { flex: 1, justifyContent: 'flex-end' },
+  slaSheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  slaSheetPanel: { borderTopLeftRadius: 16, borderTopRightRadius: 16, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 24, gap: 24 },
+  slaSheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderMid, marginTop: 10 },
+  slaSheetTitle: { color: colors.primary, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
+  slaContent: { gap: 8 },
+  slaSummary: { paddingVertical: 9 },
+  slaSummaryRow: { minHeight: 41, borderTopWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  slaSummaryLastRow: { borderBottomWidth: 1 },
+  slaSummaryLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
+  slaSummaryValue: { color: colors.primary, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.bold },
+  slaSeverity: { minHeight: 20, borderRadius: 8, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 5 },
+  slaSeverityText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
+  slaEditor: { borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 9, paddingVertical: 13, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
+  slaEditorLabel: { color: colors.muted, fontSize: 10, lineHeight: 12, letterSpacing: 0.6, fontWeight: fontWeight.bold },
+  slaStepper: { marginTop: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  slaStepButton: { width: 52, height: 50, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  slaStepValue: { flex: 1, height: 50, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: '#f6faff', alignItems: 'center', justifyContent: 'center' },
+  slaStepValueText: { color: colors.primary, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.medium, textAlign: 'center' },
+  slaEditorHint: { marginTop: 2, color: colors.placeholder, fontSize: 11, lineHeight: 14.3 },
+  slaActions: { flexDirection: 'row', gap: 8 },
+  slaCancelButton: { height: 44, flex: 1, borderRadius: 14, borderWidth: 2, borderColor: colors.gold, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  slaCancelText: { color: colors.gold, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
+  slaApplyButton: { height: 44, flex: 1, borderRadius: 14, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
+  slaApplyDisabled: { backgroundColor: colors.borderMid, shadowOpacity: 0, elevation: 0 },
+  slaApplyText: { color: colors.white, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
+  slaApplyTextDisabled: { color: colors.placeholder },
   dialogOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 20 },
   dialog: { width: '100%', maxWidth: 420, borderRadius: 18, backgroundColor: colors.white, padding: 18 },
   dialogTitle: { color: colors.navy, fontSize: 18, fontWeight: fontWeight.bold },

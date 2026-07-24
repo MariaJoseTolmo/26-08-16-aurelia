@@ -180,6 +180,14 @@ export function useMobileInspectionFindingActions() {
         },
       });
     },
+    rescheduleFinding: (inspectionId: string, findingId: string, dueAt: string) => {
+      if (!capabilities.reassign) return Promise.reject(denied('reasignar SLA'));
+      return findingMutation.mutateAsync({
+        inspectionId,
+        findingId,
+        payload: { dueAt },
+      });
+    },
     reassignResponsibles: async (
       inspectionId: string,
       findingIds: string[],
