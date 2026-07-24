@@ -1,9 +1,9 @@
 name: Temporary mobile finding execution validation
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/inspecciones/carlo
+      - main
     paths:
       - .github/workflows/tmp-mobile-finding-execution.yml
 
