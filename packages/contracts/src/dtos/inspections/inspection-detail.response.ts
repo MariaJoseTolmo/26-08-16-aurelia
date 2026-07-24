@@ -1,4 +1,11 @@
-import type { InspectionEvidenceRelationType, InspectionFindingSeverity, InspectionFindingStatus, InspectionType } from '../../enums';
+import type {
+  InspectionAnswerValue,
+  InspectionEvidenceRelationType,
+  InspectionFindingSeverity,
+  InspectionFindingStatus,
+  InspectionItemResponseType,
+  InspectionType,
+} from '../../enums';
 import type { ID, ISODateString } from '../../types/common';
 
 export type InspectionDetailKind = 'finding' | 'checklist';
@@ -86,9 +93,57 @@ export interface InspectionDetailGeneralResponse {
   responsibles: InspectionDetailResponsibleResponse[];
 }
 
+export interface InspectionDetailChecklistAnswerResponse {
+  value: InspectionAnswerValue | string | null;
+  text: string | null;
+  numericValue: string | null;
+  notes: string | null;
+  answeredAt: ISODateString | null;
+  answeredByUserId: ID | null;
+  answeredByName: string | null;
+}
+
+export interface InspectionDetailChecklistItemResponse {
+  checklistItemId: ID;
+  code: string;
+  question: string;
+  guidance: string | null;
+  responseType: InspectionItemResponseType;
+  isRequired: boolean;
+  sortOrder: number;
+  weight: string | null;
+  answer: InspectionDetailChecklistAnswerResponse | null;
+}
+
+export interface InspectionDetailChecklistSectionResponse {
+  sectionId: ID;
+  code: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  items: InspectionDetailChecklistItemResponse[];
+}
+
+export interface InspectionDetailChecklistSummaryResponse {
+  total: number;
+  answered: number;
+  compliant: number;
+  notCompliant: number;
+  notApplicable: number;
+  partial: number;
+  notObserved: number;
+  unanswered: number;
+}
+
+export interface InspectionDetailChecklistResultResponse {
+  summary: InspectionDetailChecklistSummaryResponse;
+  sections: InspectionDetailChecklistSectionResponse[];
+}
+
 export interface InspectionDetailResponse {
   header: InspectionDetailHeaderResponse;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
   followups: InspectionDetailFollowupResponse[];
   general: InspectionDetailGeneralResponse;
+  checklistResult: InspectionDetailChecklistResultResponse | null;
 }

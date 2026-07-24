@@ -12,6 +12,7 @@ import { env } from '../../../shared/config/env';
 import { useInspectionFindingActions } from '../../../shared/hooks/useInspectionFindingActions';
 import { getCompanyUsers } from '../../../shared/services/inspections.service';
 import { FindingExecutionModeView } from './FindingExecutionModeView';
+import { InspectionChecklistResultPanel } from './InspectionChecklistResultPanel';
 import { FindingRejectDialog, ObservationRejectedToast } from './FindingRejectDialog';
 import {
   InspectionDetailApproveIcon,
@@ -281,10 +282,6 @@ function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutio
   return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const items = findings[config.key] ?? []; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
 }
 
-function ChecklistResultPanel() {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white" />;
-}
-
 function FollowupTimelineMarker({ completed }: { completed: boolean }) {
   return <div className={`flex size-[24px] shrink-0 items-center justify-center rounded-[12px] text-[10px] font-normal leading-none ${completed ? 'bg-[#6cc24a] text-white' : 'bg-[#e3e3e3] text-[#acacac]'}`}>{completed ? '✓' : '○'}</div>;
 }
@@ -379,7 +376,7 @@ function EmptyDetailPanel() {
 function DetailContent({ activeTab, detail, actions, onOpenReassign, onRequestExecutionMode, onRequestReject }: { activeTab: DetailTab; detail: InspectionDetailResponse; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void }) {
   if (activeTab === 'followups') return <FollowupsPanel detail={detail} />;
   if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} canReassign={actions.canReassign} />;
-  if (activeTab === 'result' && detail.header.kind === 'checklist') return <ChecklistResultPanel />;
+  if (activeTab === 'result' && detail.header.kind === 'checklist') return <InspectionChecklistResultPanel result={detail.checklistResult} />;
   if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} />;
   return <EmptyDetailPanel />;
 }

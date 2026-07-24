@@ -4,6 +4,7 @@ import {
   nextInspectionManagementOverlaySourceId,
   subscribeToInspectionManagementOverlay,
 } from './inspection-management-overlay';
+import { subscribeInspectionDom } from './inspection-dom-subscription';
 
 const viewportMargin = 8;
 const triggerGap = 6;
@@ -18,12 +19,10 @@ function normalizeText(value: string) {
 
 function findCalendarPopup() {
   if (normalizedPath() !== '/inspections') return null;
-
   const todayButton = Array.from(document.querySelectorAll('button')).find(
     (button) => normalizeText(button.textContent ?? '') === 'Hoy',
   );
   if (!(todayButton instanceof HTMLButtonElement)) return null;
-
   const popup = todayButton.closest('div.absolute');
   if (!(popup instanceof HTMLDivElement)) return null;
   const hasClearAction = Array.from(popup.querySelectorAll('button')).some(
@@ -35,22 +34,13 @@ function findCalendarPopup() {
 function findCalendarTrigger(popup: HTMLDivElement) {
   const wrapper = popup.parentElement;
   if (!wrapper) return null;
-  return Array.from(wrapper.querySelectorAll('button')).find(
-    (button) => !popup.contains(button),
-  ) ?? null;
+  return Array.from(wrapper.querySelectorAll('button')).find((button) => !popup.contains(button)) ?? null;
 }
 
 function resetPopupStyles(popup: HTMLDivElement | null) {
   if (!popup) return;
-  popup.style.removeProperty('position');
-  popup.style.removeProperty('left');
-  popup.style.removeProperty('top');
-  popup.style.removeProperty('right');
-  popup.style.removeProperty('bottom');
-  popup.style.removeProperty('z-index');
-  popup.style.removeProperty('transform');
-  popup.style.removeProperty('max-height');
-  popup.style.removeProperty('overflow-y');
+  ['position', 'left', 'top', 'right', 'bottom', 'z-index', 'transform', 'max-height', 'overflow-y']
+    .forEach((property) => popup.style.removeProperty(property));
 }
 
 function positionPopup(popup: HTMLDivElement, trigger: HTMLButtonElement) {
@@ -74,22 +64,19 @@ function positionPopup(popup: HTMLDivElement, trigger: HTMLButtonElement) {
   const top = below + popupHeight > window.innerHeight - viewportMargin
     ? Math.max(viewportMargin, triggerRect.top - popupHeight - triggerGap)
     : below;
-
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+  const nextLeft = `${left}px`;
+  const nextTop = `${top}px`;
+  if (popup.style.left !== nextLeft) popup.style.left = nextLeft;
+  if (popup.style.top !== nextTop) popup.style.top = nextTop;
 }
 
-/**
- * Saca el calendario del contexto visual de la tabla con scroll y coordina su
- * apertura con los selects y el menú de acciones de Gestión de inspecciones.
- */
 export function InspectionManagementCalendarOverlayBridge(): ReactElement | null {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const sourceIdRef = useRef(nextInspectionManagementOverlaySourceId('calendar'));
 
   useEffect(() => {
-    let animationFrame = 0;
+    let frame: number | null = null;
 
     function clearCurrentPopup() {
       resetPopupStyles(popupRef.current);
@@ -103,31 +90,25 @@ export function InspectionManagementCalendarOverlayBridge(): ReactElement | null
         clearCurrentPopup();
         return;
       }
-
       const trigger = findCalendarTrigger(popup);
       if (!(trigger instanceof HTMLButtonElement)) {
         clearCurrentPopup();
         return;
       }
-
       const isNewPopup = popupRef.current !== popup;
       if (popupRef.current && isNewPopup) resetPopupStyles(popupRef.current);
       popupRef.current = popup;
       triggerRef.current = trigger;
       positionPopup(popup, trigger);
-
-      if (isNewPopup) {
-        announceInspectionManagementOverlay({
-          kind: 'calendar',
-          owner: trigger,
-          sourceId: sourceIdRef.current,
-        });
-      }
+      if (isNewPopup) announceInspectionManagementOverlay({ kind: 'calendar', owner: trigger, sourceId: sourceIdRef.current });
     }
 
     function scheduleSync() {
-      window.cancelAnimationFrame(animationFrame);
-      animationFrame = window.requestAnimationFrame(syncCalendar);
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        syncCalendar();
+      });
     }
 
     function closeCalendar() {
@@ -140,27 +121,23 @@ export function InspectionManagementCalendarOverlayBridge(): ReactElement | null
       if (detail.sourceId === sourceIdRef.current || !popupRef.current) return;
       closeCalendar();
     });
+    const unsubscribeDom = subscribeInspectionDom(scheduleSync);
 
     function handlePointerDown(event: PointerEvent) {
       const popup = popupRef.current;
       const trigger = triggerRef.current;
-      const target = event.target;
-      if (!popup || !(target instanceof Node)) return;
-      if (popup.contains(target) || trigger?.contains(target)) return;
+      if (!popup || !(event.target instanceof Node)) return;
+      if (popup.contains(event.target) || trigger?.contains(event.target)) return;
       closeCalendar();
     }
 
-    const observer = new MutationObserver(scheduleSync);
-    observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('pointerdown', handlePointerDown, true);
     window.addEventListener('resize', scheduleSync);
     window.addEventListener('scroll', scheduleSync, true);
-    scheduleSync();
-
     return () => {
-      window.cancelAnimationFrame(animationFrame);
+      if (frame !== null) window.cancelAnimationFrame(frame);
       unsubscribeOverlay();
-      observer.disconnect();
+      unsubscribeDom();
       document.removeEventListener('pointerdown', handlePointerDown, true);
       window.removeEventListener('resize', scheduleSync);
       window.removeEventListener('scroll', scheduleSync, true);

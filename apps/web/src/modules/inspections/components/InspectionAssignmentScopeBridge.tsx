@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getInspectionAssignmentScope } from '../../../shared/services/inspection-assignment-scope.service';
 import { useSessionStore } from '../../../shared/stores/session.store';
 import { useNewInspectionDraftStore } from '../new-inspection/state/newInspectionDraft.store';
+import { subscribeInspectionDom } from './inspection-dom-subscription';
 
 const draftQueueStorageKey = 'aurelia:new-inspection-drafts:v1';
 const legacyDraftStorageKey = 'aurelia:new-inspection-draft:v1';
@@ -16,16 +17,16 @@ function text(value: string | null | undefined) {
 
 function hasInspectionInput(draft: Partial<DraftState>) {
   return Boolean(
-    draft.areaId ||
-    draft.sectorId ||
-    draft.inspectionDateSelected ||
-    draft.locationCaptured ||
-    draft.inspectionTypeSelected ||
-    draft.findingTypeId ||
-    (draft.findingObservations?.length ?? 0) > 0 ||
-    draft.templateId ||
-    Object.keys(draft.answersByItemId ?? {}).length > 0 ||
-    draft.generalPhoto,
+    draft.areaId
+    || draft.sectorId
+    || draft.inspectionDateSelected
+    || draft.locationCaptured
+    || draft.inspectionTypeSelected
+    || draft.findingTypeId
+    || (draft.findingObservations?.length ?? 0) > 0
+    || draft.templateId
+    || Object.keys(draft.answersByItemId ?? {}).length > 0
+    || draft.generalPhoto,
   );
 }
 
@@ -69,8 +70,8 @@ function manualCompanyButtons(root: ParentNode) {
 function applyLockedManualCompanyUi() {
   const panel = document.querySelector('.new-inspection-modal-panel');
   if (!panel) return;
-
   manualCompanyButtons(panel).forEach((button) => {
+    if (button.disabled && button.getAttribute('aria-disabled') === 'true') return;
     button.disabled = true;
     button.setAttribute('aria-disabled', 'true');
   });
@@ -105,24 +106,11 @@ export function InspectionAssignmentScopeBridge() {
       applyLockedManualCompanyUi();
     };
 
-    let animationFrame: number | null = null;
-    const scheduleUiSync = () => {
-      if (animationFrame !== null) return;
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = null;
-        syncUi();
-      });
-    };
-
-    syncUi();
-    const unsubscribe = useNewInspectionDraftStore.subscribe(lockDraftCompany);
-    const observer = new MutationObserver(scheduleUiSync);
-    observer.observe(document.body, { childList: true, subtree: true });
-
+    const unsubscribeStore = useNewInspectionDraftStore.subscribe(lockDraftCompany);
+    const unsubscribeDom = subscribeInspectionDom(syncUi);
     return () => {
-      unsubscribe();
-      observer.disconnect();
-      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      unsubscribeStore();
+      unsubscribeDom();
     };
   }, [scopeQuery.data]);
 

@@ -7,6 +7,7 @@ import {
   nextInspectionManagementOverlaySourceId,
   subscribeToInspectionManagementOverlay,
 } from './inspection-management-overlay';
+import { subscribeInspectionDom } from './inspection-dom-subscription';
 
 type MenuState = {
   top: number;
@@ -20,24 +21,17 @@ function getDirectButtons(element: HTMLElement) {
   return Array.from(element.children).filter((child): child is HTMLButtonElement => child instanceof HTMLButtonElement);
 }
 
-function normalizeText(value: string) {
-  return value.replace(/\s+/g, ' ').trim();
-}
-
 function normalizeInspectionNumber(value: string) {
-  return normalizeText(value).replace(/^#/, '');
+  return value.replace(/\s+/g, ' ').trim().replace(/^#/, '');
 }
 
 function inspectionNumberFromMenu(menu: HTMLElement) {
-  const row = menu.closest('tr');
-  const firstCell = row?.querySelector('td');
+  const firstCell = menu.closest('tr')?.querySelector('td');
   return normalizeInspectionNumber(firstCell?.textContent ?? '');
 }
 
 function findMenu() {
-  const triggers = Array.from(
-    document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="menu"][aria-expanded="true"]'),
-  );
+  const triggers = Array.from(document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="menu"][aria-expanded="true"]'));
   for (const trigger of triggers) {
     if (!trigger.closest('table')) continue;
     const candidate = trigger.nextElementSibling;
@@ -96,40 +90,33 @@ export function InspectionTableActionMenuBridge(): ReactElement | null {
       const source = findMenu();
       if (!source) {
         restoreHiddenSource();
-        updateMenu(null);
+        if (menuRef.current) updateMenu(null);
         return;
       }
-
       const next = buildMenuState(source);
       if (!next) {
         restoreHiddenSource();
-        updateMenu(null);
+        if (menuRef.current) updateMenu(null);
         return;
       }
-
       const isNewSource = hiddenSourceRef.current !== source;
       if (hiddenSourceRef.current && isNewSource) restoreHiddenSource();
       if (isNewSource) {
-        announceInspectionManagementOverlay({
-          kind: 'action',
-          owner: next.trigger ?? source,
-          sourceId: sourceIdRef.current,
-        });
+        announceInspectionManagementOverlay({ kind: 'action', owner: next.trigger ?? source, sourceId: sourceIdRef.current });
       }
-
-      source.style.visibility = 'hidden';
-      source.style.pointerEvents = 'none';
+      if (source.style.visibility !== 'hidden') source.style.visibility = 'hidden';
+      if (source.style.pointerEvents !== 'none') source.style.pointerEvents = 'none';
       hiddenSourceRef.current = source;
       const current = menuRef.current;
       if (current?.source === source && current.top === next.top && current.left === next.left) return;
       updateMenu(next);
     }
 
-    let animationFrame: number | null = null;
+    let frame: number | null = null;
     const scheduleMenuSync = () => {
-      if (animationFrame !== null) return;
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = null;
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
         syncMenu();
       });
     };
@@ -139,19 +126,16 @@ export function InspectionTableActionMenuBridge(): ReactElement | null {
       if (!current || detail.sourceId === sourceIdRef.current) return;
       current.trigger?.click();
     });
-
-    const observer = new MutationObserver(scheduleMenuSync);
-    observer.observe(document.body, { childList: true, subtree: true });
+    const unsubscribeDom = subscribeInspectionDom(scheduleMenuSync);
     window.addEventListener('resize', scheduleMenuSync);
     window.addEventListener('scroll', scheduleMenuSync, true);
-    syncMenu();
 
     return () => {
       unsubscribeOverlay();
-      observer.disconnect();
+      unsubscribeDom();
       window.removeEventListener('resize', scheduleMenuSync);
       window.removeEventListener('scroll', scheduleMenuSync, true);
-      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      if (frame !== null) window.cancelAnimationFrame(frame);
       restoreHiddenSource();
     };
   }, []);
@@ -159,50 +143,33 @@ export function InspectionTableActionMenuBridge(): ReactElement | null {
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
       const current = menuRef.current;
-      if (!current) return;
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (portalRef.current?.contains(target)) return;
-      if (current.trigger?.contains(target)) return;
+      if (!current || !(event.target instanceof Node)) return;
+      if (portalRef.current?.contains(event.target) || current.trigger?.contains(event.target)) return;
       current.trigger?.click();
     }
-
     document.addEventListener('mousedown', handleOutsideClick, true);
     return () => document.removeEventListener('mousedown', handleOutsideClick, true);
   }, []);
 
   function activateSourceButton(index: number) {
     const current = menuRef.current;
-    if (!current) return;
-    const buttons = getDirectButtons(current.source);
-    const button = buttons[index];
+    const button = current ? getDirectButtons(current.source)[index] : undefined;
     if (button instanceof HTMLButtonElement) button.click();
   }
 
   async function handleDownloadInspectionPdf() {
     const current = menuRef.current;
     if (!current || isDownloadingPdf) return;
-
     const inspectionNumber = inspectionNumberFromMenu(current.source);
     if (!inspectionNumber) {
       window.alert('No fue posible identificar la inspección seleccionada.');
       return;
     }
-
     setIsDownloadingPdf(true);
-
     try {
-      const response = await getInspectionManagementTable({
-        page: 1,
-        pageSize: 10,
-        id: inspectionNumber,
-      });
-      const selected = response.rows.find(
-        (row) => normalizeInspectionNumber(row.inspectionNumber) === inspectionNumber,
-      ) ?? response.rows[0];
-
+      const response = await getInspectionManagementTable({ page: 1, pageSize: 10, id: inspectionNumber });
+      const selected = response.rows.find((row) => normalizeInspectionNumber(row.inspectionNumber) === inspectionNumber) ?? response.rows[0];
       if (!selected) throw new Error('Inspection not found');
-
       await downloadInspectionPdf(selected.inspectionId);
       current.trigger?.click();
     } catch {
@@ -213,32 +180,10 @@ export function InspectionTableActionMenuBridge(): ReactElement | null {
   }
 
   if (!menu) return null;
-
   return createPortal(
-    <div
-      ref={portalRef}
-      data-inspection-actions-portal="true"
-      className="fixed z-[11000] flex flex-col items-start rounded-[12px] border border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]"
-      style={{ top: `${menu.top}px`, left: `${menu.left}px`, width: `${menu.width}px` }}
-      role="menu"
-    >
-      <button
-        type="button"
-        onClick={() => activateSourceButton(0)}
-        className="flex h-[40px] w-full items-center rounded-[8px] bg-white px-[8px] py-[12px] text-left font-['Inter:Regular',sans-serif] text-[14px] font-normal leading-[22.7px] tracking-[0.28px] text-[#131313] transition-colors hover:bg-[#e3e3e3]"
-        role="menuitem"
-      >
-        Ver detalles
-      </button>
-      <button
-        type="button"
-        disabled={isDownloadingPdf}
-        onClick={handleDownloadInspectionPdf}
-        className="flex h-[40px] w-full items-center rounded-[8px] bg-white px-[8px] py-[12px] text-left font-['Inter:Regular',sans-serif] text-[14px] font-normal leading-[22.7px] tracking-[0.28px] text-[#131313] transition-colors hover:bg-[#e3e3e3] disabled:cursor-wait disabled:opacity-60 disabled:hover:bg-white"
-        role="menuitem"
-      >
-        {isDownloadingPdf ? 'Generando PDF…' : 'PDF (.pdf)'}
-      </button>
+    <div ref={portalRef} data-inspection-actions-portal="true" className="fixed z-[11000] flex flex-col items-start rounded-[12px] border border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]" style={{ top: `${menu.top}px`, left: `${menu.left}px`, width: `${menu.width}px` }} role="menu">
+      <button type="button" onClick={() => activateSourceButton(0)} className="flex h-[40px] w-full items-center rounded-[8px] bg-white px-[8px] py-[12px] text-left text-[14px] text-[#131313] transition-colors hover:bg-[#e3e3e3]" role="menuitem">Ver detalles</button>
+      <button type="button" disabled={isDownloadingPdf} onClick={handleDownloadInspectionPdf} className="flex h-[40px] w-full items-center rounded-[8px] bg-white px-[8px] py-[12px] text-left text-[14px] text-[#131313] transition-colors hover:bg-[#e3e3e3] disabled:cursor-wait disabled:opacity-60" role="menuitem">{isDownloadingPdf ? 'Generando PDF…' : 'PDF (.pdf)'}</button>
     </div>,
     document.body,
   );
