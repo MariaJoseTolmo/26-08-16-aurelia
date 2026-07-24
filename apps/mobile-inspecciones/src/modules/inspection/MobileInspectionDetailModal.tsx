@@ -97,6 +97,13 @@ function groupCounterLabel(group: GroupConfig, count: number): string {
   return count === 1 ? group.singular : group.label;
 }
 
+function findingStatusLabel(group: InspectionDetailFindingGroupKey): string {
+  if (group === 'executed') return 'Ejecutado';
+  if (group === 'open') return 'Abierto';
+  if (group === 'closed') return 'Cerrado';
+  return 'Rechazado';
+}
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -206,11 +213,13 @@ function EvidenceBox({
   title,
   evidence,
   after = false,
+  completed = false,
   emptyLabel,
 }: {
   title: string;
   evidence?: InspectionDetailEvidenceResponse;
   after?: boolean;
+  completed?: boolean;
   emptyLabel: string;
 }) {
   const token = useMobileSession((state) => state.accessToken);
@@ -227,20 +236,35 @@ function EvidenceBox({
           resizeMode="cover"
         />
       ) : (
-        <View style={[styles.evidenceEmpty, after && styles.evidenceAfterEmpty]}>
-          {after ? null : <FontAwesome5 name="image" size={16} color={colors.blueLink} />}
-          <Text style={styles.evidenceEmptyText}>{emptyLabel}</Text>
+        <View style={[styles.evidenceEmpty, after && styles.evidenceAfterEmpty, completed && styles.evidenceCompletedEmpty]}>
+          {after && !completed ? null : (
+            <FontAwesome5 name="image" size={completed ? 20 : 16} color={completed ? colors.successTxt : colors.blueLink} />
+          )}
+          <Text style={[styles.evidenceEmptyText, completed && styles.evidenceCompletedText]}>{emptyLabel}</Text>
         </View>
       )}
     </View>
   );
 }
 
-function CompactInfoRow({ label, value, valueColor = colors.primary }: { label: string; value: string; valueColor?: string }) {
+function CompactInfoRow({
+  label,
+  value,
+  valueColor = colors.primary,
+  alert = false,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+  alert?: boolean;
+}) {
   return (
     <View style={styles.compactInfoRow}>
       <Text style={styles.compactInfoLabel}>{label}</Text>
-      <Text style={[styles.compactInfoValue, { color: valueColor }]}>{value}</Text>
+      <View style={styles.compactInfoValueRow}>
+        {alert ? <FontAwesome5 name="exclamation-circle" size={9} color={valueColor} solid /> : null}
+        <Text style={[styles.compactInfoValue, { color: valueColor }]}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -393,7 +417,7 @@ function FindingCard({
         </View>
         <View style={[styles.statusPill, { backgroundColor: group.background }]}> 
           <FontAwesome5 name={group.icon} size={8} color={group.color} solid />
-          <Text style={[styles.statusPillText, { color: group.color }]}>{group.singular}</Text>
+          <Text style={[styles.statusPillText, { color: group.color }]}>{findingStatusLabel(item.statusGroup)}</Text>
         </View>
       </View>
 
@@ -421,7 +445,13 @@ function FindingCard({
 
         <View style={styles.evidenceRow}>
           <EvidenceBox title="ANTES" evidence={item.beforeEvidence[0]} emptyLabel="Pendiente" />
-          <EvidenceBox title="DESPUÉS" evidence={item.afterEvidence[0]} after emptyLabel="Pendiente EECC" />
+          <EvidenceBox
+            title="DESPUÉS"
+            evidence={item.afterEvidence[0]}
+            after
+            completed={item.statusGroup !== 'open'}
+            emptyLabel={item.statusGroup === 'open' ? 'Pendiente EECC' : ''}
+          />
         </View>
 
         {item.statusGroup === 'open' ? (
@@ -442,7 +472,7 @@ function FindingCard({
           </View>
         ) : null}
         {item.statusGroup === 'executed' || item.statusGroup === 'rejected' ? (
-          <CompactInfoRow label="SLA calculado" value={daysLabel(item.dueAt)} valueColor={colors.dangerTxt} />
+          <CompactInfoRow label="SLA calculado" value={daysLabel(item.dueAt)} valueColor={colors.dangerTxt} alert />
         ) : null}
         {item.statusGroup === 'closed' ? (
           <>
@@ -470,9 +500,10 @@ function FindingCard({
             </TouchableOpacity>
           </View>
         ) : null}
-        {!readOnly && item.statusGroup === 'executed' && !actions.canReview ? (
+        {actions.canExecute && item.statusGroup === 'executed' && !actions.canReview ? (
           <View style={styles.waitingReview}>
-            <Text style={styles.waitingReviewText}>En espera de revisión Gold Fields</Text>
+            <FontAwesome5 name="clock" size={11} color="#e8a820" solid />
+            <Text style={styles.waitingReviewText}>Esperando Aprobación o rechazo de observación</Text>
           </View>
         ) : null}
       </View>
@@ -999,6 +1030,7 @@ export function MobileInspectionDetailModal({
     }
   }
 
+  const assignedCompanyView = actions.canExecute && !actions.canReview;
   const tabs: Array<{ key: DetailTab; label: string }> = detail?.header.kind === 'checklist'
     ? [
         { key: 'observations', label: 'Ítems NO' },
@@ -1006,11 +1038,16 @@ export function MobileInspectionDetailModal({
         { key: 'followups', label: 'Seguimientos' },
         { key: 'general', label: 'Datos generales' },
       ]
-    : [
-        { key: 'observations', label: 'Observaciones' },
-        { key: 'followups', label: 'Seguimientos' },
-        { key: 'general', label: 'Datos generales' },
-      ];
+    : assignedCompanyView
+      ? [
+          { key: 'observations', label: 'Observaciones' },
+          { key: 'general', label: 'Datos generales' },
+        ]
+      : [
+          { key: 'observations', label: 'Observaciones' },
+          { key: 'followups', label: 'Seguimientos' },
+          { key: 'general', label: 'Datos generales' },
+        ];
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
@@ -1200,7 +1237,9 @@ const styles = StyleSheet.create({
   evidenceImage: { flex: 1, width: '100%' },
   evidenceEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#d8eff9' },
   evidenceAfterEmpty: { backgroundColor: '#d8eff9' },
+  evidenceCompletedEmpty: { backgroundColor: '#dafccb' },
   evidenceEmptyText: { color: colors.placeholder, fontSize: 10, lineHeight: 12 },
+  evidenceCompletedText: { color: colors.successTxt },
   openSlaCard: { minHeight: 64, marginTop: 4, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 15 },
   openSlaCopy: { flexShrink: 1 },
   openSlaLabel: { color: colors.body, fontSize: 9, lineHeight: 11, letterSpacing: 0.63, fontWeight: fontWeight.bold },
@@ -1209,6 +1248,7 @@ const styles = StyleSheet.create({
   reassignSlaButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },
   compactInfoRow: { minHeight: 33, marginTop: 4, borderRadius: 8, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
   compactInfoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
+  compactInfoValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   compactInfoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },
   primaryAction: { height: 52, marginTop: 0, borderRadius: 14, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
   primaryActionText: { color: colors.white, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
@@ -1217,8 +1257,8 @@ const styles = StyleSheet.create({
   rejectActionText: { color: colors.dangerTxt, fontSize: 12, fontWeight: fontWeight.bold },
   approveAction: { height: 40, flex: 1.4, borderRadius: 9, backgroundColor: '#3a9b3a', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   approveActionText: { color: colors.white, fontSize: 12, fontWeight: fontWeight.bold },
-  waitingReview: { marginTop: 4, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
-  waitingReviewText: { color: colors.muted, fontSize: 11, textAlign: 'center', fontWeight: fontWeight.semibold },
+  waitingReview: { minHeight: 33, marginTop: 4, borderRadius: 8, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
+  waitingReviewText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
   slaSheetOverlay: { flex: 1, justifyContent: 'flex-end' },
   slaSheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   slaSheetPanel: { borderTopLeftRadius: 16, borderTopRightRadius: 16, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 24, gap: 24 },
