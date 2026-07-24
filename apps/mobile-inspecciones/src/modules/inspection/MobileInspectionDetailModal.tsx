@@ -25,6 +25,7 @@ import type {
 import { API_URL } from '../../shared/services/http-client';
 import { fetchInspectionResponsibleUsers } from '../../shared/services/inspections.api';
 import { PhotoSourceSheet } from '../../shared/components/form/PhotoSourceSheet';
+import { MobileFindingExecutionModal } from './MobileFindingExecutionModal';
 import { MobileInspectionChecklistResultPanel } from './MobileInspectionChecklistResultPanel';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useMobileSession } from '../auth/mobileSession.store';
@@ -1151,8 +1152,21 @@ export function MobileInspectionDetailModal({
         </View>
       </View>
 
+      {detail && actionTarget ? (
+        <MobileFindingExecutionModal
+          visible={actionMode === 'execute'}
+          detail={detail}
+          item={actionTarget}
+          index={Math.max(0, allFindings(detail).findIndex((item) => item.findingId === actionTarget.findingId))}
+          itemLabel={detail.header.kind === 'checklist' ? 'Ítem' : 'Obs.'}
+          pending={actions.isPending}
+          canReview={actions.canReview}
+          onClose={() => { setActionMode(null); setActionTarget(null); }}
+          onSubmit={(description, evidence) => { void submitAction(description, evidence); }}
+        />
+      ) : null}
       <ActionDialog
-        mode={actionMode}
+        mode={actionMode === 'reject' ? actionMode : null}
         item={actionTarget}
         pending={actions.isPending}
         onClose={() => { setActionMode(null); setActionTarget(null); }}
