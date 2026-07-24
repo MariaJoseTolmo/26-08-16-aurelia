@@ -1,0 +1,62 @@
+name: Temporary mobile review background sequence validation
+
+on:
+  pull_request:
+    paths:
+      - .github/validation/mobile-review-background-trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Apply review background sequence
+        run: python .github/scripts/tmp_apply_mobile_review_background_sequence.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Activate pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate mobile app
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+
+      - name: Commit review sequence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx
+          git commit -m "fix(mobile): preserve Figma review background sequence"
+          git push origin HEAD:feature/inspecciones/carlo
+
+      - name: Remove temporary patch
+        run: |
+          git pull --ff-only origin feature/inspecciones/carlo
+          git rm .github/scripts/tmp_apply_mobile_review_background_sequence.py
+          git commit -m "chore(ci): remove review sequence patch"
+          git push origin HEAD:feature/inspecciones/carlo
+
+      - name: Remove temporary workflow
+        run: |
+          git pull --ff-only origin feature/inspecciones/carlo
+          git rm .github/workflows/tmp-mobile-review-background-sequence.yml
+          git commit -m "chore(ci): remove review sequence workflow"
+          git push origin HEAD:feature/inspecciones/carlo
