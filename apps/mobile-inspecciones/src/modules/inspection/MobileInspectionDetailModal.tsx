@@ -7,12 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useQuery } from '@tanstack/react-query';
 import type {
   InspectionDetailEvidenceResponse,
@@ -24,8 +22,11 @@ import type {
 } from '@aurelia/contracts';
 import { API_URL } from '../../shared/services/http-client';
 import { fetchInspectionResponsibleUsers } from '../../shared/services/inspections.api';
-import { PhotoSourceSheet } from '../../shared/components/form/PhotoSourceSheet';
 import { MobileFindingExecutionModal } from './MobileFindingExecutionModal';
+import {
+  MobileFindingReviewDialog,
+  MobileFindingReviewSnackbar,
+} from './MobileFindingReviewFeedback';
 import { MobileInspectionChecklistResultPanel } from './MobileInspectionChecklistResultPanel';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useMobileSession } from '../auth/mobileSession.store';
@@ -36,7 +37,7 @@ import {
 } from './hooks/useMobileInspectionManagement';
 
 type DetailTab = 'observations' | 'result' | 'followups' | 'general';
-type ActionMode = 'execute' | 'reject' | null;
+type ActionMode = 'execute' | 'approve' | 'reject' | null;
 type ItemLabel = 'Obs.' | 'Ítem';
 type FontAwesomeName = React.ComponentProps<typeof FontAwesome5>['name'];
 
@@ -362,6 +363,7 @@ function FindingCard({
   readOnly,
   actions,
   onExecute,
+  onApprove,
   onReject,
 }: {
   inspectionId: string;
@@ -371,6 +373,7 @@ function FindingCard({
   readOnly: boolean;
   actions: ReturnType<typeof useMobileInspectionFindingActions>;
   onExecute: (item: InspectionDetailFindingItemResponse) => void;
+  onApprove: (item: InspectionDetailFindingItemResponse) => void;
   onReject: (item: InspectionDetailFindingItemResponse) => void;
 }) {
   const severity = severityColors(item.severityLabel);
@@ -389,20 +392,6 @@ function FindingCard({
     } catch (error) {
       Alert.alert('No se pudo reasignar el SLA', error instanceof Error ? error.message : 'Intenta nuevamente.');
     }
-  }
-
-  function approve() {
-    Alert.alert('Aprobar cierre', '¿Confirmas el cierre de esta observación?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Aprobar',
-        onPress: () => {
-          void actions.approve(inspectionId, item.findingId).catch((error: Error) => {
-            Alert.alert('No se pudo aprobar', error.message);
-          });
-        },
-      },
-    ]);
   }
 
   return (
@@ -495,7 +484,7 @@ function FindingCard({
               <FontAwesome5 name="times-circle" size={13} color={colors.dangerTxt} />
               <Text style={styles.rejectActionText}>Rechazar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.approveAction} disabled={actions.isPending} onPress={approve}>
+            <TouchableOpacity style={styles.approveAction} disabled={actions.isPending} onPress={() => onApprove(item)}>
               <FontAwesome5 name="check-circle" size={13} color={colors.white} solid />
               <Text style={styles.approveActionText}>Aprobar cierre</Text>
             </TouchableOpacity>
@@ -516,103 +505,6 @@ function FindingCard({
         onApply={(days) => { void reschedule(days); }}
       />
     </View>
-  );
-}
-
-function ActionDialog({
-  mode,
-  item,
-  pending,
-  onClose,
-  onSubmit,
-}: {
-  mode: ActionMode;
-  item: InspectionDetailFindingItemResponse | null;
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (description: string, evidence: MobileFindingEvidenceInput | null) => void;
-}) {
-  const [description, setDescription] = useState('');
-  const [evidence, setEvidence] = useState<MobileFindingEvidenceInput | null>(null);
-  const [photoSheet, setPhotoSheet] = useState(false);
-
-  useEffect(() => {
-    setDescription(mode === 'execute' ? item?.proposedCorrectiveAction ?? '' : '');
-    setEvidence(null);
-  }, [item, mode]);
-
-  async function pick(source: 'camera' | 'gallery') {
-    setPhotoSheet(false);
-    const permission = source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permiso requerido', 'Debes autorizar el acceso para adjuntar evidencia.');
-      return;
-    }
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-    const asset = result.canceled ? undefined : result.assets[0];
-    if (!asset) return;
-    setEvidence({
-      uri: asset.uri,
-      filename: asset.fileName ?? `evidencia-${Date.now()}.jpg`,
-      mimeType: asset.mimeType ?? 'image/jpeg',
-    });
-  }
-
-  if (!mode || !item) return null;
-  const isExecute = mode === 'execute';
-  const valid = description.trim().length > 0 && (!isExecute || Boolean(evidence));
-
-  return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.dialogOverlay}>
-        <View style={styles.dialog}>
-          <Text style={styles.dialogTitle}>
-            {isExecute
-              ? item.statusGroup === 'rejected' ? 'Reenviar evidencia' : 'Ejecutar observación'
-              : 'Rechazar ejecución'}
-          </Text>
-          <Text style={styles.dialogSubtitle}>
-            {isExecute
-              ? 'Describe la acción realizada y adjunta una fotografía posterior.'
-              : 'Registra un motivo claro para devolver la observación.'}
-          </Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            placeholder={isExecute ? 'Acción ejecutada' : 'Motivo de rechazo'}
-            placeholderTextColor={colors.placeholder}
-            style={styles.dialogInput}
-          />
-          {isExecute ? (
-            <TouchableOpacity style={[styles.photoButton, evidence && styles.photoButtonReady]} onPress={() => setPhotoSheet(true)}>
-              <FontAwesome5 name={evidence ? 'check-circle' : 'camera'} size={16} color={evidence ? colors.successTxt : colors.blueLink} solid={Boolean(evidence)} />
-              <Text style={[styles.photoButtonText, evidence && styles.photoButtonTextReady]}>
-                {evidence ? evidence.filename : 'Adjuntar fotografía después'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <View style={styles.dialogActions}>
-            <TouchableOpacity style={styles.dialogCancel} onPress={onClose} disabled={pending}>
-              <Text style={styles.dialogCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.dialogConfirm, !valid && styles.dialogConfirmDisabled]} onPress={() => onSubmit(description.trim(), evidence)} disabled={!valid || pending}>
-              {pending ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.dialogConfirmText}>Confirmar</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-        <PhotoSourceSheet
-          visible={photoSheet}
-          onClose={() => setPhotoSheet(false)}
-          onCamera={() => { void pick('camera'); }}
-          onGallery={() => { void pick('gallery'); }}
-        />
-      </View>
-    </Modal>
   );
 }
 
@@ -709,6 +601,7 @@ function ObservationsPanel({
   readOnly,
   actions,
   onExecute,
+  onApprove,
   onReject,
 }: {
   detail: InspectionDetailResponse;
@@ -717,6 +610,7 @@ function ObservationsPanel({
   readOnly: boolean;
   actions: ReturnType<typeof useMobileInspectionFindingActions>;
   onExecute: (item: InspectionDetailFindingItemResponse) => void;
+  onApprove: (item: InspectionDetailFindingItemResponse) => void;
   onReject: (item: InspectionDetailFindingItemResponse) => void;
 }) {
   const itemLabel: ItemLabel = detail.header.kind === 'checklist' ? 'Ítem' : 'Obs.';
@@ -750,6 +644,7 @@ function ObservationsPanel({
                     readOnly={readOnly}
                     actions={actions}
                     onExecute={onExecute}
+                    onApprove={onApprove}
                     onReject={onReject}
                   />
                 ))}
@@ -969,6 +864,7 @@ export function MobileInspectionDetailModal({
   const [expandedGroup, setExpandedGroup] = useState<InspectionDetailFindingGroupKey | null>(validGroup(requestedGroup));
   const [actionMode, setActionMode] = useState<ActionMode>(null);
   const [actionTarget, setActionTarget] = useState<InspectionDetailFindingItemResponse | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [reassignVisible, setReassignVisible] = useState(false);
 
   const detail = detailQuery.data;
@@ -988,6 +884,12 @@ export function MobileInspectionDetailModal({
     setExpandedGroup(requestedFinding?.statusGroup ?? validGroup(requestedGroup));
   }, [detail, requestedFindingId, requestedGroup, visible]);
 
+  useEffect(() => {
+    if (!reviewNotice) return undefined;
+    const timeoutId = setTimeout(() => setReviewNotice(null), 4000);
+    return () => clearTimeout(timeoutId);
+  }, [reviewNotice]);
+
   function openAction(mode: Exclude<ActionMode, null>, item: InspectionDetailFindingItemResponse) {
     setActionTarget(item);
     setActionMode(mode);
@@ -998,6 +900,8 @@ export function MobileInspectionDetailModal({
     try {
       if (actionMode === 'reject') {
         await actions.reject(detail.header.inspectionId, actionTarget.findingId, description);
+        setExpandedGroup(null);
+        setReviewNotice('Observación rechazada');
       } else if (actionMode === 'execute' && evidence) {
         await actions.executeWithEvidence({
           inspectionId: detail.header.inspectionId,
@@ -1014,6 +918,19 @@ export function MobileInspectionDetailModal({
       setActionTarget(null);
     } catch (error) {
       Alert.alert('No se pudo completar la acción', error instanceof Error ? error.message : 'Intenta nuevamente.');
+    }
+  }
+
+  async function submitApproval() {
+    if (!detail || !actionTarget) return;
+    try {
+      await actions.approve(detail.header.inspectionId, actionTarget.findingId);
+      setExpandedGroup(null);
+      setActionMode(null);
+      setActionTarget(null);
+      setReviewNotice('Observación aprobada');
+    } catch (error) {
+      Alert.alert('No se pudo aprobar', error instanceof Error ? error.message : 'Intenta nuevamente.');
     }
   }
 
@@ -1127,6 +1044,7 @@ export function MobileInspectionDetailModal({
                 readOnly={readOnly}
                 actions={actions}
                 onExecute={(item) => openAction('execute', item)}
+                onApprove={(item) => openAction('approve', item)}
                 onReject={(item) => openAction('reject', item)}
               />
             ) : null}
@@ -1149,6 +1067,10 @@ export function MobileInspectionDetailModal({
             </TouchableOpacity>
           </View>
         ) : null}
+        <MobileFindingReviewSnackbar
+          message={reviewNotice}
+          onClose={() => setReviewNotice(null)}
+        />
         </View>
       </View>
 
@@ -1165,12 +1087,12 @@ export function MobileInspectionDetailModal({
           onSubmit={(description, evidence) => { void submitAction(description, evidence); }}
         />
       ) : null}
-      <ActionDialog
-        mode={actionMode === 'reject' ? actionMode : null}
-        item={actionTarget}
+      <MobileFindingReviewDialog
+        mode={actionMode === 'approve' || actionMode === 'reject' ? actionMode : null}
         pending={actions.isPending}
         onClose={() => { setActionMode(null); setActionTarget(null); }}
-        onSubmit={(description, evidence) => { void submitAction(description, evidence); }}
+        onApprove={() => { void submitApproval(); }}
+        onReject={(reason) => { void submitAction(reason, null); }}
       />
       {detail ? (
         <ResponsibleSelector
