@@ -37,6 +37,8 @@ import {
 
 type DetailTab = 'observations' | 'result' | 'followups' | 'general';
 type ActionMode = 'execute' | 'reject' | null;
+type ItemLabel = 'Obs.' | 'Ítem';
+type FontAwesomeName = React.ComponentProps<typeof FontAwesome5>['name'];
 
 type Props = {
   visible: boolean;
@@ -67,15 +69,15 @@ type FollowupStep = {
 
 const groups: GroupConfig[] = [
   { key: 'executed', label: 'Ejecutadas', singular: 'Ejecutada', color: colors.dangerTxt, background: colors.dangerSurf, icon: 'check-circle' },
-  { key: 'open', label: 'Abiertas', singular: 'Abierta', color: colors.warnTxt, background: colors.warnSurf, icon: 'clock' },
-  { key: 'closed', label: 'Cerradas', singular: 'Cerrada', color: colors.successTxt, background: colors.successSurf, icon: 'check-circle' },
-  { key: 'rejected', label: 'Rechazadas', singular: 'Rechazada', color: colors.muted, background: '#f7f7f7', icon: 'times-circle' },
+  { key: 'open', label: 'Abiertas', singular: 'Abierto', color: colors.warnTxt, background: colors.warnSurf, icon: 'clock' },
+  { key: 'closed', label: 'Cerradas', singular: 'Cerrado', color: colors.successTxt, background: colors.successSurf, icon: 'check-circle' },
+  { key: 'rejected', label: 'Rechazadas', singular: 'Rechazado', color: colors.muted, background: '#f1f1f1', icon: 'times-circle' },
 ];
 
 const fallbackGroup = groups[1] ?? {
   key: 'open' as const,
   label: 'Abiertas',
-  singular: 'Abierta',
+  singular: 'Abierto',
   color: colors.warnTxt,
   background: colors.warnSurf,
   icon: 'clock' as const,
@@ -83,7 +85,9 @@ const fallbackGroup = groups[1] ?? {
 const apiOrigin = API_URL.replace(/\/api\/?$/, '');
 
 function validGroup(value: string | null | undefined): InspectionDetailFindingGroupKey | null {
-  return groups.some((group) => group.key === value) ? value as InspectionDetailFindingGroupKey : null;
+  return groups.some((group) => group.key === value)
+    ? value as InspectionDetailFindingGroupKey
+    : null;
 }
 
 function allFindings(detail: InspectionDetailResponse): InspectionDetailFindingItemResponse[] {
@@ -109,7 +113,7 @@ function daysLabel(value: string | null | undefined, fallback = 'Sin plazo'): st
   if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  const days = Math.ceil((date.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
   if (days < 0) return `${Math.abs(days)} días vencido`;
   return `${days} ${days === 1 ? 'día' : 'días'}`;
 }
@@ -142,19 +146,6 @@ function severityColors(label: string): { background: string; color: string; bor
   return { background: colors.successSurf, color: colors.successTxt, border: '#9bd98a' };
 }
 
-function highestSeverity(detail: InspectionDetailResponse): string | null {
-  const rank = (value: string) => {
-    const normalized = value.toLowerCase();
-    if (normalized.includes('crít') || normalized.includes('crit')) return 4;
-    if (normalized.includes('alto') || normalized.includes('grave')) return 3;
-    if (normalized.includes('moder')) return 2;
-    return 1;
-  };
-  return allFindings(detail)
-    .map((item) => item.severityLabel)
-    .sort((left, right) => rank(right) - rank(left))[0] ?? null;
-}
-
 function responsibleLabel(item: InspectionDetailFindingItemResponse): string {
   const person = item.responsibleUsers[0]?.fullName;
   return [person, item.responsibleCompanyName].filter(Boolean).join(' · ') || 'Responsable no asignado';
@@ -182,7 +173,9 @@ function EvidenceBox({
   const uri = evidenceUrl(evidence);
   return (
     <View style={styles.evidenceBox}>
-      <View style={styles.evidenceHeader}><Text style={styles.evidenceTitle}>{title}</Text></View>
+      <View style={styles.evidenceHeader}>
+        <Text style={styles.evidenceTitle}>{title}</Text>
+      </View>
       {uri ? (
         <Image
           source={{ uri, headers: token ? { Authorization: `Bearer ${token}` } : undefined }}
@@ -212,6 +205,7 @@ function FindingCard({
   inspectionId,
   item,
   index,
+  itemLabel,
   readOnly,
   actions,
   onExecute,
@@ -220,6 +214,7 @@ function FindingCard({
   inspectionId: string;
   item: InspectionDetailFindingItemResponse;
   index: number;
+  itemLabel: ItemLabel;
   readOnly: boolean;
   actions: ReturnType<typeof useMobileInspectionFindingActions>;
   onExecute: (item: InspectionDetailFindingItemResponse) => void;
@@ -227,7 +222,9 @@ function FindingCard({
 }) {
   const severity = severityColors(item.severityLabel);
   const group = groups.find((config) => config.key === item.statusGroup) ?? fallbackGroup;
-  const canExecute = !readOnly && actions.canExecute && (item.statusGroup === 'open' || item.statusGroup === 'rejected');
+  const canExecute = !readOnly
+    && actions.canExecute
+    && (item.statusGroup === 'open' || item.statusGroup === 'rejected');
   const canReview = !readOnly && actions.canReview && item.statusGroup === 'executed';
 
   function approve() {
@@ -245,22 +242,24 @@ function FindingCard({
   }
 
   return (
-    <View style={[styles.findingCard, item.statusGroup === 'executed' && styles.findingCardReview]}>
+    <View style={styles.findingCard}>
       <View style={styles.findingTop}>
         <View style={styles.pillRow}>
-          <View style={styles.indexPill}><Text style={styles.indexPillText}>Obs. {index + 1}</Text></View>
-          <View style={[styles.severityPill, { backgroundColor: severity.background }]}>
+          <View style={styles.indexPill}>
+            <Text style={styles.indexPillText}>{itemLabel} {index + 1}</Text>
+          </View>
+          <View style={[styles.severityPill, { backgroundColor: severity.background }]}> 
             <Text style={[styles.severityPillText, { color: severity.color }]}>{item.severityLabel}</Text>
           </View>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: group.background }]}>
+        <View style={[styles.statusPill, { backgroundColor: group.background }]}> 
           <FontAwesome5 name={group.icon} size={8} color={group.color} solid />
           <Text style={[styles.statusPillText, { color: group.color }]}>{group.singular}</Text>
         </View>
       </View>
 
       <View style={styles.findingCopy}>
-        <View style={[styles.textBlock, styles.textBlockBordered]}>
+        <View style={styles.textBlock}>
           <Text style={styles.blockLabel}>CONDICIÓN DETECTADA</Text>
           <Text style={styles.blockValue}>{item.condition || '—'}</Text>
         </View>
@@ -275,7 +274,7 @@ function FindingCard({
           </View>
         ) : null}
         {item.statusGroup === 'rejected' ? (
-          <View style={[styles.textBlock, styles.rejectBlock]}>
+          <View style={styles.rejectBlock}>
             <Text style={styles.blockLabel}>MOTIVO DE RECHAZO</Text>
             <Text style={[styles.blockValue, styles.rejectValue]}>{item.rejectionReason || '—'}</Text>
           </View>
@@ -310,7 +309,7 @@ function FindingCard({
         {canExecute ? (
           <TouchableOpacity style={styles.primaryAction} disabled={actions.isPending} onPress={() => onExecute(item)}>
             <Text style={styles.primaryActionText}>
-              {item.statusGroup === 'rejected' ? 'Ejecutar observación rechazada' : 'Ejecutar observación'}
+              {item.statusGroup === 'rejected' ? 'Reenviar evidencia' : 'Ejecutar observación'}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -327,7 +326,9 @@ function FindingCard({
           </View>
         ) : null}
         {!readOnly && item.statusGroup === 'executed' && !actions.canReview ? (
-          <View style={styles.waitingReview}><Text style={styles.waitingReviewText}>En espera de revisión Gold Fields</Text></View>
+          <View style={styles.waitingReview}>
+            <Text style={styles.waitingReviewText}>En espera de revisión Gold Fields</Text>
+          </View>
         ) : null}
       </View>
     </View>
@@ -420,7 +421,12 @@ function ActionDialog({
             </TouchableOpacity>
           </View>
         </View>
-        <PhotoSourceSheet visible={photoSheet} onClose={() => setPhotoSheet(false)} onCamera={() => { void pick('camera'); }} onGallery={() => { void pick('gallery'); }} />
+        <PhotoSourceSheet
+          visible={photoSheet}
+          onClose={() => setPhotoSheet(false)}
+          onCamera={() => { void pick('camera'); }}
+          onGallery={() => { void pick('gallery'); }}
+        />
       </View>
     </Modal>
   );
@@ -499,7 +505,9 @@ function ResponsibleSelector({
             })}
           </ScrollView>
           <View style={styles.dialogActions}>
-            <TouchableOpacity style={styles.dialogCancel} onPress={onClose}><Text style={styles.dialogCancelText}>Cancelar</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.dialogCancel} onPress={onClose}>
+              <Text style={styles.dialogCancelText}>Cancelar</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.dialogConfirm, selected.length === 0 && styles.dialogConfirmDisabled]} disabled={selected.length === 0 || pending} onPress={() => onConfirm(selected)}>
               <Text style={styles.dialogConfirmText}>Reasignar</Text>
             </TouchableOpacity>
@@ -527,6 +535,7 @@ function ObservationsPanel({
   onExecute: (item: InspectionDetailFindingItemResponse) => void;
   onReject: (item: InspectionDetailFindingItemResponse) => void;
 }) {
+  const itemLabel: ItemLabel = detail.header.kind === 'checklist' ? 'Ítem' : 'Obs.';
   return (
     <View style={styles.observationPanel}>
       {groups.map((group) => {
@@ -538,7 +547,7 @@ function ObservationsPanel({
               <View style={styles.groupCopy}>
                 <FontAwesome5 name={group.icon} size={15} color={group.color} solid />
                 <Text style={[styles.groupLabel, { color: group.color }]}>{group.label.toUpperCase()}</Text>
-                <View style={[styles.groupCount, { backgroundColor: group.background }]}>
+                <View style={[styles.groupCount, { backgroundColor: group.background }]}> 
                   <Text style={[styles.groupCountText, { color: group.color }]}>{items.length}</Text>
                 </View>
               </View>
@@ -553,6 +562,7 @@ function ObservationsPanel({
                     inspectionId={detail.header.inspectionId}
                     item={item}
                     index={index}
+                    itemLabel={itemLabel}
                     readOnly={readOnly}
                     actions={actions}
                     onExecute={onExecute}
@@ -632,6 +642,77 @@ function GeneralRow({ label, value, mono = false }: { label: string; value: stri
   );
 }
 
+function GeneralSectionCard({ icon, title, children }: { icon: FontAwesomeName; title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.generalSectionCard}>
+      <View style={styles.generalSectionHeader}>
+        <FontAwesome5 name={icon} size={11} color={colors.muted} />
+        <Text style={styles.generalSectionTitle}>{title}</Text>
+      </View>
+      <View>{children}</View>
+    </View>
+  );
+}
+
+function GeneralPhotoCard({ detail }: { detail: InspectionDetailResponse }) {
+  const token = useMobileSession((state) => state.accessToken);
+  const evidence = detail.general.generalEvidence[0];
+  const uri = evidenceUrl(evidence);
+  return (
+    <GeneralSectionCard icon="camera" title="FOTOGRAFÍA GENERAL DE LA INSPECCIÓN">
+      <View style={styles.generalPhotoFrame}>
+        {uri ? (
+          <Image
+            source={{ uri, headers: token ? { Authorization: `Bearer ${token}` } : undefined }}
+            style={styles.generalPhoto}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.generalPhotoEmpty}>
+            <FontAwesome5 name="image" size={18} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.generalPhotoEmptyText}>Sin fotografía general</Text>
+          </View>
+        )}
+        <View style={styles.generalPhotoLabel}>
+          <Text style={styles.generalPhotoLabelText}>FOTO GENERAL</Text>
+        </View>
+        <View style={styles.generalPhotoDate}>
+          <Text style={styles.generalPhotoDateText}>{formatDate(evidence?.capturedAt)}</Text>
+        </View>
+      </View>
+    </GeneralSectionCard>
+  );
+}
+
+function GeneralObservationsCard({ detail }: { detail: InspectionDetailResponse }) {
+  const findings = allFindings(detail);
+  const itemLabel: ItemLabel = detail.header.kind === 'checklist' ? 'Ítem' : 'Obs.';
+  return (
+    <GeneralSectionCard icon="list-ul" title={`${detail.header.kind === 'checklist' ? 'ÍTEMS NO' : 'OBSERVACIONES'} (${findings.length})`}>
+      {findings.length ? findings.map((item, index) => {
+        const severity = severityColors(item.severityLabel);
+        return (
+          <View key={item.findingId} style={[styles.generalObservation, index < findings.length - 1 && styles.generalObservationBorder]}>
+            <View style={styles.generalObservationChips}>
+              <View style={styles.indexPill}>
+                <Text style={styles.indexPillText}>{itemLabel} {index + 1}</Text>
+              </View>
+              <View style={[styles.severityPill, { backgroundColor: severity.background }]}> 
+                <Text style={[styles.severityPillText, { color: severity.color }]}>{item.severityLabel}</Text>
+              </View>
+            </View>
+            <Text style={styles.generalObservationText}>{item.condition || item.title || '—'}</Text>
+            <View style={styles.generalObservationSla}>
+              <Text style={styles.generalObservationSlaLabel}>SLA calculado</Text>
+              <Text style={styles.generalObservationSlaValue}>{daysLabel(item.dueAt, 'Sin plazo')}</Text>
+            </View>
+          </View>
+        );
+      }) : <Text style={styles.generalEmptyText}>No hay observaciones registradas.</Text>}
+    </GeneralSectionCard>
+  );
+}
+
 function GeneralPanel({
   detail,
   readOnly,
@@ -644,47 +725,47 @@ function GeneralPanel({
   onReassign: () => void;
 }) {
   const general = detail.general;
+  const inspectionType = detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo';
+  const areaSector = [general.areaName, general.sectorName].filter(Boolean).join(' · ') || '—';
   return (
     <View style={styles.tabContent}>
-      <View style={styles.sectionHeading}>
-        <FontAwesome5 name="info-circle" size={11} color={colors.blueLink} solid />
-        <Text style={styles.sectionHeadingText}>DATOS DE LA INSPECCIÓN</Text>
-      </View>
-      <View style={styles.generalTable}>
-        <GeneralRow label="Inspector" value={general.inspectorName ?? '—'} />
-        <GeneralRow label="Empresa (EECC)" value={general.companyName ?? general.inspectorCompanyName ?? '—'} />
-        <GeneralRow label="Área" value={general.areaName ?? '—'} />
-        <GeneralRow label="Sector" value={general.sectorName ?? '—'} />
+      <GeneralSectionCard icon="user-tie" title="QUIÉN REALIZÓ LA INSPECCIÓN">
+        <GeneralRow label="Nombre" value={general.inspectorName ?? '—'} />
+        <GeneralRow label="Empresa" value={general.inspectorCompanyName ?? general.companyName ?? '—'} />
+      </GeneralSectionCard>
+
+      <GeneralSectionCard icon="map-marker-alt" title="DÓNDE Y CUÁNDO">
+        <GeneralRow label="Área · Sector" value={areaSector} />
         <GeneralRow label="Fecha" value={formatDate(general.scheduledAt)} />
-        <GeneralRow label="Tipo" value={detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo'} />
+        <GeneralRow label="Tipo" value={inspectionType} />
+        {general.templateName ? <GeneralRow label="Plantilla" value={general.templateName} /> : null}
+        {general.templateCode ? <GeneralRow label="Código" value={general.templateCode} /> : null}
         <GeneralRow label="Ubicación UTM" value={coordinates(detail)} mono />
-      </View>
+      </GeneralSectionCard>
+
+      <GeneralPhotoCard detail={detail} />
+      <GeneralObservationsCard detail={detail} />
 
       {general.responsibles.length > 0 ? (
-        <View style={styles.responsiblesSection}>
-          <View style={styles.sectionHeading}>
-            <FontAwesome5 name="user-friends" size={11} color={colors.blueLink} />
-            <Text style={styles.sectionHeadingText}>RESPONSABLES</Text>
-          </View>
-          <View style={styles.responsibleCard}>
-            {general.responsibles.map((responsible, index) => (
-              <View key={responsible.userId} style={[styles.generalResponsible, index < general.responsibles.length - 1 && styles.generalResponsibleBorder]}>
-                <View style={styles.avatar}><Text style={styles.avatarText}>{initials(responsible.fullName)}</Text></View>
-                <View style={styles.responsibleCopy}>
-                  <Text style={styles.responsibleName}>{responsible.fullName}</Text>
-                  <Text style={styles.responsibleRole}>{responsible.position ?? responsible.companyName ?? 'Sin cargo'}</Text>
-                </View>
-                {responsible.currentUser ? <View style={styles.youPill}><Text style={styles.youPillText}>Tú</Text></View> : null}
+        <GeneralSectionCard icon="user-friends" title="RESPONSABLES">
+          <GeneralRow label="EECC" value={general.companyName ?? '—'} />
+          {general.responsibles.map((responsible, index) => (
+            <View key={responsible.userId} style={[styles.generalResponsible, index < general.responsibles.length - 1 && styles.generalResponsibleBorder]}>
+              <View style={styles.avatar}><Text style={styles.avatarText}>{initials(responsible.fullName)}</Text></View>
+              <View style={styles.responsibleCopy}>
+                <Text style={styles.responsibleName}>{responsible.fullName}</Text>
+                <Text style={styles.responsibleRole}>{responsible.position ?? responsible.companyName ?? 'Sin cargo'}</Text>
               </View>
-            ))}
-            {!readOnly && canReassign ? (
-              <TouchableOpacity style={styles.reassignButton} onPress={onReassign}>
-                <FontAwesome5 name="user-edit" size={13} color={colors.blueLink} />
-                <Text style={styles.reassignText}>Reasignar responsables</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
+              {responsible.currentUser ? <View style={styles.youPill}><Text style={styles.youPillText}>Tú</Text></View> : null}
+            </View>
+          ))}
+          {!readOnly && canReassign ? (
+            <TouchableOpacity style={styles.reassignButton} onPress={onReassign}>
+              <FontAwesome5 name="user-plus" size={13} color={colors.blueLink} />
+              <Text style={styles.reassignText}>Reasignar a otro compañero</Text>
+            </TouchableOpacity>
+          ) : null}
+        </GeneralSectionCard>
       ) : null}
     </View>
   );
@@ -716,7 +797,9 @@ export function MobileInspectionDetailModal({
       setExpandedGroup(validGroup(requestedGroup));
       return;
     }
-    const requestedFinding = requestedFindingId ? allFindings(detail).find((item) => item.findingId === requestedFindingId) : null;
+    const requestedFinding = requestedFindingId
+      ? allFindings(detail).find((item) => item.findingId === requestedFindingId)
+      : null;
     setExpandedGroup(requestedFinding?.statusGroup ?? validGroup(requestedGroup));
   }, [detail, requestedFindingId, requestedGroup, visible]);
 
@@ -752,7 +835,11 @@ export function MobileInspectionDetailModal({
   async function confirmReassign(ids: string[]) {
     if (!detail) return;
     try {
-      await actions.reassignResponsibles(detail.header.inspectionId, allFindings(detail).map((item) => item.findingId), ids);
+      await actions.reassignResponsibles(
+        detail.header.inspectionId,
+        allFindings(detail).map((item) => item.findingId),
+        ids,
+      );
       setReassignVisible(false);
     } catch (error) {
       Alert.alert('No se pudo reasignar', error instanceof Error ? error.message : 'Intenta nuevamente.');
@@ -771,8 +858,6 @@ export function MobileInspectionDetailModal({
         { key: 'followups', label: 'Seguimientos' },
         { key: 'general', label: 'Datos generales' },
       ];
-  const severityLabel = detail ? highestSeverity(detail) : null;
-  const severity = severityLabel ? severityColors(severityLabel) : null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -783,23 +868,18 @@ export function MobileInspectionDetailModal({
             <Text style={styles.headerTitle} numberOfLines={2}>{detail?.header.title ?? 'Cargando inspección'}</Text>
             {detail ? (
               <View style={styles.headerMetadata}>
-                {severity && severityLabel ? (
-                  <View style={[styles.headerSeverity, { backgroundColor: severity.background, borderColor: severity.border }]}>
-                    <Text style={[styles.headerSeverityText, { color: severity.color }]}>{severityLabel}</Text>
-                  </View>
-                ) : null}
-                {detail.general.templateName ? <Text style={styles.headerMetaText}>· {detail.general.templateName}</Text> : null}
-                <Text style={styles.headerMetaText}>· {formatDate(detail.general.scheduledAt)}</Text>
-                {readOnly ? <Text style={styles.headerReadOnly}>· Solo lectura</Text> : null}
+                <Text style={styles.headerMetaText}>{detail.header.metadataLine1}</Text>
+                {detail.header.metadataLine2 ? <Text style={styles.headerMetaText}>{detail.header.metadataLine2}</Text> : null}
+                {readOnly ? <Text style={styles.headerReadOnly}>Solo lectura</Text> : null}
               </View>
             ) : null}
           </View>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Cerrar detalle">
-            <FontAwesome5 name="times" size={16} color="rgba(255,255,255,0.75)" />
+            <FontAwesome5 name="times" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {detail && !forceReadOnly ? (
+        {detail ? (
           <View style={styles.progressPanel}>
             <View style={styles.progressTop}>
               <Text style={styles.progressLabel}>Progreso de observaciones</Text>
@@ -810,7 +890,7 @@ export function MobileInspectionDetailModal({
             </View>
             <View style={styles.counterRow}>
               {groups.map((group) => (
-                <View key={group.key} style={[styles.counter, { backgroundColor: group.background }]}>
+                <View key={group.key} style={[styles.counter, { backgroundColor: group.background }]}> 
                   <FontAwesome5 name={group.icon} size={8} color={group.color} solid />
                   <Text style={[styles.counterText, { color: group.color }]}>{detail.header.counts[group.key]} {group.label}</Text>
                 </View>
@@ -839,7 +919,9 @@ export function MobileInspectionDetailModal({
           <View style={styles.loading}>
             <Text style={styles.errorTitle}>No fue posible cargar el detalle</Text>
             <Text style={styles.loadingText}>Verifica tu conexión y permisos.</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => { void detailQuery.refetch(); }}><Text style={styles.retryText}>Reintentar</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.retryButton} onPress={() => { void detailQuery.refetch(); }}>
+              <Text style={styles.retryText}>Reintentar</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -862,6 +944,18 @@ export function MobileInspectionDetailModal({
               <GeneralPanel detail={detail} readOnly={readOnly} canReassign={actions.canReassign} onReassign={() => setReassignVisible(true)} />
             ) : null}
           </ScrollView>
+        ) : null}
+
+        {detail ? (
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.pdfButton}
+              onPress={() => Alert.alert('Descargar PDF', 'La exportación PDF autenticada está disponible actualmente desde la versión web.')}
+            >
+              <FontAwesome5 name="file-pdf" size={13} color={colors.body} />
+              <Text style={styles.pdfButtonText}>Descargar PDF</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
       </SafeAreaView>
 
@@ -886,17 +980,15 @@ export function MobileInspectionDetailModal({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
-  header: { minHeight: 91, paddingHorizontal: 20, paddingVertical: 16, backgroundColor: colors.navy, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  screen: { flex: 1, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  header: { minHeight: 110, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   headerCopy: { flex: 1, paddingRight: 12 },
-  headerEyebrow: { color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
-  headerTitle: { marginTop: 2, color: colors.white, fontSize: 16, lineHeight: 20, fontWeight: fontWeight.bold },
-  headerMetadata: { minHeight: 22, marginTop: 4, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  headerSeverity: { minHeight: 18, borderRadius: 6, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 2 },
-  headerSeverityText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
-  headerMetaText: { color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 13 },
-  headerReadOnly: { color: '#9ed1ff', fontSize: 10, lineHeight: 13, fontWeight: fontWeight.semibold },
-  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  headerEyebrow: { color: colors.navy, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
+  headerTitle: { marginTop: 2, color: colors.body, fontSize: 16, lineHeight: 22, fontWeight: fontWeight.bold },
+  headerMetadata: { marginTop: 4, alignItems: 'flex-start', gap: 2 },
+  headerMetaText: { color: colors.muted, fontSize: 11, lineHeight: 14 },
+  headerReadOnly: { color: colors.blueLink, fontSize: 10, lineHeight: 13, fontWeight: fontWeight.semibold },
+  closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   progressPanel: { backgroundColor: '#143049', paddingHorizontal: 14, paddingVertical: 10 },
   progressTop: { flexDirection: 'row', justifyContent: 'space-between' },
   progressLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, lineHeight: 12 },
@@ -909,10 +1001,10 @@ const styles = StyleSheet.create({
   tabs: { minHeight: 37, flexDirection: 'row', backgroundColor: '#f7f7f7', borderBottomWidth: 2, borderBottomColor: colors.border },
   tab: { flex: 1, minHeight: 37, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: colors.gold },
-  tabText: { color: colors.muted, fontSize: 11, lineHeight: 14, fontWeight: fontWeight.semibold, textAlign: 'center' },
+  tabText: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.semibold, textAlign: 'center' },
   tabTextActive: { color: colors.goldDark },
   body: { flex: 1, backgroundColor: colors.white },
-  bodyContent: { flexGrow: 1, paddingBottom: 28 },
+  bodyContent: { flexGrow: 1, paddingBottom: 16 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 26 },
   loadingText: { marginTop: 10, color: colors.muted, fontSize: 12, textAlign: 'center' },
   errorTitle: { color: colors.navy, fontSize: 16, fontWeight: fontWeight.bold },
@@ -921,13 +1013,12 @@ const styles = StyleSheet.create({
   observationPanel: { backgroundColor: colors.white },
   groupRow: { minHeight: 56, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
   groupCopy: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  groupLabel: { fontSize: 11, lineHeight: 13, letterSpacing: 0.66, fontWeight: fontWeight.bold },
+  groupLabel: { fontSize: 10, lineHeight: 13, letterSpacing: 0.6, fontWeight: fontWeight.bold },
   groupCount: { minWidth: 20, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   groupCountText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
-  groupBody: { gap: 24, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 24, backgroundColor: colors.white },
+  groupBody: { gap: 12, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 20, backgroundColor: colors.white },
   emptyGroup: { minHeight: 92, paddingVertical: 32, color: colors.muted, fontSize: 12, textAlign: 'center', fontWeight: fontWeight.semibold },
-  findingCard: { borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: colors.borderMid, backgroundColor: '#f7f7f7', paddingHorizontal: 13, paddingVertical: 13, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
-  findingCardReview: { borderColor: '#e7b1bf', borderLeftColor: colors.danger },
+  findingCard: { borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#f7f7f7', paddingHorizontal: 13, paddingVertical: 13, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
   findingTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   indexPill: { minHeight: 19, borderRadius: 6, backgroundColor: colors.blueSurf, justifyContent: 'center', paddingHorizontal: 8 },
@@ -936,10 +1027,9 @@ const styles = StyleSheet.create({
   severityPillText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
   statusPill: { minHeight: 19, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2 },
   statusPillText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
-  findingCopy: { marginTop: 12, gap: 4 },
-  textBlock: { borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 10, paddingVertical: 8 },
-  textBlockBordered: { borderWidth: 1, borderColor: colors.border },
-  rejectBlock: { backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf },
+  findingCopy: { marginTop: 12, gap: 12 },
+  textBlock: { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 },
+  rejectBlock: { borderRadius: 8, backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf, paddingHorizontal: 10, paddingVertical: 8 },
   blockLabel: { color: colors.muted, fontSize: 9, lineHeight: 11, letterSpacing: 1.2, fontWeight: fontWeight.bold },
   blockValue: { marginTop: 3, color: colors.primary, fontSize: 12, lineHeight: 17 },
   rejectValue: { color: colors.dangerTxt },
@@ -951,7 +1041,7 @@ const styles = StyleSheet.create({
   evidenceTitle: { color: 'rgba(255,255,255,0.7)', fontSize: 9, lineHeight: 11, letterSpacing: 0.45, fontWeight: fontWeight.bold },
   evidenceImage: { flex: 1, width: '100%' },
   evidenceEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#d8eff9' },
-  evidenceAfterEmpty: { backgroundColor: '#dfffd1' },
+  evidenceAfterEmpty: { backgroundColor: '#f7f7f7' },
   evidenceEmptyText: { color: colors.placeholder, fontSize: 10, lineHeight: 12 },
   openSlaCard: { minHeight: 64, marginTop: 4, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: '#f7f7f7', justifyContent: 'center', paddingHorizontal: 15 },
   openSlaLabel: { color: colors.body, fontSize: 9, lineHeight: 11, letterSpacing: 0.63, fontWeight: fontWeight.bold },
@@ -960,11 +1050,11 @@ const styles = StyleSheet.create({
   compactInfoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
   compactInfoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },
   primaryAction: { height: 52, marginTop: 4, borderRadius: 14, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
-  primaryActionText: { color: colors.white, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
+  primaryActionText: { color: colors.white, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
   reviewActions: { marginTop: 4, flexDirection: 'row', gap: 8, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 9 },
   rejectAction: { height: 40, flex: 1, borderRadius: 9, borderWidth: 2, borderColor: '#c4365a', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   rejectActionText: { color: colors.dangerTxt, fontSize: 12, fontWeight: fontWeight.bold },
-  approveAction: { height: 40, flex: 1.4, borderRadius: 9, backgroundColor: colors.ok, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  approveAction: { height: 40, flex: 1.4, borderRadius: 9, backgroundColor: '#3a9b3a', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   approveActionText: { color: colors.white, fontSize: 12, fontWeight: fontWeight.bold },
   waitingReview: { marginTop: 4, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
   waitingReviewText: { color: colors.muted, fontSize: 11, textAlign: 'center', fontWeight: fontWeight.semibold },
@@ -996,7 +1086,7 @@ const styles = StyleSheet.create({
   responsibleCopy: { flex: 1 },
   responsibleName: { color: colors.primary, fontSize: 12, fontWeight: fontWeight.bold },
   responsibleRole: { marginTop: 3, color: colors.muted, fontSize: 10 },
-  tabContent: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 20, paddingVertical: 20 },
+  tabContent: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 16, gap: 12 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionHeadingText: { color: colors.muted, fontSize: 11, lineHeight: 13, letterSpacing: 0.55, fontWeight: fontWeight.bold },
   timeline: { marginTop: 10 },
@@ -1012,17 +1102,36 @@ const styles = StyleSheet.create({
   timelineTitle: { color: colors.primary, fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
   timelineDate: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 13 },
   timelineDescription: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 15 },
-  generalTable: { marginTop: 10 },
-  generalRow: { minHeight: 34, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 8 },
+  generalSectionCard: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
+  generalSectionHeader: { minHeight: 29, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12 },
+  generalSectionTitle: { color: colors.muted, fontSize: 10, lineHeight: 13, letterSpacing: 0.5, fontWeight: fontWeight.bold },
+  generalRow: { minHeight: 34, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingHorizontal: 12, paddingVertical: 9 },
   generalRowLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
   generalRowValue: { flex: 1, color: colors.primary, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.semibold, textAlign: 'right' },
   generalRowMono: { fontSize: 10, letterSpacing: 0.3 },
-  responsiblesSection: { marginTop: 24 },
-  responsibleCard: { marginTop: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.white },
+  generalPhotoFrame: { height: 112, margin: 12, borderRadius: 8, overflow: 'hidden', backgroundColor: '#142d50' },
+  generalPhoto: { width: '100%', height: '100%' },
+  generalPhotoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#142d50' },
+  generalPhotoEmptyText: { color: 'rgba(255,255,255,0.7)', fontSize: 10 },
+  generalPhotoLabel: { position: 'absolute', top: 8, left: 8, borderRadius: 3, backgroundColor: colors.navy, paddingHorizontal: 7, paddingVertical: 3 },
+  generalPhotoLabelText: { color: colors.white, fontSize: 8, lineHeight: 10, letterSpacing: 1.1, fontWeight: fontWeight.bold },
+  generalPhotoDate: { position: 'absolute', right: 8, bottom: 7, borderRadius: 3, backgroundColor: 'rgba(0,30,57,0.78)', paddingHorizontal: 6, paddingVertical: 3 },
+  generalPhotoDateText: { color: 'rgba(255,255,255,0.8)', fontSize: 8, lineHeight: 10 },
+  generalObservation: { paddingHorizontal: 12, paddingVertical: 11 },
+  generalObservationBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  generalObservationChips: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  generalObservationText: { marginTop: 8, color: colors.body, fontSize: 12, lineHeight: 17 },
+  generalObservationSla: { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  generalObservationSlaLabel: { color: colors.muted, fontSize: 11, lineHeight: 14 },
+  generalObservationSlaValue: { color: colors.body, fontSize: 11, lineHeight: 14, fontWeight: fontWeight.bold },
+  generalEmptyText: { paddingHorizontal: 12, paddingVertical: 20, color: colors.muted, fontSize: 11, textAlign: 'center' },
   generalResponsible: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9 },
   generalResponsibleBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   youPill: { minHeight: 16, borderRadius: 5, backgroundColor: colors.tealSurf, justifyContent: 'center', paddingHorizontal: 7 },
   youPillText: { color: colors.teal, fontSize: 10, fontWeight: fontWeight.bold },
-  reassignButton: { minHeight: 42, margin: 12, borderRadius: 8, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderMid, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  reassignButton: { minHeight: 42, margin: 12, borderRadius: 8, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderMid, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   reassignText: { color: colors.blueLink, fontSize: 12, fontWeight: fontWeight.semibold },
+  footer: { minHeight: 70, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 15, paddingBottom: 14 },
+  pdfButton: { height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  pdfButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },
 });

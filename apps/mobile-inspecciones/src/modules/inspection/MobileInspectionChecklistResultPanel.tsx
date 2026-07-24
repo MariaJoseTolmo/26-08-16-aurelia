@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
 import {
   InspectionAnswerValue,
   type InspectionDetailChecklistItemResponse,
@@ -17,34 +18,33 @@ function answerLabel(value: string | null | undefined) {
 }
 
 function answerTone(value: string | null | undefined) {
-  if (value === InspectionAnswerValue.NOT_COMPLIANT) return { backgroundColor: colors.dangerSurf, color: colors.dangerTxt };
-  if (value === InspectionAnswerValue.PARTIAL) return { backgroundColor: colors.warnSurf, color: colors.warnTxt };
-  if (value === InspectionAnswerValue.NOT_APPLICABLE || value === InspectionAnswerValue.NOT_OBSERVED) {
-    return { backgroundColor: '#f7f7f7', color: colors.muted };
+  if (value === InspectionAnswerValue.NOT_COMPLIANT) {
+    return { backgroundColor: colors.dangerSurf, color: colors.dangerTxt };
   }
-  if (value === InspectionAnswerValue.COMPLIANT) return { backgroundColor: colors.successSurf, color: colors.successTxt };
+  if (value === InspectionAnswerValue.PARTIAL) {
+    return { backgroundColor: colors.warnSurf, color: colors.warnTxt };
+  }
+  if (value === InspectionAnswerValue.NOT_APPLICABLE || value === InspectionAnswerValue.NOT_OBSERVED) {
+    return { backgroundColor: '#f1f1f1', color: colors.muted };
+  }
+  if (value === InspectionAnswerValue.COMPLIANT) {
+    return { backgroundColor: colors.successSurf, color: colors.successTxt };
+  }
   return { backgroundColor: colors.border, color: colors.placeholder };
 }
 
-function percentage(value: number): `${number}%` {
-  return `${Math.max(0, Math.min(100, value))}%`;
-}
-
-function SummaryMetric({
-  value,
-  label,
-  backgroundColor,
-  color,
-}: {
+type SummaryColumnProps = {
   value: number;
   label: string;
-  backgroundColor: string;
   color: string;
-}) {
+  bordered?: boolean;
+};
+
+function SummaryColumn({ value, label, color, bordered = false }: SummaryColumnProps) {
   return (
-    <View style={[styles.metric, { backgroundColor }]}>
-      <Text style={[styles.metricValue, { color }]}>{value}</Text>
-      <Text style={[styles.metricLabel, { color }]}>{label}</Text>
+    <View style={[styles.summaryColumn, bordered && styles.summaryColumnBorder]}>
+      <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
@@ -60,7 +60,9 @@ function ResultItem({ item, index }: { item: InspectionDetailChecklistItemRespon
       <Text style={[styles.itemNumber, isNo && styles.itemNumberNo]}>{index + 1}</Text>
       <View style={styles.itemCopy}>
         <Text style={[styles.question, isNo && styles.questionNo]}>{item.question}</Text>
-        {comment.trim() ? <Text style={[styles.comment, isNo && styles.commentNo]}>Comentario: {comment}</Text> : null}
+        {comment.trim() ? (
+          <Text style={[styles.comment, isNo && styles.commentNo]}>Comentario: {comment}</Text>
+        ) : null}
       </View>
       <View style={[styles.answer, { backgroundColor: tone.backgroundColor }]}>
         <Text style={[styles.answerText, { color: tone.color }]}>{answerLabel(value)}</Text>
@@ -71,80 +73,201 @@ function ResultItem({ item, index }: { item: InspectionDetailChecklistItemRespon
 
 export function MobileInspectionChecklistResultPanel({ result }: { result: InspectionDetailChecklistResultResponse | null }) {
   if (!result) {
-    return <View style={styles.empty}><Text style={styles.emptyText}>No hay resultado de checklist disponible.</Text></View>;
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No hay resultado de checklist disponible.</Text>
+      </View>
+    );
   }
 
   const items = result.sections.flatMap((section) => section.items);
   const neutral = result.summary.notApplicable + result.summary.notObserved;
-  const neutralLabel = result.summary.partial > 0 ? 'N/A · Parcial' : 'N/A · No aplica';
-  const neutralValue = neutral + result.summary.partial;
-  const total = Math.max(result.summary.total, 1);
-  const compliantWidth = percentage((result.summary.compliant / total) * 100);
-  const notCompliantWidth = percentage((result.summary.notCompliant / total) * 100);
-  const neutralWidth = percentage((neutralValue / total) * 100);
+  const supplementary = result.summary.partial + result.summary.unanswered;
 
   return (
     <View style={styles.container}>
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionIcon}>☷</Text>
-        <Text style={styles.sectionTitle}>RESUMEN · {result.summary.total} ÍTEMS</Text>
-      </View>
-
       <View style={styles.summaryCard}>
-        <View style={styles.summaryRail}>
-          <View style={[styles.summarySegment, styles.compliantSegment, { width: compliantWidth }]} />
-          <View style={[styles.summarySegment, styles.notCompliantSegment, { width: notCompliantWidth }]} />
-          <View style={[styles.summarySegment, styles.neutralSegment, { width: neutralWidth }]} />
-        </View>
-        <View style={styles.metricGrid}>
-          <SummaryMetric value={result.summary.compliant} label="✓ · SÍ · Conforme" backgroundColor={colors.successSurf} color={colors.successTxt} />
-          <SummaryMetric value={result.summary.notCompliant} label="× · NO · Requieren corrección" backgroundColor={colors.dangerSurf} color={colors.dangerTxt} />
-          <SummaryMetric value={neutralValue} label={neutralLabel} backgroundColor="#f7f7f7" color={colors.muted} />
-          <SummaryMetric value={result.summary.unanswered} label="Sin respuesta" backgroundColor={colors.border} color={colors.placeholder} />
-        </View>
+        <SummaryColumn value={result.summary.compliant} label="SÍ" color={colors.successTxt} />
+        <SummaryColumn value={result.summary.notCompliant} label="NO" color={colors.dangerTxt} bordered />
+        <SummaryColumn value={neutral} label="N/A" color={colors.muted} bordered />
       </View>
 
-      <View style={[styles.sectionHeading, styles.detailHeading]}>
-        <Text style={styles.sectionIcon}>☷</Text>
+      {supplementary > 0 ? (
+        <View style={styles.supplementaryRow}>
+          <Text style={styles.supplementaryText}>
+            {result.summary.partial} parciales · {result.summary.unanswered} sin respuesta
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={styles.sectionHeading}>
+        <FontAwesome5 name="list-ol" size={11} color={colors.blueLink} />
         <Text style={styles.sectionTitle}>DETALLE ÍTEM A ÍTEM</Text>
       </View>
+
       <View style={styles.items}>
-        {items.length
-          ? items.map((item, index) => <ResultItem key={item.checklistItemId} item={item} index={index} />)
-          : <Text style={styles.emptyText}>No hay ítems de checklist para mostrar.</Text>}
+        {items.length ? (
+          items.map((item, index) => (
+            <ResultItem key={item.checklistItemId} item={item} index={index} />
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No hay ítems de checklist para mostrar.</Text>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: colors.white, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionIcon: { color: colors.blueLink, fontSize: 13, lineHeight: 14 },
-  sectionTitle: { color: colors.muted, fontSize: 11, letterSpacing: 0.55, fontWeight: fontWeight.bold },
-  summaryCard: { marginTop: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#f7f7f7', padding: 15 },
-  summaryRail: { height: 6, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.border, flexDirection: 'row' },
-  summarySegment: { height: 6 },
-  compliantSegment: { backgroundColor: colors.ok },
-  notCompliantSegment: { backgroundColor: '#c4365a' },
-  neutralSegment: { backgroundColor: colors.borderMid },
-  metricGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metric: { width: '48.8%', minHeight: 60, borderRadius: 8, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 9 },
-  metricValue: { fontSize: 20, lineHeight: 23, fontWeight: fontWeight.bold },
-  metricLabel: { marginTop: 2, fontSize: 10, lineHeight: 13 },
-  detailHeading: { marginTop: 20, marginBottom: 10 },
-  items: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden', backgroundColor: colors.white },
-  item: { minHeight: 42, flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },
-  itemNo: { backgroundColor: colors.dangerSurf },
-  itemNumber: { minWidth: 14, paddingTop: 2, color: colors.placeholder, fontSize: 10, fontWeight: fontWeight.bold },
-  itemNumberNo: { color: colors.danger },
-  itemCopy: { flex: 1 },
-  question: { color: colors.body, fontSize: 12, lineHeight: 17 },
-  questionNo: { color: colors.dangerTxt, fontWeight: fontWeight.semibold },
-  comment: { marginTop: 5, color: colors.body, fontSize: 10, lineHeight: 14 },
-  commentNo: { color: colors.dangerTxt },
-  answer: { minHeight: 16, borderRadius: 6, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 2 },
-  answerText: { fontSize: 9, fontWeight: fontWeight.bold },
-  empty: { minHeight: 180, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: colors.white },
-  emptyText: { paddingVertical: 24, color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', fontWeight: fontWeight.semibold },
+  container: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  summaryCard: {
+    minHeight: 70,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 1.5,
+    elevation: 1,
+  },
+  summaryColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  summaryColumnBorder: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  summaryValue: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: fontWeight.bold,
+  },
+  summaryLabel: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: fontWeight.semibold,
+  },
+  supplementaryRow: {
+    minHeight: 28,
+    marginTop: 8,
+    borderRadius: 7,
+    backgroundColor: '#f7f7f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  supplementaryText: {
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  sectionHeading: {
+    marginTop: 20,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  sectionTitle: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: 0.55,
+    fontWeight: fontWeight.bold,
+  },
+  items: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.white,
+  },
+  item: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  itemNo: {
+    backgroundColor: colors.dangerSurf,
+  },
+  itemNumber: {
+    width: 18,
+    paddingTop: 2,
+    color: colors.placeholder,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: fontWeight.bold,
+  },
+  itemNumberNo: {
+    color: colors.danger,
+  },
+  itemCopy: {
+    flex: 1,
+  },
+  question: {
+    color: colors.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  questionNo: {
+    color: colors.dangerTxt,
+    fontWeight: fontWeight.semibold,
+  },
+  comment: {
+    marginTop: 5,
+    color: colors.body,
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  commentNo: {
+    color: colors.dangerTxt,
+  },
+  answer: {
+    minHeight: 18,
+    borderRadius: 6,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  answerText: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: fontWeight.bold,
+  },
+  empty: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: colors.white,
+  },
+  emptyText: {
+    paddingVertical: 24,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    fontWeight: fontWeight.semibold,
+  },
 });
