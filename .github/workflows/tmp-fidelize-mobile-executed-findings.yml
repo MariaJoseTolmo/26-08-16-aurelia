@@ -1,0 +1,242 @@
+name: Temporary mobile executed finding fidelity
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tmp-fidelize-mobile-executed-findings.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Apply executed finding fidelity
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx')
+          text = path.read_text()
+
+          old = """function groupCounterLabel(group: GroupConfig, count: number): string {
+            return count === 1 ? group.singular : group.label;
+          }
+          """
+          new = """function groupCounterLabel(group: GroupConfig, count: number): string {
+            return count === 1 ? group.singular : group.label;
+          }
+
+          function findingStatusLabel(group: InspectionDetailFindingGroupKey): string {
+            if (group === 'executed') return 'Ejecutado';
+            if (group === 'open') return 'Abierto';
+            if (group === 'closed') return 'Cerrado';
+            return 'Rechazado';
+          }
+          """
+          if text.count(old) != 1:
+              raise SystemExit('groupCounterLabel insertion point not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              """  after = false,
+            emptyLabel,
+          }: {
+            title: string;
+            evidence?: InspectionDetailEvidenceResponse;
+            after?: boolean;
+            emptyLabel: string;
+          }) {""",
+              """  after = false,
+            completed = false,
+            emptyLabel,
+          }: {
+            title: string;
+            evidence?: InspectionDetailEvidenceResponse;
+            after?: boolean;
+            completed?: boolean;
+            emptyLabel: string;
+          }) {""",
+              1,
+          )
+          text = text.replace(
+              """        <View style={[styles.evidenceEmpty, after && styles.evidenceAfterEmpty]}>
+                    {after ? null : <FontAwesome5 name=\"image\" size={16} color={colors.blueLink} />}
+                    <Text style={styles.evidenceEmptyText}>{emptyLabel}</Text>
+                  </View>""",
+              """        <View style={[styles.evidenceEmpty, after && styles.evidenceAfterEmpty, completed && styles.evidenceCompletedEmpty]}>
+                    {after && !completed ? null : (
+                      <FontAwesome5 name=\"image\" size={completed ? 20 : 16} color={completed ? colors.successTxt : colors.blueLink} />
+                    )}
+                    <Text style={[styles.evidenceEmptyText, completed && styles.evidenceCompletedText]}>{emptyLabel}</Text>
+                  </View>""",
+              1,
+          )
+
+          old = """function CompactInfoRow({ label, value, valueColor = colors.primary }: { label: string; value: string; valueColor?: string }) {
+            return (
+              <View style={styles.compactInfoRow}>
+                <Text style={styles.compactInfoLabel}>{label}</Text>
+                <Text style={[styles.compactInfoValue, { color: valueColor }]}>{value}</Text>
+              </View>
+            );
+          }
+          """
+          new = """function CompactInfoRow({
+            label,
+            value,
+            valueColor = colors.primary,
+            alert = false,
+          }: {
+            label: string;
+            value: string;
+            valueColor?: string;
+            alert?: boolean;
+          }) {
+            return (
+              <View style={styles.compactInfoRow}>
+                <Text style={styles.compactInfoLabel}>{label}</Text>
+                <View style={styles.compactInfoValueRow}>
+                  {alert ? <FontAwesome5 name=\"exclamation-circle\" size={9} color={valueColor} solid /> : null}
+                  <Text style={[styles.compactInfoValue, { color: valueColor }]}>{value}</Text>
+                </View>
+              </View>
+            );
+          }
+          """
+          if text.count(old) != 1:
+              raise SystemExit('CompactInfoRow block not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              """          <Text style={[styles.statusPillText, { color: group.color }]}>{group.singular}</Text>""",
+              """          <Text style={[styles.statusPillText, { color: group.color }]}>{findingStatusLabel(item.statusGroup)}</Text>""",
+              1,
+          )
+          text = text.replace(
+              """          <EvidenceBox title=\"DESPUÉS\" evidence={item.afterEvidence[0]} after emptyLabel=\"Pendiente EECC\" />""",
+              """          <EvidenceBox
+                    title=\"DESPUÉS\"
+                    evidence={item.afterEvidence[0]}
+                    after
+                    completed={item.statusGroup !== 'open'}
+                    emptyLabel={item.statusGroup === 'open' ? 'Pendiente EECC' : ''}
+                  />""",
+              1,
+          )
+          text = text.replace(
+              """          <CompactInfoRow label=\"SLA calculado\" value={daysLabel(item.dueAt)} valueColor={colors.dangerTxt} />""",
+              """          <CompactInfoRow label=\"SLA calculado\" value={daysLabel(item.dueAt)} valueColor={colors.dangerTxt} alert />""",
+              1,
+          )
+          text = text.replace(
+              """        {!readOnly && item.statusGroup === 'executed' && !actions.canReview ? (
+                    <View style={styles.waitingReview}>
+                      <Text style={styles.waitingReviewText}>En espera de revisión Gold Fields</Text>
+                    </View>
+                  ) : null}""",
+              """        {actions.canExecute && item.statusGroup === 'executed' && !actions.canReview ? (
+                    <View style={styles.waitingReview}>
+                      <FontAwesome5 name=\"clock\" size={11} color=\"#e8a820\" solid />
+                      <Text style={styles.waitingReviewText}>Esperando Aprobación o rechazo de observación</Text>
+                    </View>
+                  ) : null}""",
+              1,
+          )
+
+          old = """  const tabs: Array<{ key: DetailTab; label: string }> = detail?.header.kind === 'checklist'
+            ? [
+                { key: 'observations', label: 'Ítems NO' },
+                { key: 'result', label: 'Resultado completo' },
+                { key: 'followups', label: 'Seguimientos' },
+                { key: 'general', label: 'Datos generales' },
+              ]
+            : [
+                { key: 'observations', label: 'Observaciones' },
+                { key: 'followups', label: 'Seguimientos' },
+                { key: 'general', label: 'Datos generales' },
+              ];"""
+          new = """  const assignedCompanyView = actions.canExecute && !actions.canReview;
+            const tabs: Array<{ key: DetailTab; label: string }> = detail?.header.kind === 'checklist'
+              ? [
+                  { key: 'observations', label: 'Ítems NO' },
+                  { key: 'result', label: 'Resultado completo' },
+                  { key: 'followups', label: 'Seguimientos' },
+                  { key: 'general', label: 'Datos generales' },
+                ]
+              : assignedCompanyView
+                ? [
+                    { key: 'observations', label: 'Observaciones' },
+                    { key: 'general', label: 'Datos generales' },
+                  ]
+                : [
+                    { key: 'observations', label: 'Observaciones' },
+                    { key: 'followups', label: 'Seguimientos' },
+                    { key: 'general', label: 'Datos generales' },
+                  ];"""
+          if text.count(old) != 1:
+              raise SystemExit('tabs block not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              """  evidenceAfterEmpty: { backgroundColor: '#d8eff9' },
+            evidenceEmptyText: { color: colors.placeholder, fontSize: 10, lineHeight: 12 },""",
+              """  evidenceAfterEmpty: { backgroundColor: '#d8eff9' },
+            evidenceCompletedEmpty: { backgroundColor: '#dafccb' },
+            evidenceEmptyText: { color: colors.placeholder, fontSize: 10, lineHeight: 12 },
+            evidenceCompletedText: { color: colors.successTxt },""",
+              1,
+          )
+          text = text.replace(
+              """  compactInfoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
+            compactInfoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },""",
+              """  compactInfoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
+            compactInfoValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+            compactInfoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },""",
+              1,
+          )
+          text = text.replace(
+              """  waitingReview: { marginTop: 4, borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
+            waitingReviewText: { color: colors.muted, fontSize: 11, textAlign: 'center', fontWeight: fontWeight.semibold },""",
+              """  waitingReview: { minHeight: 33, marginTop: 4, borderRadius: 8, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
+            waitingReviewText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14, fontWeight: fontWeight.regular },""",
+              1,
+          )
+
+          path.write_text(text)
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate mobile app
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+      - name: Commit implementation and cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx
+          git commit -m "fix(mobile): fidelize executed finding views"
+          git push origin HEAD:feature/inspecciones/carlo
+          git pull --ff-only origin feature/inspecciones/carlo
+          git rm .github/workflows/tmp-fidelize-mobile-executed-findings.yml
+          git commit -m "chore(ci): remove executed finding fidelity workflow"
+          git push origin HEAD:feature/inspecciones/carlo
