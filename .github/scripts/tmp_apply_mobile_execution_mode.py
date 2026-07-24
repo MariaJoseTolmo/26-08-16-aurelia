@@ -1,0 +1,198 @@
+from pathlib import Path
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one match, found {count}")
+    return text.replace(old, new, 1)
+
+
+detail_path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx')
+detail = detail_path.read_text(encoding='utf-8')
+detail = replace_once(
+    detail,
+    """        {item.statusGroup === 'rejected' ? (\n          <View style={styles.rejectBlock}>\n            <Text style={styles.blockLabel}>MOTIVO DE RECHAZO</Text>\n            <Text style={[styles.blockValue, styles.rejectValue]}>{item.rejectionReason || '—'}</Text>\n          </View>\n        ) : null}""",
+    """        {item.statusGroup === 'rejected' ? (\n          <View style={styles.textBlock}>\n            <Text style={styles.blockLabel}>MOTIVO DE RECHAZO</Text>\n            <Text style={styles.blockValue}>{item.rejectionReason || '—'}</Text>\n          </View>\n        ) : null}""",
+    'rejected reason block',
+)
+detail = replace_once(
+    detail,
+    "  rejectBlock: { borderRadius: 8, backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf, paddingHorizontal: 10, paddingVertical: 8 },\n",
+    "",
+    'rejectBlock style',
+)
+detail = replace_once(
+    detail,
+    "  rejectValue: { color: colors.dangerTxt },\n",
+    "",
+    'rejectValue style',
+)
+detail_path.write_text(detail, encoding='utf-8')
+
+execution_path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileFindingExecutionModal.tsx')
+execution = execution_path.read_text(encoding='utf-8')
+execution = replace_once(
+    execution,
+    "type ExecutionStage = 'detail' | 'summary' | 'success';",
+    "type ExecutionStage = 'mode' | 'detail' | 'summary' | 'success';",
+    'execution stage type',
+)
+
+component = r'''
+function ExecutionModeSelection({
+  locationLabel,
+  onBack,
+  onManual,
+}: {
+  locationLabel: string;
+  onBack: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <>
+      <View style={styles.modeHeader}>
+        <TouchableOpacity style={styles.modeBackButton} onPress={onBack} accessibilityLabel="Volver a la inspección">
+          <Feather name="arrow-left" size={22} color="rgba(255,255,255,0.92)" />
+        </TouchableOpacity>
+        <View style={styles.modeHeaderCopy}>
+          <Text style={styles.modeHeaderTitle}>Hallazgo</Text>
+          <Text style={styles.modeHeaderSubtitle} numberOfLines={1}>{locationLabel}</Text>
+        </View>
+        <View style={styles.modeHeaderSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.modeBody}
+        contentContainerStyle={styles.modeContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.modeIntro}>
+          <Text style={styles.modeQuestion}>¿Cómo deseas ejecutar este hallazgo?</Text>
+          <Text style={styles.modeSubtitle}>Puedes usar el asistente IA o el formulario manual</Text>
+        </View>
+
+        <View style={styles.assistantCard}>
+          <View style={styles.modeCardHeader}>
+            <View style={styles.assistantIcon}>
+              <FontAwesome5 name="microchip" size={24} color={colors.white} />
+            </View>
+            <View style={styles.modeCardTitleCopy}>
+              <Text style={styles.assistantTitle}>Asistente AurelIA</Text>
+              <Text style={styles.modeCardSubtitle}>Modo conversacional con IA</Text>
+            </View>
+            <View style={styles.recommendedBadge}>
+              <Text style={styles.recommendedText}>RECOMENDADO</Text>
+            </View>
+          </View>
+
+          <Text style={styles.assistantDescription}>
+            El asistente te guía con preguntas simples, propone acción correctiva basada en el historial de la faena y reduce el tiempo de registro.
+          </Text>
+
+          <View style={styles.benefitList}>
+            <View style={styles.benefitRow}>
+              <Feather name="check" size={13} color={colors.successTxt} />
+              <Text style={styles.benefitText}>Acción correctiva sugerida por IA</Text>
+            </View>
+            <View style={styles.benefitRow}>
+              <Feather name="check" size={13} color={colors.successTxt} />
+              <Text style={styles.benefitText}>Funciona online y offline</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.assistantButton}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            accessibilityLabel="Iniciar con asistente, disponible en una próxima iteración"
+          >
+            <FontAwesome5 name="magic" size={14} color={colors.navy} />
+            <Text style={styles.assistantButtonText}>Iniciar con asistente</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.manualCard}>
+          <View style={styles.modeCardHeader}>
+            <View style={styles.manualIcon}>
+              <FontAwesome5 name="clipboard-list" size={20} color={colors.muted} />
+            </View>
+            <View style={styles.modeCardTitleCopy}>
+              <Text style={styles.manualTitle}>Formulario manual</Text>
+              <Text style={styles.modeCardSubtitle}>Wizard de 5 pasos</Text>
+            </View>
+          </View>
+
+          <Text style={styles.manualDescription}>
+            Completa el formulario paso a paso como siempre. Sin asistencia de IA.
+          </Text>
+
+          <TouchableOpacity style={styles.manualButton} onPress={onManual} accessibilityRole="button">
+            <Text style={styles.manualButtonText}>Usar formulario manual</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <View style={styles.modeFooter}>
+        <TouchableOpacity style={styles.modeCancelButton} onPress={onBack} accessibilityRole="button">
+          <Text style={styles.modeCancelText}>Cancelar inspección</Text>
+        </TouchableOpacity>
+        <View style={styles.homeIndicator} />
+      </View>
+    </>
+  );
+}
+'''
+execution = replace_once(
+    execution,
+    "\nexport function MobileFindingExecutionModal({",
+    component + "\nexport function MobileFindingExecutionModal({",
+    'mode selection component insertion',
+)
+execution = replace_once(
+    execution,
+    "  const [stage, setStage] = useState<ExecutionStage>('detail');",
+    "  const [stage, setStage] = useState<ExecutionStage>('mode');",
+    'initial execution stage',
+)
+execution = replace_once(
+    execution,
+    "  const areaLabel = detail.general.areaName?.trim() || detail.general.sectorName?.trim() || 'Sin área';\n",
+    "  const areaLabel = detail.general.areaName?.trim() || detail.general.sectorName?.trim() || 'Sin área';\n  const locationLabel = detail.general.locationLabel?.trim() || detail.general.sectorName?.trim() || detail.general.areaName?.trim() || 'Sin ubicación';\n",
+    'mode location label',
+)
+execution = replace_once(
+    execution,
+    "    setStage('detail');",
+    "    setStage('mode');",
+    'reset execution stage',
+)
+execution = replace_once(
+    execution,
+    """  async function sendToAdmin() {\n    if (!evidence || !description.trim()) return;\n    try {\n      await onSubmit(description.trim(), evidence);\n      setStage('success');\n    } catch (error) {\n      Alert.alert('No se pudo enviar la corrección', error instanceof Error ? error.message : 'Intenta nuevamente.');\n    }\n  }\n\n  if (!visible) return null;""",
+    """  async function sendToAdmin() {\n    if (!evidence || !description.trim()) return;\n    try {\n      await onSubmit(description.trim(), evidence);\n      setStage('success');\n    } catch (error) {\n      Alert.alert('No se pudo enviar la corrección', error instanceof Error ? error.message : 'Intenta nuevamente.');\n    }\n  }\n\n  function handleBack() {\n    if (stage === 'summary') {\n      setStage('detail');\n      return;\n    }\n    if (stage === 'detail') {\n      setStage('mode');\n      return;\n    }\n    onClose();\n  }\n\n  function handleRequestClose() {\n    if (stage === 'success') {\n      onFinish();\n      return;\n    }\n    handleBack();\n  }\n\n  if (!visible) return null;""",
+    'execution navigation handlers',
+)
+execution = replace_once(
+    execution,
+    """    <Modal visible animationType="slide" onRequestClose={stage === 'success' ? onFinish : onClose}>\n      <View style={styles.screen}>\n        <ScreenHeader\n          success={stage === 'success'}\n          inspectionNumber={inspectionNumber}\n          areaLabel={areaLabel}\n          roleBadge={roleBadge}\n          onBack={stage === 'summary' ? () => setStage('detail') : onClose}\n        />\n\n        {stage === 'success' ? <View style={styles.successProgress}><View style={styles.successProgressFill} /></View> : <Stepper stage={stage} />}""",
+    """    <Modal visible animationType="slide" onRequestClose={handleRequestClose}>\n      <View style={[styles.screen, stage === 'mode' && styles.modeScreen]}>\n        {stage === 'mode' ? (\n          <ExecutionModeSelection\n            locationLabel={locationLabel}\n            onBack={onClose}\n            onManual={() => setStage('detail')}\n          />\n        ) : null}\n\n        {stage !== 'mode' ? (\n          <ScreenHeader\n            success={stage === 'success'}\n            inspectionNumber={inspectionNumber}\n            areaLabel={areaLabel}\n            roleBadge={roleBadge}\n            onBack={handleBack}\n          />\n        ) : null}\n\n        {stage === 'success' ? (\n          <View style={styles.successProgress}><View style={styles.successProgressFill} /></View>\n        ) : stage === 'detail' || stage === 'summary' ? (\n          <Stepper stage={stage} />\n        ) : null}""",
+    'mode-aware modal shell',
+)
+execution = replace_once(
+    execution,
+    """                <TouchableOpacity style={styles.secondaryButton} onPress={onClose} disabled={pending}>\n                  {valid ? <Feather name="arrow-left" size={14} color={colors.gold} /> : null}""",
+    """                <TouchableOpacity\n                  style={styles.secondaryButton}\n                  onPress={valid ? () => setStage('mode') : onClose}\n                  disabled={pending}\n                >\n                  {valid ? <Feather name="arrow-left" size={14} color={colors.gold} /> : null}""",
+    'detail footer back behavior',
+)
+
+mode_styles = """  modeScreen: { backgroundColor: '#f4f6f9' },\n  modeHeader: { minHeight: 56, backgroundColor: '#002659', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },\n  modeBackButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },\n  modeHeaderCopy: { flex: 1, paddingHorizontal: 4 },\n  modeHeaderTitle: { color: colors.white, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.semibold },\n  modeHeaderSubtitle: { marginTop: 1, color: 'rgba(255,255,255,0.55)', fontSize: 11, lineHeight: 14 },\n  modeHeaderSpacer: { width: 48 },\n  modeBody: { flex: 1, backgroundColor: '#f4f6f9' },\n  modeContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20, gap: 20 },\n  modeIntro: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },\n  modeQuestion: { color: colors.primary, fontSize: 18, lineHeight: 23.4, textAlign: 'center', fontWeight: fontWeight.bold },\n  modeSubtitle: { marginTop: 6, color: colors.muted, fontSize: 13, lineHeight: 18.2, textAlign: 'center' },\n  assistantCard: { borderRadius: 16, borderWidth: 2, borderColor: colors.gold, backgroundColor: colors.white, padding: 22, shadowColor: colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },\n  modeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },\n  assistantIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#a77d3e', alignItems: 'center', justifyContent: 'center' },\n  modeCardTitleCopy: { flex: 1, minWidth: 0 },\n  assistantTitle: { color: '#8e6e3e', fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },\n  modeCardSubtitle: { marginTop: 2, color: colors.muted, fontSize: 11, lineHeight: 14 },\n  recommendedBadge: { minHeight: 20, borderRadius: 4, backgroundColor: colors.gold, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 3 },\n  recommendedText: { color: colors.navy, fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },\n  assistantDescription: { marginTop: 12, color: colors.body, fontSize: 12, lineHeight: 19.2 },\n  benefitList: { marginTop: 12, gap: 5 },\n  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },\n  benefitText: { flex: 1, color: colors.successTxt, fontSize: 11, lineHeight: 14 },\n  assistantButton: { height: 46, marginTop: 14, borderRadius: 12, backgroundColor: colors.gold, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },\n  assistantButtonText: { color: colors.navy, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },\n  manualCard: { borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, padding: 21.5 },\n  manualIcon: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: '#f4f6f9', alignItems: 'center', justifyContent: 'center' },\n  manualTitle: { color: colors.primary, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },\n  manualDescription: { marginTop: 10, marginBottom: 12, color: colors.muted, fontSize: 12, lineHeight: 18 },\n  manualButton: { height: 42, borderRadius: 12, borderWidth: 2, borderColor: colors.borderMid, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },\n  manualButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },\n  modeFooter: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },\n  modeCancelButton: { height: 50, borderRadius: 14, borderWidth: 2, borderColor: colors.gold, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },\n  modeCancelText: { color: colors.gold, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },\n"""
+execution = replace_once(
+    execution,
+    "const styles = StyleSheet.create({\n  screen: { flex: 1, backgroundColor: '#f7f7f7' },\n",
+    "const styles = StyleSheet.create({\n  screen: { flex: 1, backgroundColor: '#f7f7f7' },\n" + mode_styles,
+    'mode selection styles',
+)
+execution_path.write_text(execution, encoding='utf-8')
