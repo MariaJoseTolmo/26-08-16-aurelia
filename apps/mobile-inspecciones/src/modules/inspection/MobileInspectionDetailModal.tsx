@@ -4,7 +4,6 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,7 +54,7 @@ type GroupConfig = {
   singular: string;
   color: string;
   background: string;
-  icon: 'check-circle' | 'clock' | 'times-circle';
+  icon: 'check-circle' | 'clock' | 'times-circle' | 'exclamation-circle';
 };
 
 type FollowupStep = {
@@ -68,16 +67,16 @@ type FollowupStep = {
 };
 
 const groups: GroupConfig[] = [
-  { key: 'executed', label: 'Ejecutadas', singular: 'Ejecutada', color: colors.dangerTxt, background: colors.dangerSurf, icon: 'check-circle' },
-  { key: 'open', label: 'Abiertas', singular: 'Abierto', color: colors.warnTxt, background: colors.warnSurf, icon: 'clock' },
-  { key: 'closed', label: 'Cerradas', singular: 'Cerrado', color: colors.successTxt, background: colors.successSurf, icon: 'check-circle' },
-  { key: 'rejected', label: 'Rechazadas', singular: 'Rechazado', color: colors.muted, background: '#f1f1f1', icon: 'times-circle' },
+  { key: 'executed', label: 'Ejecutadas', singular: 'Ejecutada', color: colors.dangerTxt, background: colors.dangerSurf, icon: 'exclamation-circle' },
+  { key: 'open', label: 'Abiertas', singular: 'Abierta', color: colors.warnTxt, background: colors.warnSurf, icon: 'clock' },
+  { key: 'closed', label: 'Cerradas', singular: 'Cerrada', color: colors.successTxt, background: colors.successSurf, icon: 'check-circle' },
+  { key: 'rejected', label: 'Rechazadas', singular: 'Rechazada', color: colors.muted, background: '#f7f7f7', icon: 'exclamation-circle' },
 ];
 
 const fallbackGroup = groups[1] ?? {
   key: 'open' as const,
   label: 'Abiertas',
-  singular: 'Abierto',
+  singular: 'Abierta',
   color: colors.warnTxt,
   background: colors.warnSurf,
   icon: 'clock' as const,
@@ -92,6 +91,10 @@ function validGroup(value: string | null | undefined): InspectionDetailFindingGr
 
 function allFindings(detail: InspectionDetailResponse): InspectionDetailFindingItemResponse[] {
   return groups.flatMap((group) => detail.findings[group.key] ?? []);
+}
+
+function groupCounterLabel(group: GroupConfig, count: number): string {
+  return count === 1 ? group.singular : group.label;
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -551,7 +554,7 @@ function ObservationsPanel({
                   <Text style={[styles.groupCountText, { color: group.color }]}>{items.length}</Text>
                 </View>
               </View>
-              <FontAwesome5 name={open ? 'chevron-up' : 'chevron-down'} size={13} color={colors.muted} />
+              <FontAwesome5 name={open ? 'chevron-up' : 'chevron-down'} size={12} color={colors.primary} solid />
             </TouchableOpacity>
             {open ? (
               <View style={styles.groupBody}>
@@ -860,8 +863,10 @@ export function MobileInspectionDetailModal({
       ];
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaView style={styles.screen}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Cerrar detalle" />
+        <View style={styles.screen}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>{detail ? `#${detail.header.inspectionNumber.replace(/^#/, '')}` : 'DETALLE'}</Text>
@@ -870,7 +875,6 @@ export function MobileInspectionDetailModal({
               <View style={styles.headerMetadata}>
                 <Text style={styles.headerMetaText}>{detail.header.metadataLine1}</Text>
                 {detail.header.metadataLine2 ? <Text style={styles.headerMetaText}>{detail.header.metadataLine2}</Text> : null}
-                {readOnly ? <Text style={styles.headerReadOnly}>Solo lectura</Text> : null}
               </View>
             ) : null}
           </View>
@@ -892,7 +896,7 @@ export function MobileInspectionDetailModal({
               {groups.map((group) => (
                 <View key={group.key} style={[styles.counter, { backgroundColor: group.background }]}> 
                   <FontAwesome5 name={group.icon} size={8} color={group.color} solid />
-                  <Text style={[styles.counterText, { color: group.color }]}>{detail.header.counts[group.key]} {group.label}</Text>
+                  <Text style={[styles.counterText, { color: group.color }]}>{detail.header.counts[group.key]} {groupCounterLabel(group, detail.header.counts[group.key])}</Text>
                 </View>
               ))}
             </View>
@@ -957,7 +961,8 @@ export function MobileInspectionDetailModal({
             </TouchableOpacity>
           </View>
         ) : null}
-      </SafeAreaView>
+        </View>
+      </View>
 
       <ActionDialog
         mode={actionMode}
@@ -980,13 +985,15 @@ export function MobileInspectionDetailModal({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
-  header: { minHeight: 110, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(19,19,19,0.75)' },
+  screen: { width: '100%', height: '95.375%', maxHeight: 763, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  header: { minHeight: 111, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   headerCopy: { flex: 1, paddingRight: 12 },
   headerEyebrow: { color: colors.navy, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
-  headerTitle: { marginTop: 2, color: colors.body, fontSize: 16, lineHeight: 22, fontWeight: fontWeight.bold },
-  headerMetadata: { marginTop: 4, alignItems: 'flex-start', gap: 2 },
-  headerMetaText: { color: colors.muted, fontSize: 11, lineHeight: 14 },
+  headerTitle: { color: colors.body, fontSize: 16, lineHeight: 22, letterSpacing: 0.32, fontWeight: fontWeight.bold },
+  headerMetadata: { alignItems: 'flex-start' },
+  headerMetaText: { color: colors.muted, fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },
   headerReadOnly: { color: colors.blueLink, fontSize: 10, lineHeight: 13, fontWeight: fontWeight.semibold },
   closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   progressPanel: { backgroundColor: '#143049', paddingHorizontal: 14, paddingVertical: 10 },
@@ -995,16 +1002,16 @@ const styles = StyleSheet.create({
   progressValue: { color: colors.white, fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
   progressRail: { marginTop: 5, height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.15)' },
   progressFill: { height: 5, borderRadius: 3, backgroundColor: colors.successSurf },
-  counterRow: { marginTop: 6, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
-  counter: { minHeight: 16, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2 },
-  counterText: { fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  counterRow: { marginTop: 6, minHeight: 16, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  counter: { height: 16, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2 },
+  counterText: { fontSize: 10, lineHeight: 12, fontWeight: fontWeight.semibold },
   tabs: { minHeight: 37, flexDirection: 'row', backgroundColor: '#f7f7f7', borderBottomWidth: 2, borderBottomColor: colors.border },
   tab: { flex: 1, minHeight: 37, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: colors.gold },
   tabText: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.semibold, textAlign: 'center' },
   tabTextActive: { color: colors.goldDark },
   body: { flex: 1, backgroundColor: colors.white },
-  bodyContent: { flexGrow: 1, paddingBottom: 16 },
+  bodyContent: { flexGrow: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 26 },
   loadingText: { marginTop: 10, color: colors.muted, fontSize: 12, textAlign: 'center' },
   errorTitle: { color: colors.navy, fontSize: 16, fontWeight: fontWeight.bold },
