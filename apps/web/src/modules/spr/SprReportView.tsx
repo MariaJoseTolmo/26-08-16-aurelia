@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useSprReportDashboardReal } from '../../shared/hooks/useSprReportDashboardReal';
 import {
   SPR_REPORT_DASHBOARD,
   SPR_REPORT_TIMELINE_STEPS,
@@ -10,21 +11,26 @@ import {
   type SprReportTimelineAccent,
   type SprReportTimelineStepStatus,
 } from './spr.constants';
-import { appendSprReportCycleToHref, type SprReportCycle } from './sprReportCycles';
+import {
+  appendSprReportCycleToHref,
+  buildSprReportAreaHref,
+  type SprReportCycle,
+} from './sprReportCycles';
 import { SprProcessStatusApprovedIcon, SprWarningTriangleIcon } from './icons/SprIcons';
 
 function statusDotClass(status: SprReportAreaCardStatus) {
   if (status === 'complete') return 'bg-[#3a9b3a]';
   if (status === 'consolidating') return 'bg-[#24588b]';
   if (status === 'estimated') return 'bg-[#7b4fbf]';
-  return 'bg-[#c4c4c4]';
+  // Figma 2109:44036 — Pendiente en tono danger.
+  return 'bg-[#bd3b5b]';
 }
 
 function statusLabelClass(status: SprReportAreaCardStatus) {
   if (status === 'complete') return 'text-[#3a9b3a]';
   if (status === 'consolidating') return 'text-[#24588b]';
   if (status === 'estimated') return 'text-[#7b4fbf]';
-  return 'text-[#646464]';
+  return 'text-[#bd3b5b]';
 }
 
 function timelineProgressWidth(status: SprReportTimelineStepStatus, progress: number) {
@@ -85,12 +91,23 @@ function closureItemBadgeClass(status: 'pending' | 'completed') {
   return 'bg-[#ffd0db] text-[#570b1d]';
 }
 
-// Vista consolidada SPR para Especialista (Figma 2109:45162 / 49560 / 1797:46981 / 2109:49077). Datos MOCK.
+/**
+ * Vista consolidada SPR para Especialista (Figma 2109:45162 / 49560 / 1797:46981 / 2109:49077).
+ * KPIs + Estado por área: datos reales (assignments + monthly-records del ciclo).
+ * Si el fetch falla: mensaje de error (nunca mock de KPIs/cards).
+ * PLACEHOLDER/MOCK: timeline, filas SAC/firmas (statusRows) y cierre de ciclo (closure).
+ */
 export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: SprReportFlowId }) {
   const navigate = useNavigate();
   const config = getSprReportDashboardConfig(flow);
   const isAdvancedFlow = flow !== 'en-curso';
   const cycleLabel = cycle.label;
+  const realDashboard = useSprReportDashboardReal(cycle.periodYear, cycle.periodMonth);
+
+  const dashboardDataError = realDashboard.isError;
+  const dashboardDataLoading = realDashboard.isLoading && !dashboardDataError;
+  const kpiCards = realDashboard.kpiCards;
+  const areaCards = realDashboard.areaCards;
 
   return (
     <div className="h-[calc(100vh-56px)] w-full overflow-y-auto bg-[#f7f7f7]">
@@ -160,6 +177,7 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
           </div>
         ) : null}
 
+        {/* PLACEHOLDER/MOCK: timeline del ciclo — sin spr_reporting_cycles aún */}
         {config.showTimeline ? (
           <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[8px] border border-[#e3e3e3] bg-[#e3e3e3] sm:grid-cols-2 lg:grid-cols-5">
             {SPR_REPORT_TIMELINE_STEPS.map((step) => (
@@ -202,44 +220,65 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 xl:grid-cols-4">
-          {config.kpiCards.map((card) => (
-            <div key={card.label} className="rounded-[9px] border border-[#e3e3e3] bg-white px-[15px] py-[13px]">
-              <p
-                className={`font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[20px] ${kpiValueClass(card.valueTone)}`}
-              >
-                {card.value}
-              </p>
-              {isAdvancedFlow ? (
-                <>
-                  <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
-                    {card.label}
-                    {card.labelHighlight ? (
-                      <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#7b4fbf]">
-                        {card.labelHighlight}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p
-                    className={`pt-[3px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold ${kpiHelperClass(card.helperTone, true)}`}
-                  >
-                    {card.helper}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#131313]">
-                    {card.label}
-                  </p>
-                  <p className={`pt-[3px] font-['Inter:Regular',sans-serif] text-[10px] ${kpiHelperClass(card.helperTone)}`}>
-                    {card.helper}
-                  </p>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+        {dashboardDataError ? (
+          <div
+            role="alert"
+            className="rounded-[9px] border border-[#f5c4a0] bg-[#fff0e6] px-[15px] py-[14px]"
+          >
+            <p className="font-['Inter:Bold',sans-serif] text-[12px] font-bold text-[#e8720c]">
+              {SPR_REPORT_DASHBOARD.dataLoadErrorTitle}
+            </p>
+            <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[11px] leading-[16px] text-[#6b3a1f]">
+              {SPR_REPORT_DASHBOARD.dataLoadErrorDescription}
+            </p>
+          </div>
+        ) : dashboardDataLoading || !kpiCards ? (
+          <div className="rounded-[9px] border border-[#e3e3e3] bg-white px-[15px] py-[18px]">
+            <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
+              {SPR_REPORT_DASHBOARD.dataLoadingLabel}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 xl:grid-cols-4">
+            {kpiCards.map((card) => (
+              <div key={card.label} className="rounded-[9px] border border-[#e3e3e3] bg-white px-[15px] py-[13px]">
+                <p
+                  className={`font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[20px] ${kpiValueClass(card.valueTone)}`}
+                >
+                  {card.value}
+                </p>
+                {isAdvancedFlow ? (
+                  <>
+                    <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
+                      {card.label}
+                      {card.labelHighlight ? (
+                        <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#7b4fbf]">
+                          {card.labelHighlight}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p
+                      className={`pt-[3px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold ${kpiHelperClass(card.helperTone, true)}`}
+                    >
+                      {card.helper}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#131313]">
+                      {card.label}
+                    </p>
+                    <p className={`pt-[3px] font-['Inter:Regular',sans-serif] text-[10px] ${kpiHelperClass(card.helperTone)}`}>
+                      {card.helper}
+                    </p>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
+        {/* PLACEHOLDER/MOCK: estado consolidado / SAC / firmas 2 niveles — sin ciclo ni integración SAC */}
         {config.showReportStatus ? (
           <section className="overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
             <div className="border-b border-[#ebebeb] px-[14px] py-[10px]">
@@ -295,13 +334,23 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
             <p className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#001e39]">
               {SPR_REPORT_DASHBOARD.areasSectionTitle(cycleLabel)}
             </p>
-            <span className="inline-flex items-center gap-[5px] rounded-[5px] border border-[#f5c4a0] bg-[#fff0e6] px-[9px] py-[3px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#e8720c]">
-              <span className="size-[8px] rounded-full bg-[#e8720c]" aria-hidden />
-              {SPR_REPORT_DASHBOARD.alertBadge}
-            </span>
+            {/* PLACEHOLDER: alerta histórica — oculto hasta exista promedio real (opción A auditoría). */}
           </div>
+          {dashboardDataError ? (
+            <div className="px-[14px] py-[18px]" role="status">
+              <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
+                {SPR_REPORT_DASHBOARD.dataLoadErrorDescription}
+              </p>
+            </div>
+          ) : dashboardDataLoading || !areaCards ? (
+            <div className="px-[14px] py-[18px]">
+              <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
+                {SPR_REPORT_DASHBOARD.dataLoadingLabel}
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            {config.areaCards.map((area) => {
+            {areaCards.map((area) => {
               const canOpenDetail = Boolean(area.hasDetailView);
               const estimatedCard = area.status === 'estimated';
               const cardClassName = `border-b border-r border-[#f4f6f9] px-[13px] py-[11px] text-left ${
@@ -352,7 +401,7 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
                     key={area.slug}
                     type="button"
                     className={cardClassName}
-                    onClick={() => navigate(`/spr/reporte/area/${area.slug}`)}
+                    onClick={() => navigate(buildSprReportAreaHref(area.slug, cycle, flow))}
                   >
                     {cardBody}
                   </button>
@@ -366,8 +415,10 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
               );
             })}
           </div>
+          )}
         </section>
 
+        {/* PLACEHOLDER/MOCK: cierre de ciclo / firmas Especialista→Gerente MA — sin tablas de firmas de ciclo */}
         <section className="overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
           <div className="flex flex-wrap items-start justify-between gap-[8px] border-b border-[#ebebeb] px-[14px] py-[10px]">
             <div>

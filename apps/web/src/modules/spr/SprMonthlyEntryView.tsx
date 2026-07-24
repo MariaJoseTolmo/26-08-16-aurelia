@@ -78,10 +78,17 @@ function buildRecordMap(records: SprMonthlyRecordResponse[] | undefined) {
   return map;
 }
 
-function buildAssignmentMap(assignments: SprParameterAreaAssignmentResponse[] | undefined) {
+function buildAssignmentMap(
+  assignments: SprParameterAreaAssignmentResponse[] | undefined,
+  areaId: string | null,
+) {
   const map = new Map<string, SprParameterAreaAssignmentResponse>();
   (assignments ?? []).forEach((assignment) => {
-    if (!map.has(assignment.parameterId)) map.set(assignment.parameterId, assignment);
+    if (areaId && assignment.areaId !== areaId) return;
+    // Solo una assignment por parámetro en el área del usuario (compartidos: Acetylene/LPG).
+    if (!map.has(assignment.parameterId)) {
+      map.set(assignment.parameterId, assignment);
+    }
   });
   return map;
 }
@@ -167,14 +174,16 @@ export function SprMonthlyEntryView({
   const navigate = useNavigate();
   const estimatesMode = isSprFormCycleEstimatesMode(cycle);
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const areaId = useSessionStore((state) => state.user?.areaId ?? null);
   const currentUserId = useSessionStore((state) => state.user?.id ?? null);
   const dataSources = useMemo(() => getSprFormDataSourcesForArea(areaName), [areaName]);
-  const parametersQuery = useSprParameters();
+  const parametersQuery = useSprParameters(areaId);
   const unitsQuery = useSprUnits();
-  const assignmentsQuery = useSprAssignments();
+  const assignmentsQuery = useSprAssignments(areaId);
   const recordsQuery = useSprMonthlyRecords({
     periodYear: cycle.periodYear,
     periodMonth: cycle.periodMonth,
+    areaId: areaId ?? undefined,
   });
 
   const saveMutation = useSaveSprMonthlyRecord();
@@ -201,12 +210,16 @@ export function SprMonthlyEntryView({
 
   const unitSymbolMap = useMemo(() => buildUnitSymbolMap(unitsQuery.data), [unitsQuery.data]);
   const recordMap = useMemo(() => buildRecordMap(recordsQuery.data), [recordsQuery.data]);
-  const assignmentMap = useMemo(() => buildAssignmentMap(assignmentsQuery.data), [assignmentsQuery.data]);
+  const assignmentMap = useMemo(
+    () => buildAssignmentMap(assignmentsQuery.data, areaId),
+    [assignmentsQuery.data, areaId],
+  );
 
   const rows = useMemo<SprParameterRow[]>(() => {
-    const parameters = [...(parametersQuery.data ?? [])].sort(
-      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'),
-    );
+    const assignedParameterIds = new Set(assignmentMap.keys());
+    const parameters = [...(parametersQuery.data ?? [])]
+      .filter((parameter) => (areaId ? assignedParameterIds.has(parameter.id) : true))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'));
     return parameters.map((parameter, index) => {
       const record = recordMap.get(parameter.id) ?? null;
       const unitSymbol = parameter.unitId ? unitSymbolMap.get(parameter.unitId) ?? null : null;
@@ -216,7 +229,7 @@ export function SprMonthlyEntryView({
         mockEstimateValue: estimatesMode ? getSprFormMockEstimateValue(index) : undefined,
       });
     });
-  }, [parametersQuery.data, recordMap, unitSymbolMap, entries, estimatesMode]);
+  }, [parametersQuery.data, recordMap, unitSymbolMap, entries, estimatesMode, assignmentMap, areaId]);
 
   const totalCount = rows.length;
   const completedCount = rows.filter((row) => row.completion !== 'pending').length;

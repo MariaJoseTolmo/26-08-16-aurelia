@@ -27,13 +27,15 @@ export function SprAreaView() {
   const [searchParams] = useSearchParams();
   const demoState = searchParams.get(SPR_AREA_DEMO_STATE_QUERY);
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const areaId = useSessionStore((state) => state.user?.areaId ?? null);
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
   const areaCatalog = getSprFormAreaCatalog(resolveSprFormAreaKey(areaName));
   const [openReReview, setOpenReReview] = useState(false);
-  const parametersQuery = useSprParameters();
+  const parametersQuery = useSprParameters(areaId);
   const recordsQuery = useSprMonthlyRecords({
     periodYear: SPR_ACTIVE_CYCLE.periodYear,
     periodMonth: SPR_ACTIVE_CYCLE.periodMonth,
+    areaId: areaId ?? undefined,
   });
 
   const totalParameterCount = parametersQuery.data?.length ?? 0;

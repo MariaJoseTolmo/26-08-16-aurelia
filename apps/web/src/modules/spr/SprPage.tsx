@@ -14,10 +14,11 @@ function SprPageHeader() {
   const user = useSessionStore((state) => state.user);
   const [searchParams] = useSearchParams();
   const cycle = resolveSprFormCycle(searchParams.get(SPR_FORM_CYCLE_QUERY));
-  const parametersQuery = useSprParameters();
+  const parametersQuery = useSprParameters(user?.areaId);
   const recordsQuery = useSprMonthlyRecords({
     periodYear: cycle.periodYear,
     periodMonth: cycle.periodMonth,
+    areaId: user?.areaId ?? undefined,
   });
 
   const isSubmitted = useMemo(

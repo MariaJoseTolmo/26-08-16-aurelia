@@ -43,6 +43,7 @@ export function SprFormView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const areaId = useSessionStore((state) => state.user?.areaId ?? null);
   const areaCatalog = getSprFormAreaCatalog(resolveSprFormAreaKey(areaName));
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
   const cycle = resolveSprFormCycle(searchParams.get(SPR_FORM_CYCLE_QUERY));
@@ -57,10 +58,11 @@ export function SprFormView() {
   const isDemoKpiValidationFlow = isDemoKpiValidation || isDemoKpiValidationSubmitted;
   const isKpiReviewView = isDemoKpiValidation && demoView === SPR_FORM_DEMO_KPI_REVIEW_VIEW;
   const [isCorrectingRejectedForm, setIsCorrectingRejectedForm] = useState(false);
-  const parametersQuery = useSprParameters();
+  const parametersQuery = useSprParameters(areaId);
   const recordsQuery = useSprMonthlyRecords({
     periodYear: cycle.periodYear,
     periodMonth: cycle.periodMonth,
+    areaId: areaId ?? undefined,
   });
 
   const totalParameterCount = parametersQuery.data?.length ?? 0;

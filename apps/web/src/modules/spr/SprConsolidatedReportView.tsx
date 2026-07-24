@@ -27,6 +27,11 @@ import {
   type SprConsolidatedTrend,
   type SprReportAreaCardStatus,
 } from './spr.constants';
+import {
+  SPR_REPORT_CYCLE_QUERY,
+  buildSprReportAreaHref,
+  resolveSprReportCycle,
+} from './sprReportCycles';
 import { SprConsolidatedValidationApproved } from './components/SprConsolidatedValidationApproved';
 import { SprConsolidatedValidationDiscrepancy } from './components/SprConsolidatedValidationDiscrepancy';
 import { SprCycleClosedModal } from './components/SprCycleClosedModal';
@@ -1151,6 +1156,8 @@ function ConsolidadoEnviadoPanel({
   defaultAreaDetailOpen?: boolean;
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const reportCycle = resolveSprReportCycle(searchParams.get(SPR_REPORT_CYCLE_QUERY));
   const copy = SPR_CONSOLIDATED_REPORT.consolidadoEnviado;
   const validacionAprobadaCopy = SPR_CONSOLIDATED_REPORT.validacionAprobada;
   const firmaCopy = SPR_CONSOLIDATED_REPORT.firmaReady;
@@ -1311,7 +1318,7 @@ function ConsolidadoEnviadoPanel({
                       key={area.slug}
                       type="button"
                       className={className}
-                      onClick={() => navigate(`/spr/reporte/area/${area.slug}`)}
+                      onClick={() => navigate(buildSprReportAreaHref(area.slug, reportCycle))}
                     >
                       {body}
                     </button>

@@ -508,7 +508,11 @@ export const SPR_REPORT_DASHBOARD = {
     'Consolidado se actualiza al recibir cada formulario firmado por el Responsable · Independiente de la firma del Gerente',
   cycleActiveBadge: 'Ciclo activo',
   traceabilityLabel: 'Ver trazabilidad del ciclo',
+  /** PLACEHOLDER: no se muestra en Dashboard hasta motor histórico real (opción A auditoría). */
   alertBadge: '1 valor con alerta histórica',
+  dataLoadErrorTitle: 'No se pudieron cargar los datos del Dashboard',
+  dataLoadErrorDescription: 'No se pudieron cargar los datos del Dashboard. Intenta recargar la página.',
+  dataLoadingLabel: 'Cargando datos del ciclo…',
   areasSectionTitle: (cycleLabel: string) => `Estado por área — ${cycleLabel}`,
   reportSectionTitle: (cycleLabel: string) => `Estado del Reporte SPR — ${cycleLabel}`,
   closureSectionTitle: (cycleLabel: string) => `Estado de cierre de ciclo — ${cycleLabel}`,
@@ -575,6 +579,7 @@ export const SPR_REPORT_TIMELINE_STEPS = [
   },
 ] as const;
 
+/** MOCK histórico Figma — ya NO se usa como fallback de error del Dashboard real. */
 export const SPR_REPORT_KPI_CARDS = [
   {
     value: '8',
@@ -632,6 +637,7 @@ export const SPR_REPORT_STATUS_ROWS = [
 
 export type SprReportAreaCardStatus = 'complete' | 'consolidating' | 'pending' | 'estimated';
 
+/** MOCK histórico Figma — ya NO se usa como fallback de error del Dashboard real. */
 export const SPR_REPORT_AREA_CARDS: {
   slug: string;
   name: string;
@@ -1311,7 +1317,7 @@ export const SPR_REPORT_AREA_DETAIL_PLANTA: SprReportAreaDetailData = {
   ],
 };
 
-/** Figma 1560:5830 — Servicios Generales pendiente / sin datos. */
+/** Figma 1560:5830 — Servicios Generales pendiente / sin datos (MOCK legacy; preferir builder real). */
 export const SPR_REPORT_AREA_DETAIL_SERVICIOS_GENERALES: SprReportAreaDetailData = {
   viewMode: 'empty',
   headerBadge: 'Pendiente · Sin datos · Fecha límite hoy',

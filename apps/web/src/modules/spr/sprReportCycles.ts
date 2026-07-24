@@ -100,6 +100,18 @@ export function sprReportCycleSearchParams(cycle: SprReportCycle, flow?: SprRepo
   return params;
 }
 
+/** Href detalle de área preservando ciclo (y flow opcional) del Dashboard. */
+export function buildSprReportAreaHref(areaSlug: string, cycle: SprReportCycle, flow?: SprReportFlowId) {
+  const query = sprReportCycleSearchParams(cycle, flow).toString();
+  return `/spr/reporte/area/${areaSlug}?${query}`;
+}
+
+/** Href Dashboard preservando ciclo/flow (p. ej. volver desde detalle de área). */
+export function buildSprReportDashboardHref(cycle: SprReportCycle, flow?: SprReportFlowId) {
+  const query = sprReportCycleSearchParams(cycle, flow).toString();
+  return `/spr/reporte?${query}`;
+}
+
 /** Añade `?ciclo=` a hrefs del dashboard (consolidado, etc.). */
 export function appendSprReportCycleToHref(href: string, cycleId: SprReportCycleId) {
   const [pathname = '', search = ''] = href.split('?');
