@@ -23,8 +23,9 @@ import { PhotoSourceSheet } from '../../shared/components/form/PhotoSourceSheet'
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useMobileSession } from '../auth/mobileSession.store';
 import type { MobileFindingEvidenceInput } from './hooks/useMobileInspectionManagement';
+import { MobileFindingAssistantExecutionFlow } from './MobileFindingAssistantExecutionFlow';
 
-type ExecutionStage = 'mode' | 'detail' | 'summary' | 'success';
+type ExecutionStage = 'mode' | 'assistant' | 'detail' | 'summary' | 'success';
 
 type Props = {
   visible: boolean;
@@ -205,10 +206,12 @@ function LoadedEvidenceChip({ filename, onPress }: { filename: string; onPress: 
 function ExecutionModeSelection({
   locationLabel,
   onBack,
+  onAssistant,
   onManual,
 }: {
   locationLabel: string;
   onBack: () => void;
+  onAssistant: () => void;
   onManual: () => void;
 }) {
   return (
@@ -265,11 +268,10 @@ function ExecutionModeSelection({
 
           <TouchableOpacity
             style={styles.assistantButton}
-            disabled
-            activeOpacity={1}
+            onPress={onAssistant}
+            activeOpacity={0.82}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            accessibilityLabel="Iniciar con asistente, disponible en una próxima iteración"
+            accessibilityLabel="Iniciar con asistente AurelIA"
           >
             <FontAwesome5 name="magic" size={14} color={colors.navy} />
             <Text style={styles.assistantButtonText}>Iniciar con asistente</Text>
@@ -319,7 +321,7 @@ export function MobileFindingExecutionModal({
   onFinish,
   onSubmit,
 }: Props) {
-  const [stage, setStage] = useState<ExecutionStage>('mode');
+  const [stage, setStage] = useState<ExecutionStage>(item.statusGroup === 'rejected' ? 'detail' : 'mode');
   const [description, setDescription] = useState('');
   const [evidence, setEvidence] = useState<MobileFindingEvidenceInput | null>(null);
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
@@ -339,12 +341,12 @@ export function MobileFindingExecutionModal({
 
   useEffect(() => {
     if (!visible) return;
-    setStage('mode');
+    setStage(isRejected ? 'detail' : 'mode');
     setDescription('');
     setEvidence(null);
     setPhotoSheetVisible(false);
     setExecutionDate(new Date());
-  }, [item.findingId, visible]);
+  }, [isRejected, item.findingId, visible]);
 
   async function pick(source: 'camera' | 'gallery') {
     setPhotoSheetVisible(false);
@@ -382,7 +384,11 @@ export function MobileFindingExecutionModal({
       setStage('detail');
       return;
     }
-    if (stage === 'detail') {
+    if (stage === 'assistant') {
+      setStage('mode');
+      return;
+    }
+    if (stage === 'detail' && !isRejected) {
       setStage('mode');
       return;
     }
@@ -406,11 +412,26 @@ export function MobileFindingExecutionModal({
           <ExecutionModeSelection
             locationLabel={locationLabel}
             onBack={onClose}
+            onAssistant={() => setStage('assistant')}
             onManual={() => setStage('detail')}
           />
         ) : null}
 
-        {stage !== 'mode' ? (
+        {stage === 'assistant' ? (
+          <MobileFindingAssistantExecutionFlow
+            detail={detail}
+            item={item}
+            index={index}
+            itemLabel={itemLabel}
+            pending={pending}
+            onBack={() => setStage('mode')}
+            onCancel={onClose}
+            onFinish={onClose}
+            onSubmit={onSubmit}
+          />
+        ) : null}
+
+        {stage !== 'mode' && stage !== 'assistant' ? (
           <ScreenHeader
             success={stage === 'success'}
             inspectionNumber={inspectionNumber}
@@ -515,7 +536,7 @@ export function MobileFindingExecutionModal({
               <View style={styles.footerButtons}>
                 <TouchableOpacity
                   style={styles.secondaryButton}
-                  onPress={valid ? () => setStage('mode') : onClose}
+                  onPress={valid && !isRejected ? () => setStage('mode') : onClose}
                   disabled={pending}
                 >
                   {valid ? <Feather name="arrow-left" size={14} color={colors.gold} /> : null}
