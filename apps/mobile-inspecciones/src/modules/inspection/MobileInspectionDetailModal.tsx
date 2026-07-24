@@ -169,6 +169,39 @@ function coordinates(detail: InspectionDetailResponse): string {
   return detail.general.locationLabel ?? '—';
 }
 
+function buildDetailHeaderPresentation(detail: InspectionDetailResponse) {
+  if (detail.header.kind !== 'checklist') {
+    return {
+      title: detail.header.title,
+      metadataLine1: detail.header.metadataLine1,
+      metadataLine2: detail.header.metadataLine2,
+    };
+  }
+
+  const title = [detail.general.areaName, detail.general.companyName]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(' · ') || detail.header.title;
+  const templateName = detail.general.templateName?.trim() || null;
+  const templateCode = detail.general.templateCode?.trim() || null;
+  const templateParts = [
+    templateName,
+    templateCode && !templateName?.includes(templateCode) ? templateCode : null,
+  ].filter((value): value is string => Boolean(value));
+  const metadataLine1 = templateParts.length > 0
+    ? `Checklist · ${templateParts.join(' - ')}`
+    : detail.header.metadataLine1;
+  const location = detail.general.locationLabel?.trim()
+    || detail.general.sectorName?.trim()
+    || detail.general.areaName?.trim()
+    || null;
+  const scheduledDate = formatDate(detail.general.scheduledAt);
+  const metadataLine2 = [scheduledDate === '—' ? null : scheduledDate, location]
+    .filter((value): value is string => Boolean(value))
+    .join(' · ') || detail.header.metadataLine2;
+
+  return { title, metadataLine1, metadataLine2 };
+}
+
 function EvidenceBox({
   title,
   evidence,
@@ -908,6 +941,7 @@ export function MobileInspectionDetailModal({
 
   const detail = detailQuery.data;
   const readOnly = forceReadOnly || (!actions.canExecute && !actions.canReview && !actions.canReassign);
+  const headerPresentation = detail ? buildDetailHeaderPresentation(detail) : null;
 
   useEffect(() => {
     if (!visible) return;
@@ -986,11 +1020,11 @@ export function MobileInspectionDetailModal({
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>{detail ? `#${detail.header.inspectionNumber.replace(/^#/, '')}` : 'DETALLE'}</Text>
-            <Text style={styles.headerTitle} numberOfLines={2}>{detail?.header.title ?? 'Cargando inspección'}</Text>
-            {detail ? (
+            <Text style={styles.headerTitle} numberOfLines={2}>{headerPresentation?.title ?? 'Cargando inspección'}</Text>
+            {headerPresentation ? (
               <View style={styles.headerMetadata}>
-                <Text style={styles.headerMetaText}>{detail.header.metadataLine1}</Text>
-                {detail.header.metadataLine2 ? <Text style={styles.headerMetaText}>{detail.header.metadataLine2}</Text> : null}
+                <Text style={styles.headerMetaText}>{headerPresentation.metadataLine1}</Text>
+                {headerPresentation.metadataLine2 ? <Text style={styles.headerMetaText}>{headerPresentation.metadataLine2}</Text> : null}
               </View>
             ) : null}
           </View>
@@ -1103,8 +1137,8 @@ export function MobileInspectionDetailModal({
 const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(19,19,19,0.75)' },
-  screen: { width: '100%', height: '95.375%', maxHeight: 763, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
-  header: { minHeight: 111, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  screen: { width: '100%', height: '99%', backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  header: { minHeight: 92, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   headerCopy: { flex: 1, paddingRight: 12 },
   headerEyebrow: { color: colors.navy, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
   headerTitle: { color: colors.body, fontSize: 16, lineHeight: 22, letterSpacing: 0.32, fontWeight: fontWeight.bold },

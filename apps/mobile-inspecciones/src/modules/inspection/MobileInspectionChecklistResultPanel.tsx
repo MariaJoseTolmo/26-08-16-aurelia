@@ -25,7 +25,7 @@ function answerTone(value: string | null | undefined) {
     return { backgroundColor: colors.warnSurf, color: colors.warnTxt };
   }
   if (value === InspectionAnswerValue.NOT_APPLICABLE || value === InspectionAnswerValue.NOT_OBSERVED) {
-    return { backgroundColor: '#f1f1f1', color: colors.muted };
+    return { backgroundColor: '#f7f7f7', color: colors.muted };
   }
   if (value === InspectionAnswerValue.COMPLIANT) {
     return { backgroundColor: colors.successSurf, color: colors.successTxt };
@@ -37,31 +37,46 @@ type SummaryColumnProps = {
   value: number;
   label: string;
   color: string;
+  icon?: 'check' | 'times';
   bordered?: boolean;
 };
 
-function SummaryColumn({ value, label, color, bordered = false }: SummaryColumnProps) {
+function SummaryColumn({ value, label, color, icon, bordered = false }: SummaryColumnProps) {
   return (
     <View style={[styles.summaryColumn, bordered && styles.summaryColumnBorder]}>
       <Text style={[styles.summaryValue, { color }]}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <View style={styles.summaryCaption}>
+        {icon ? <FontAwesome5 name={icon} size={9} color={color} /> : null}
+        <Text style={[styles.summaryLabel, { color }]}>{label}</Text>
+      </View>
     </View>
   );
 }
 
-function ResultItem({ item, index }: { item: InspectionDetailChecklistItemResponse; index: number }) {
+function ResultItem({
+  item,
+  index,
+  isLast,
+}: {
+  item: InspectionDetailChecklistItemResponse;
+  index: number;
+  isLast: boolean;
+}) {
   const value = item.answer?.value ?? null;
   const tone = answerTone(value);
   const isNo = value === InspectionAnswerValue.NOT_COMPLIANT;
   const comment = item.answer?.text ?? item.answer?.notes ?? '';
 
   return (
-    <View style={[styles.item, isNo && styles.itemNo]}>
+    <View style={[styles.item, isNo && styles.itemNo, isLast && styles.itemLast]}>
       <Text style={[styles.itemNumber, isNo && styles.itemNumberNo]}>{index + 1}</Text>
       <View style={styles.itemCopy}>
         <Text style={[styles.question, isNo && styles.questionNo]}>{item.question}</Text>
         {comment.trim() ? (
-          <Text style={[styles.comment, isNo && styles.commentNo]}>Comentario: {comment}</Text>
+          <View style={styles.commentBlock}>
+            <Text style={[styles.commentLabel, isNo && styles.commentNo]}>Comentario:</Text>
+            <Text style={[styles.commentText, isNo && styles.commentNo]}>{comment}</Text>
+          </View>
         ) : null}
       </View>
       <View style={[styles.answer, { backgroundColor: tone.backgroundColor }]}>
@@ -87,8 +102,8 @@ export function MobileInspectionChecklistResultPanel({ result }: { result: Inspe
   return (
     <View style={styles.container}>
       <View style={styles.summaryCard}>
-        <SummaryColumn value={result.summary.compliant} label="SÍ" color={colors.successTxt} />
-        <SummaryColumn value={result.summary.notCompliant} label="NO" color={colors.dangerTxt} bordered />
+        <SummaryColumn value={result.summary.compliant} label="SÍ" color={colors.successTxt} icon="check" />
+        <SummaryColumn value={result.summary.notCompliant} label="NO" color={colors.dangerTxt} icon="times" bordered />
         <SummaryColumn value={neutral} label="N/A" color={colors.muted} bordered />
       </View>
 
@@ -108,7 +123,12 @@ export function MobileInspectionChecklistResultPanel({ result }: { result: Inspe
       <View style={styles.items}>
         {items.length ? (
           items.map((item, index) => (
-            <ResultItem key={item.checklistItemId} item={item} index={index} />
+            <ResultItem
+              key={item.checklistItemId}
+              item={item}
+              index={index}
+              isLast={index === items.length - 1}
+            />
           ))
         ) : (
           <Text style={styles.emptyText}>No hay ítems de checklist para mostrar.</Text>
@@ -121,24 +141,19 @@ export function MobileInspectionChecklistResultPanel({ result }: { result: Inspe
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    paddingTop: 16,
     paddingBottom: 24,
   },
   summaryCard: {
-    minHeight: 70,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
+    minHeight: 71,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'stretch',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 1.5,
-    elevation: 1,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 13,
   },
   summaryColumn: {
     flex: 1,
@@ -155,16 +170,22 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: fontWeight.bold,
   },
-  summaryLabel: {
+  summaryCaption: {
     marginTop: 2,
-    color: colors.muted,
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: fontWeight.semibold,
+    minHeight: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    lineHeight: 13,
   },
   supplementaryRow: {
     minHeight: 28,
     marginTop: 8,
+    marginHorizontal: 14,
     borderRadius: 7,
     backgroundColor: '#f7f7f7',
     alignItems: 'center',
@@ -177,11 +198,12 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   sectionHeading: {
-    marginTop: 20,
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 20,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
   sectionTitle: {
     color: colors.muted,
@@ -193,27 +215,30 @@ const styles = StyleSheet.create({
   items: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    overflow: 'hidden',
     backgroundColor: colors.white,
+    overflow: 'hidden',
   },
   item: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 9,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.white,
+  },
+  itemLast: {
+    borderBottomWidth: 0,
   },
   itemNo: {
     backgroundColor: colors.dangerSurf,
   },
   itemNumber: {
-    width: 18,
-    paddingTop: 2,
+    width: 14,
+    paddingTop: 1,
     color: colors.placeholder,
     fontSize: 10,
     lineHeight: 13,
@@ -228,31 +253,40 @@ const styles = StyleSheet.create({
   question: {
     color: colors.body,
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 16.8,
   },
   questionNo: {
     color: colors.dangerTxt,
     fontWeight: fontWeight.semibold,
   },
-  comment: {
-    marginTop: 5,
+  commentBlock: {
+    marginTop: 8,
+  },
+  commentLabel: {
     color: colors.body,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16.8,
+    fontWeight: fontWeight.semibold,
+  },
+  commentText: {
+    color: colors.body,
+    fontSize: 12,
+    lineHeight: 16.8,
+    fontWeight: fontWeight.semibold,
   },
   commentNo: {
     color: colors.dangerTxt,
   },
   answer: {
-    minHeight: 18,
+    minHeight: 16,
     borderRadius: 6,
     justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   answerText: {
-    fontSize: 9,
-    lineHeight: 11,
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: fontWeight.bold,
   },
   empty: {
