@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import type {
   InspectionDetailEvidenceResponse,
@@ -24,7 +24,7 @@ import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useMobileSession } from '../auth/mobileSession.store';
 import type { MobileFindingEvidenceInput } from './hooks/useMobileInspectionManagement';
 
-type ExecutionStage = 'detail' | 'summary' | 'success';
+type ExecutionStage = 'mode' | 'detail' | 'summary' | 'success';
 
 type Props = {
   visible: boolean;
@@ -172,7 +172,7 @@ function ScreenHeader({
       <View style={styles.header}>
         {!success ? (
           <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel="Volver al detalle">
-            <FontAwesome5 name="arrow-left" size={20} color="rgba(255,255,255,0.92)" />
+            <Feather name="arrow-left" size={20} color="rgba(255,255,255,0.92)" />
           </TouchableOpacity>
         ) : null}
         <View style={styles.headerCopy}>
@@ -184,7 +184,7 @@ function ScreenHeader({
         <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>{success ? 'GF HSE' : roleBadge}</Text></View>
       </View>
       <View style={styles.offlineBanner}>
-        <FontAwesome5 name="wifi" size={11} color={colors.gold} />
+        <Feather name="wifi-off" size={11} color={colors.gold} />
         <Text style={styles.offlineText}>Sin red · guardando localmente</Text>
       </View>
     </>
@@ -195,10 +195,115 @@ function LoadedEvidenceChip({ filename, onPress }: { filename: string; onPress: 
   return (
     <TouchableOpacity style={styles.loadedEvidenceChip} onPress={onPress} activeOpacity={0.84}>
       <View style={styles.loadedEvidenceIcon}>
-        <FontAwesome5 name="camera" size={14} color={colors.white} solid />
+        <Feather name="camera" size={14} color={colors.white} />
       </View>
       <Text style={styles.loadedEvidenceName} numberOfLines={1}>{filename}</Text>
     </TouchableOpacity>
+  );
+}
+
+function ExecutionModeSelection({
+  locationLabel,
+  onBack,
+  onManual,
+}: {
+  locationLabel: string;
+  onBack: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <>
+      <View style={styles.modeHeader}>
+        <TouchableOpacity style={styles.modeBackButton} onPress={onBack} accessibilityLabel="Volver a la inspección">
+          <Feather name="arrow-left" size={22} color="rgba(255,255,255,0.92)" />
+        </TouchableOpacity>
+        <View style={styles.modeHeaderCopy}>
+          <Text style={styles.modeHeaderTitle}>Hallazgo</Text>
+          <Text style={styles.modeHeaderSubtitle} numberOfLines={1}>{locationLabel}</Text>
+        </View>
+        <View style={styles.modeHeaderSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.modeBody}
+        contentContainerStyle={styles.modeContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.modeIntro}>
+          <Text style={styles.modeQuestion}>¿Cómo deseas ejecutar este hallazgo?</Text>
+          <Text style={styles.modeSubtitle}>Puedes usar el asistente IA o el formulario manual</Text>
+        </View>
+
+        <View style={styles.assistantCard}>
+          <View style={styles.modeCardHeader}>
+            <View style={styles.assistantIcon}>
+              <FontAwesome5 name="microchip" size={24} color={colors.white} />
+            </View>
+            <View style={styles.modeCardTitleCopy}>
+              <Text style={styles.assistantTitle}>Asistente AurelIA</Text>
+              <Text style={styles.modeCardSubtitle}>Modo conversacional con IA</Text>
+            </View>
+            <View style={styles.recommendedBadge}>
+              <Text style={styles.recommendedText}>RECOMENDADO</Text>
+            </View>
+          </View>
+
+          <Text style={styles.assistantDescription}>
+            El asistente te guía con preguntas simples, propone acción correctiva basada en el historial de la faena y reduce el tiempo de registro.
+          </Text>
+
+          <View style={styles.benefitList}>
+            <View style={styles.benefitRow}>
+              <Feather name="check" size={13} color={colors.successTxt} />
+              <Text style={styles.benefitText}>Acción correctiva sugerida por IA</Text>
+            </View>
+            <View style={styles.benefitRow}>
+              <Feather name="check" size={13} color={colors.successTxt} />
+              <Text style={styles.benefitText}>Funciona online y offline</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.assistantButton}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            accessibilityLabel="Iniciar con asistente, disponible en una próxima iteración"
+          >
+            <FontAwesome5 name="magic" size={14} color={colors.navy} />
+            <Text style={styles.assistantButtonText}>Iniciar con asistente</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.manualCard}>
+          <View style={styles.modeCardHeader}>
+            <View style={styles.manualIcon}>
+              <FontAwesome5 name="clipboard-list" size={20} color={colors.muted} />
+            </View>
+            <View style={styles.modeCardTitleCopy}>
+              <Text style={styles.manualTitle}>Formulario manual</Text>
+              <Text style={styles.modeCardSubtitle}>Wizard de 5 pasos</Text>
+            </View>
+          </View>
+
+          <Text style={styles.manualDescription}>
+            Completa el formulario paso a paso como siempre. Sin asistencia de IA.
+          </Text>
+
+          <TouchableOpacity style={styles.manualButton} onPress={onManual} accessibilityRole="button">
+            <Text style={styles.manualButtonText}>Usar formulario manual</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <View style={styles.modeFooter}>
+        <TouchableOpacity style={styles.modeCancelButton} onPress={onBack} accessibilityRole="button">
+          <Text style={styles.modeCancelText}>Cancelar inspección</Text>
+        </TouchableOpacity>
+        <View style={styles.homeIndicator} />
+      </View>
+    </>
   );
 }
 
@@ -214,7 +319,7 @@ export function MobileFindingExecutionModal({
   onFinish,
   onSubmit,
 }: Props) {
-  const [stage, setStage] = useState<ExecutionStage>('detail');
+  const [stage, setStage] = useState<ExecutionStage>('mode');
   const [description, setDescription] = useState('');
   const [evidence, setEvidence] = useState<MobileFindingEvidenceInput | null>(null);
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
@@ -223,6 +328,7 @@ export function MobileFindingExecutionModal({
   const valid = Boolean(evidence && description.trim().length > 0 && !pending);
   const inspectionNumber = detail.header.inspectionNumber.replace(/^#/, '');
   const areaLabel = detail.general.areaName?.trim() || detail.general.sectorName?.trim() || 'Sin área';
+  const locationLabel = detail.general.locationLabel?.trim() || detail.general.sectorName?.trim() || detail.general.areaName?.trim() || 'Sin ubicación';
   const roleBadge = canReview ? 'GF HSE' : 'EECC';
   const riskLabel = `Riesgo ${item.severityLabel.toLowerCase()} · SLA extendido por Admin GF`;
   const isRejected = item.statusGroup === 'rejected';
@@ -233,7 +339,7 @@ export function MobileFindingExecutionModal({
 
   useEffect(() => {
     if (!visible) return;
-    setStage('detail');
+    setStage('mode');
     setDescription('');
     setEvidence(null);
     setPhotoSheetVisible(false);
@@ -271,20 +377,54 @@ export function MobileFindingExecutionModal({
     }
   }
 
+  function handleBack() {
+    if (stage === 'summary') {
+      setStage('detail');
+      return;
+    }
+    if (stage === 'detail') {
+      setStage('mode');
+      return;
+    }
+    onClose();
+  }
+
+  function handleRequestClose() {
+    if (stage === 'success') {
+      onFinish();
+      return;
+    }
+    handleBack();
+  }
+
   if (!visible) return null;
 
   return (
-    <Modal visible animationType="slide" onRequestClose={stage === 'success' ? onFinish : onClose}>
-      <View style={styles.screen}>
-        <ScreenHeader
-          success={stage === 'success'}
-          inspectionNumber={inspectionNumber}
-          areaLabel={areaLabel}
-          roleBadge={roleBadge}
-          onBack={stage === 'summary' ? () => setStage('detail') : onClose}
-        />
+    <Modal visible animationType="slide" onRequestClose={handleRequestClose}>
+      <View style={[styles.screen, stage === 'mode' && styles.modeScreen]}>
+        {stage === 'mode' ? (
+          <ExecutionModeSelection
+            locationLabel={locationLabel}
+            onBack={onClose}
+            onManual={() => setStage('detail')}
+          />
+        ) : null}
 
-        {stage === 'success' ? <View style={styles.successProgress}><View style={styles.successProgressFill} /></View> : <Stepper stage={stage} />}
+        {stage !== 'mode' ? (
+          <ScreenHeader
+            success={stage === 'success'}
+            inspectionNumber={inspectionNumber}
+            areaLabel={areaLabel}
+            roleBadge={roleBadge}
+            onBack={handleBack}
+          />
+        ) : null}
+
+        {stage === 'success' ? (
+          <View style={styles.successProgress}><View style={styles.successProgressFill} /></View>
+        ) : stage === 'detail' || stage === 'summary' ? (
+          <Stepper stage={stage} />
+        ) : null}
 
         {stage === 'detail' ? (
           <>
@@ -373,8 +513,12 @@ export function MobileFindingExecutionModal({
 
             <View style={styles.footer}>
               <View style={styles.footerButtons}>
-                <TouchableOpacity style={styles.secondaryButton} onPress={onClose} disabled={pending}>
-                  {valid ? <FontAwesome5 name="arrow-left" size={14} color={colors.gold} /> : null}
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={valid ? () => setStage('mode') : onClose}
+                  disabled={pending}
+                >
+                  {valid ? <Feather name="arrow-left" size={14} color={colors.gold} /> : null}
                   <Text style={styles.secondaryButtonText}>{valid ? 'Atrás' : 'Cancelar'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -383,7 +527,7 @@ export function MobileFindingExecutionModal({
                   disabled={!valid}
                 >
                   <Text style={[styles.submitButtonText, !valid && styles.submitButtonTextDisabled]}>Marcar como ejecutado</Text>
-                  <FontAwesome5 name="arrow-right" size={14} color={valid ? colors.white : colors.placeholder} />
+                  <Feather name="arrow-right" size={14} color={valid ? colors.white : colors.placeholder} />
                 </TouchableOpacity>
               </View>
               <View style={styles.homeIndicator} />
@@ -396,7 +540,7 @@ export function MobileFindingExecutionModal({
             <ScrollView style={styles.summaryBody} contentContainerStyle={styles.summaryContent} showsVerticalScrollIndicator={false}>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryCardHeader}>
-                  <FontAwesome5 name="user" size={11} color={colors.muted} solid />
+                  <Feather name="user" size={11} color={colors.muted} />
                   <Text style={styles.summaryCardTitle}>RESPONSABLES</Text>
                 </View>
                 <View style={styles.summaryRow}>
@@ -421,7 +565,7 @@ export function MobileFindingExecutionModal({
 
               <View style={styles.summaryCard}>
                 <View style={styles.summaryCardHeader}>
-                  <FontAwesome5 name="list-ul" size={11} color={colors.muted} />
+                  <Feather name="list" size={11} color={colors.muted} />
                   <Text style={styles.summaryCardTitle}>CORRECCIÓN</Text>
                 </View>
                 <View style={styles.correctionBody}>
@@ -450,7 +594,7 @@ export function MobileFindingExecutionModal({
             <View style={styles.footer}>
               <View style={styles.footerButtons}>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => setStage('detail')} disabled={pending}>
-                  <FontAwesome5 name="arrow-left" size={14} color={colors.gold} />
+                  <Feather name="arrow-left" size={14} color={colors.gold} />
                   <Text style={styles.secondaryButtonText}>Atrás</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.sendButton} onPress={() => { void sendToAdmin(); }} disabled={pending}>
@@ -459,7 +603,7 @@ export function MobileFindingExecutionModal({
                   ) : (
                     <>
                       <Text style={styles.sendButtonText}>Enviar al ADMIN GF</Text>
-                      <FontAwesome5 name="arrow-right" size={14} color={colors.white} />
+                      <Feather name="arrow-right" size={14} color={colors.white} />
                     </>
                   )}
                 </TouchableOpacity>
@@ -472,7 +616,7 @@ export function MobileFindingExecutionModal({
         {stage === 'success' ? (
           <View style={styles.successBody}>
             <View style={styles.successIcon}>
-              <FontAwesome5 name="check" size={34} color={colors.white} />
+              <Feather name="check" size={34} color={colors.white} />
             </View>
             <Text style={styles.successTitle}>Corrección de observación{`\n`}marcado como ejecutado</Text>
             <View style={styles.successAlert}>
@@ -501,6 +645,41 @@ export function MobileFindingExecutionModal({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f7f7f7' },
+  modeScreen: { backgroundColor: '#f4f6f9' },
+  modeHeader: { minHeight: 56, backgroundColor: '#002659', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  modeBackButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  modeHeaderCopy: { flex: 1, paddingHorizontal: 4 },
+  modeHeaderTitle: { color: colors.white, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.semibold },
+  modeHeaderSubtitle: { marginTop: 1, color: 'rgba(255,255,255,0.55)', fontSize: 11, lineHeight: 14 },
+  modeHeaderSpacer: { width: 48 },
+  modeBody: { flex: 1, backgroundColor: '#f4f6f9' },
+  modeContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20, gap: 20 },
+  modeIntro: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  modeQuestion: { color: colors.primary, fontSize: 18, lineHeight: 23.4, textAlign: 'center', fontWeight: fontWeight.bold },
+  modeSubtitle: { marginTop: 6, color: colors.muted, fontSize: 13, lineHeight: 18.2, textAlign: 'center' },
+  assistantCard: { borderRadius: 16, borderWidth: 2, borderColor: colors.gold, backgroundColor: colors.white, padding: 22, shadowColor: colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+  modeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  assistantIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#a77d3e', alignItems: 'center', justifyContent: 'center' },
+  modeCardTitleCopy: { flex: 1, minWidth: 0 },
+  assistantTitle: { color: '#8e6e3e', fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
+  modeCardSubtitle: { marginTop: 2, color: colors.muted, fontSize: 11, lineHeight: 14 },
+  recommendedBadge: { minHeight: 20, borderRadius: 4, backgroundColor: colors.gold, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 3 },
+  recommendedText: { color: colors.navy, fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  assistantDescription: { marginTop: 12, color: colors.body, fontSize: 12, lineHeight: 19.2 },
+  benefitList: { marginTop: 12, gap: 5 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  benefitText: { flex: 1, color: colors.successTxt, fontSize: 11, lineHeight: 14 },
+  assistantButton: { height: 46, marginTop: 14, borderRadius: 12, backgroundColor: colors.gold, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  assistantButtonText: { color: colors.navy, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
+  manualCard: { borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, padding: 21.5 },
+  manualIcon: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: '#f4f6f9', alignItems: 'center', justifyContent: 'center' },
+  manualTitle: { color: colors.primary, fontSize: 15, lineHeight: 18, fontWeight: fontWeight.bold },
+  manualDescription: { marginTop: 10, marginBottom: 12, color: colors.muted, fontSize: 12, lineHeight: 18 },
+  manualButton: { height: 42, borderRadius: 12, borderWidth: 2, borderColor: colors.borderMid, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  manualButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },
+  modeFooter: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
+  modeCancelButton: { height: 50, borderRadius: 14, borderWidth: 2, borderColor: colors.gold, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  modeCancelText: { color: colors.gold, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
   header: { minHeight: 56, backgroundColor: '#002659', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   backButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   headerCopy: { flex: 1, minWidth: 0, paddingHorizontal: 4 },

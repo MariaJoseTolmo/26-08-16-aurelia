@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import type {
   InspectionDetailEvidenceResponse,
@@ -320,13 +320,13 @@ function SlaReassignSheet({
             <Text style={styles.slaEditorLabel}>INGRESE EL NUEVO SLA</Text>
             <View style={styles.slaStepper}>
               <TouchableOpacity style={styles.slaStepButton} onPress={() => setDays((value) => Math.max(0, value - 1))}>
-                <FontAwesome5 name="minus" size={14} color={colors.muted} />
+                <Feather name="minus" size={14} color={colors.muted} />
               </TouchableOpacity>
               <View style={styles.slaStepValue}>
                 <Text style={styles.slaStepValueText}>{days} {days === 1 ? 'Día hábil' : 'Días hábiles'}</Text>
               </View>
               <TouchableOpacity style={styles.slaStepButton} onPress={() => setDays((value) => value + 1)}>
-                <FontAwesome5 name="plus" size={14} color={colors.muted} />
+                <Feather name="plus" size={14} color={colors.muted} />
               </TouchableOpacity>
             </View>
               <Text style={styles.slaEditorHint}>Este será el SLA final para esta observación</Text>
@@ -427,9 +427,9 @@ function FindingCard({
           </View>
         ) : null}
         {item.statusGroup === 'rejected' ? (
-          <View style={styles.rejectBlock}>
+          <View style={styles.textBlock}>
             <Text style={styles.blockLabel}>MOTIVO DE RECHAZO</Text>
-            <Text style={[styles.blockValue, styles.rejectValue]}>{item.rejectionReason || '—'}</Text>
+            <Text style={styles.blockValue}>{item.rejectionReason || '—'}</Text>
           </View>
         ) : null}
 
@@ -481,11 +481,11 @@ function FindingCard({
         {canReview ? (
           <View style={styles.reviewActions}>
             <TouchableOpacity style={styles.rejectAction} disabled={actions.isPending} onPress={() => onReject(item)}>
-              <FontAwesome5 name="times-circle" size={13} color={colors.dangerTxt} />
+              <Feather name="x-circle" size={14} color={colors.dangerTxt} />
               <Text style={styles.rejectActionText}>Rechazar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.approveAction} disabled={actions.isPending} onPress={() => onApprove(item)}>
-              <FontAwesome5 name="check-circle" size={13} color={colors.white} solid />
+              <Feather name="check-circle" size={14} color={colors.white} />
               <Text style={styles.approveActionText}>Aprobar cierre</Text>
             </TouchableOpacity>
           </View>
@@ -629,7 +629,7 @@ function ObservationsPanel({
                   <Text style={[styles.groupCountText, { color: group.color }]}>{items.length}</Text>
                 </View>
               </View>
-              <FontAwesome5 name={open ? 'chevron-up' : 'chevron-down'} size={12} color={colors.primary} solid />
+              <Feather name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.primary} />
             </TouchableOpacity>
             {open ? (
               <View style={styles.groupBody}>
@@ -840,7 +840,7 @@ function GeneralPanel({
           ))}
           {!readOnly && canReassign ? (
             <TouchableOpacity style={styles.reassignButton} onPress={onReassign}>
-              <FontAwesome5 name="user-plus" size={13} color={colors.blueLink} />
+              <Feather name="user-plus" size={14} color={colors.blueLink} />
               <Text style={styles.reassignText}>Reasignar a otro compañero</Text>
             </TouchableOpacity>
           ) : null}
@@ -1000,7 +1000,7 @@ export function MobileInspectionDetailModal({
             ) : null}
           </View>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Cerrar detalle">
-            <FontAwesome5 name="times" size={20} color={colors.primary} />
+            <Feather name="x" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -1178,10 +1178,8 @@ const styles = StyleSheet.create({
   findingCopy: { marginTop: 12, gap: 4 },
   textBlock: { borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 10, paddingVertical: 8 },
   conditionTextBlock: { borderWidth: 1, borderColor: colors.border, paddingHorizontal: 11, paddingVertical: 9 },
-  rejectBlock: { borderRadius: 8, backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf, paddingHorizontal: 10, paddingVertical: 8 },
   blockLabel: { color: colors.muted, fontSize: 9, lineHeight: 11, letterSpacing: 1.2, fontWeight: fontWeight.bold },
   blockValue: { marginTop: 3, color: colors.primary, fontSize: 12, lineHeight: 17 },
-  rejectValue: { color: colors.dangerTxt },
   responsibleLine: { minHeight: 21, flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 6 },
   responsibleLineText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
   evidenceRow: { flexDirection: 'row', gap: 4, paddingTop: 8 },
