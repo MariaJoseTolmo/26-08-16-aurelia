@@ -33,7 +33,7 @@ import { useMobileSession } from '../auth/mobileSession.store';
 import type { MobileFindingEvidenceInput } from './hooks/useMobileInspectionManagement';
 import { suggestMobileFindingExecutionAction } from './services/mobileFindingAssistantExecution.service';
 
-type AssistantPhase = 'details' | 'response' | 'done';
+type AssistantPhase = 'details' | 'response' | 'summary' | 'done';
 
 type ExtraBubble = {
   id: string;
@@ -340,6 +340,54 @@ function ResponseCard({
   );
 }
 
+
+function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryRowLabel}>{label}</Text>
+      <View style={styles.summaryRowValueWrap}>{typeof children === 'string' ? <Text style={styles.summaryRowValue}>{children}</Text> : children}</View>
+    </View>
+  );
+}
+
+function SummaryCard({ detail, item, index, itemLabel, evidence, description, summaryAt }: { detail: InspectionDetailResponse; item: InspectionDetailFindingItemResponse; index: number; itemLabel: 'Obs.' | 'Ítem'; evidence: MobileFindingEvidenceInput; description: string; summaryAt: string | null }) {
+  const token = useMobileSession((state) => state.accessToken);
+  const responsible = item.responsibleUsers[0];
+  const beforeEvidence = item.beforeEvidence[0];
+  const beforeUri = evidenceUrl(beforeEvidence);
+  const severity = severityColors(item.severityLabel);
+  const companyName = item.responsibleCompanyName ?? responsible?.companyName ?? detail.general.companyName ?? '—';
+  const inspectionLabel = [detail.header.inspectionNumber, detail.general.areaName, detail.general.sectorName ?? detail.general.locationLabel].filter(Boolean).join(' · ');
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryHeader}>
+        <Text style={styles.summaryHeaderTitle} numberOfLines={1}>Observación {detail.header.inspectionNumber} · {itemLabel} {index + 1}</Text>
+        <View style={styles.summaryStatus}><Text style={styles.summaryStatusText}>Ejecutado</Text></View>
+      </View>
+      <View style={styles.summaryPhotos}>
+        <View style={styles.summaryPhotoBox}>
+          <View style={styles.summaryPhotoLabel}><Text style={styles.summaryPhotoLabelText}>ANTES · INSPECTOR</Text></View>
+          <View style={[styles.summaryPhotoBody, styles.summaryPhotoBefore]}>
+            {beforeUri ? <Image source={{ uri: beforeUri, headers: token ? { Authorization: `Bearer ${token}` } : undefined }} style={styles.summaryPhotoImage} resizeMode="cover" /> : <View style={styles.summaryPhotoPlaceholder}><Feather name="image" size={22} color={colors.blueLink} /><Text style={styles.summaryPhotoBeforeText}>Foto original</Text></View>}
+          </View>
+        </View>
+        <View style={styles.summaryPhotoBox}>
+          <View style={styles.summaryPhotoLabel}><Text style={styles.summaryPhotoLabelText}>DESPUÉS · EECC</Text></View>
+          <View style={[styles.summaryPhotoBody, styles.summaryPhotoAfter]}>
+            <Image source={{ uri: evidence.uri }} style={styles.summaryPhotoImage} resizeMode="cover" />
+          </View>
+        </View>
+      </View>
+      <SummaryRow label="Ejecutado por">{responsible?.fullName ?? 'Responsable EECC'}</SummaryRow>
+      <SummaryRow label="Empresa">{companyName}</SummaryRow>
+      <SummaryRow label="Fecha y hora">{formatDateTime(summaryAt)}</SummaryRow>
+      <SummaryRow label="Inspección">{inspectionLabel}</SummaryRow>
+      <SummaryRow label="Criticidad"><View style={[styles.summarySeverity, { backgroundColor: severity.background }]}><Text style={[styles.summarySeverityText, { color: severity.color }]}>{item.severityLabel}</Text></View></SummaryRow>
+      <View style={styles.summaryAction}><Text style={styles.summaryActionLabel}>Acción tomada</Text><Text style={styles.summaryActionText}>{description}</Text></View>
+    </View>
+  );
+}
+
 function DoneScreen({
   item,
   index,
@@ -417,6 +465,7 @@ export function MobileFindingAssistantExecutionFlow({
   const [acknowledgement, setAcknowledgement] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [summaryAt, setSummaryAt] = useState<string | null>(null);
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const [extraBubbles, setExtraBubbles] = useState<ExtraBubble[]>([]);
   const scrollRef = useRef<ScrollView>(null);
@@ -438,13 +487,14 @@ export function MobileFindingAssistantExecutionFlow({
     setAcknowledgement(null);
     setSubmitting(false);
     setSubmittedAt(null);
+    setSummaryAt(null);
     setPhotoSheetVisible(false);
     setExtraBubbles([]);
   }, [item.findingId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (phase === 'done') scrollRef.current?.scrollTo({ y: 0, animated: false });
+      if (phase === 'done' || phase === 'summary') scrollRef.current?.scrollTo({ y: 0, animated: false });
       else scrollRef.current?.scrollToEnd({ animated: true });
     }, 60);
     return () => clearTimeout(timer);
@@ -527,6 +577,19 @@ export function MobileFindingAssistantExecutionFlow({
     setAcknowledgement('✓ Descripción guardada');
   }
 
+  function showSummary() {
+    if (!evidence || !accepted || !description.trim()) return;
+    setSummaryAt(new Date().toISOString());
+    setPhase('summary');
+  }
+
+  function editSummary() {
+    setPhase('response');
+    setEditing(true);
+    setAccepted(false);
+    setAcknowledgement(null);
+  }
+
   async function confirmExecution() {
     if (!evidence || !description.trim() || !canConfirm) return;
     setSubmitting(true);
@@ -542,6 +605,10 @@ export function MobileFindingAssistantExecutionFlow({
   }
 
   function handleBack() {
+    if (phase === 'summary') {
+      setPhase('response');
+      return;
+    }
     if (phase === 'response') {
       setPhase('details');
       return;
@@ -568,6 +635,13 @@ export function MobileFindingAssistantExecutionFlow({
       >
         {phase === 'done' ? (
           <DoneScreen item={item} index={index} itemLabel={itemLabel} submittedAt={submittedAt} />
+        ) : phase === 'summary' && evidence ? (
+          <>
+            <BotBubble text="Revisa el resumen completo antes de confirmar:" />
+            <SummaryCard detail={detail} item={item} index={index} itemLabel={itemLabel} evidence={evidence} description={description} summaryAt={summaryAt} />
+            <BotBubble text="¿Todo correcto? Al confirmar, el hallazgo quedará como **Ejecutado** y el Admin GF e Inspector serán notificados para aprobar." />
+            <View style={styles.quickOptions}><QuickOpt label="Editar algo" icon="pen" onPress={editSummary} /></View>
+          </>
         ) : (
           <>
             <BotBubble text={`¡Hola! 👋 Iniciaste el flujo asistido para ejecutar la **${itemLabel} ${index + 1}**. Revisa los detalles antes de continuar:`} />
@@ -612,13 +686,9 @@ export function MobileFindingAssistantExecutionFlow({
                 {accepted && acknowledgement ? <UserBubble text={acknowledgement} /> : null}
                 {accepted ? (
                   <View style={styles.continueWrap}>
-                    <TouchableOpacity
-                      style={[styles.continueButton, !canConfirm && styles.continueButtonDisabled]}
-                      onPress={() => { void confirmExecution(); }}
-                      disabled={!canConfirm}
-                    >
-                      {submitting || pending ? <ActivityIndicator size="small" color={colors.white} /> : <Feather name="arrow-right" size={12} color={colors.white} />}
-                      <Text style={styles.continueButtonText}>{submitting || pending ? 'Guardando…' : 'Continuar al resumen'}</Text>
+                    <TouchableOpacity style={[styles.continueButton, !canConfirm && styles.continueButtonDisabled]} onPress={showSummary} disabled={!canConfirm}>
+                      <Feather name="arrow-right" size={12} color={colors.white} />
+                      <Text style={styles.continueButtonText}>Continuar al resumen</Text>
                     </TouchableOpacity>
                   </View>
                 ) : null}
@@ -633,6 +703,14 @@ export function MobileFindingAssistantExecutionFlow({
           <TouchableOpacity style={styles.doneButton} onPress={onFinish}>
             <Feather name="arrow-left" size={14} color={colors.navy} />
             <Text style={styles.doneButtonText}>Volver a observaciones</Text>
+          </TouchableOpacity>
+          <View style={styles.homeIndicator} />
+        </View>
+      ) : phase === 'summary' ? (
+        <View style={styles.summaryFooter}>
+          <TouchableOpacity style={[styles.summaryConfirmButton, !canConfirm && styles.continueButtonDisabled]} onPress={() => { void confirmExecution(); }} disabled={!canConfirm}>
+            {submitting || pending ? <ActivityIndicator size="small" color={colors.white} /> : <Feather name="check" size={15} color={colors.white} />}
+            <Text style={styles.summaryConfirmText}>{submitting || pending ? 'Guardando…' : 'Confirmar ejecución'}</Text>
           </TouchableOpacity>
           <View style={styles.homeIndicator} />
         </View>
@@ -733,6 +811,33 @@ const styles = StyleSheet.create({
   continueButton: { minHeight: 34, borderRadius: 20, backgroundColor: colors.teal, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7 },
   continueButtonDisabled: { opacity: 0.55 },
   continueButtonText: { color: colors.white, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.semibold },
+  summaryCard: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  summaryHeader: { minHeight: 36, backgroundColor: colors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
+  summaryHeaderTitle: { flex: 1, color: colors.white, fontSize: 11, lineHeight: 14, fontWeight: fontWeight.bold },
+  summaryStatus: { minHeight: 18, borderRadius: 5, backgroundColor: colors.tealSurf, justifyContent: 'center', paddingHorizontal: 7, marginLeft: 8 },
+  summaryStatusText: { color: colors.tealTxt, fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  summaryPhotos: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  summaryPhotoBox: { flex: 1, borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  summaryPhotoLabel: { minHeight: 21, backgroundColor: colors.navy, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 4 },
+  summaryPhotoLabelText: { color: 'rgba(255,255,255,0.72)', fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  summaryPhotoBody: { height: 80, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  summaryPhotoBefore: { backgroundColor: '#D8EFF9' },
+  summaryPhotoAfter: { backgroundColor: '#D9F8C8' },
+  summaryPhotoImage: { width: '100%', height: '100%' },
+  summaryPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  summaryPhotoBeforeText: { color: colors.muted, fontSize: 9, lineHeight: 11 },
+  summaryRow: { minHeight: 37, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 12, paddingVertical: 8 },
+  summaryRowLabel: { width: 80, color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: fontWeight.medium },
+  summaryRowValueWrap: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  summaryRowValue: { color: colors.primary, fontSize: 11, lineHeight: 15, fontWeight: fontWeight.semibold },
+  summarySeverity: { alignSelf: 'flex-start', minHeight: 18, borderRadius: 5, justifyContent: 'center', paddingHorizontal: 7 },
+  summarySeverityText: { fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  summaryAction: { gap: 4, paddingHorizontal: 12, paddingVertical: 8 },
+  summaryActionLabel: { color: colors.muted, fontSize: 10, lineHeight: 13, fontWeight: fontWeight.medium },
+  summaryActionText: { color: colors.primary, fontSize: 11, lineHeight: 17 },
+  summaryFooter: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6 },
+  summaryConfirmButton: { height: 48, borderRadius: 14, backgroundColor: colors.teal, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  summaryConfirmText: { color: colors.white, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
   doneBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 28 },
   doneIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center', shadowColor: colors.teal, shadowOpacity: 0.32, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
   doneTitle: { marginTop: 18, color: colors.teal, fontSize: 20, lineHeight: 24, fontWeight: fontWeight.bold },
