@@ -1,4 +1,5 @@
 name: Temporary inspection detail icon fidelity
+# second push intentionally triggers the staged workflow
 
 on:
   push:
