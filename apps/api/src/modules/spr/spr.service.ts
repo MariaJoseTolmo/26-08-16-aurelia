@@ -1,10 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   CommentResponse,
   EvidenceLinkResponse,
   EvidenceResponse,
+  RecordStatus,
+  Role,
   SprApprovalStatus,
   SprMeasureGroupResponse,
   SprMonthlyRecordResponse,
@@ -17,6 +19,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { CommentsService } from '../comments/comments.service';
 import { EvidencesService } from '../evidences/evidences.service';
+import { UserEntity } from '../users/entities/user.entity';
 import { CreateSprMonthlyRecordDto } from './dto/create-spr-monthly-record.dto';
 import { CreateSprRecordCommentDto } from './dto/create-spr-record-comment.dto';
 import { LinkSprRecordEvidenceDto } from './dto/link-spr-record-evidence.dto';
@@ -31,6 +34,19 @@ import { SprRecordApprovalEntity } from './entities/spr-record-approval.entity';
 import { SprUnitEntity } from './entities/spr-unit.entity';
 
 const SPR_RECORD_ENTITY_TYPE = 'spr_record';
+
+const SPR_AREA_AUTO_SCOPE_ROLES = new Set<string>([Role.SPR_RESPONSIBLE, Role.SPR_AREA_MANAGER]);
+const SPR_CATALOG_UNSCOPED_ROLES = new Set<string>([
+  Role.ADMIN,
+  Role.SPR_SUSTAINABILITY_SPECIALIST,
+  Role.SPR_ENVIRONMENT_MANAGER,
+]);
+
+type SprCatalogScopeInput = {
+  areaId?: string;
+  roles: string[];
+  userId: string;
+};
 
 @Injectable()
 export class SprService {
@@ -47,6 +63,8 @@ export class SprService {
     private readonly monthlyRecordsRepository: Repository<SprMonthlyRecordEntity>,
     @InjectRepository(SprRecordApprovalEntity)
     private readonly approvalsRepository: Repository<SprRecordApprovalEntity>,
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
     private readonly evidencesService: EvidencesService,
     private readonly commentsService: CommentsService,
     private readonly auditService: AuditService,
@@ -62,13 +80,36 @@ export class SprService {
     return units.map((unit) => this.toUnitResponse(unit));
   }
 
-  async findParameters(): Promise<SprParameterResponse[]> {
-    const parameters = await this.parametersRepository.find({ order: { sortOrder: 'ASC', code: 'ASC' } });
+  async findParameters(scope: SprCatalogScopeInput): Promise<SprParameterResponse[]> {
+    const resolved = await this.resolveCatalogAreaScope(scope);
+    if (resolved.mode === 'empty') return [];
+
+    if (resolved.mode === 'all') {
+      const parameters = await this.parametersRepository.find({ order: { sortOrder: 'ASC', code: 'ASC' } });
+      return parameters.map((parameter) => this.toParameterResponse(parameter));
+    }
+
+    const assignments = await this.assignmentsRepository.find({
+      where: { areaId: resolved.areaId, status: RecordStatus.ACTIVE },
+    });
+    const parameterIds = [...new Set(assignments.map((assignment) => assignment.parameterId))];
+    if (parameterIds.length === 0) return [];
+
+    const parameters = await this.parametersRepository.find({
+      where: { id: In(parameterIds) },
+      order: { sortOrder: 'ASC', code: 'ASC' },
+    });
     return parameters.map((parameter) => this.toParameterResponse(parameter));
   }
 
-  async findAssignments(): Promise<SprParameterAreaAssignmentResponse[]> {
-    const assignments = await this.assignmentsRepository.find({ order: { createdAt: 'DESC' } });
+  async findAssignments(scope: SprCatalogScopeInput): Promise<SprParameterAreaAssignmentResponse[]> {
+    const resolved = await this.resolveCatalogAreaScope(scope);
+    if (resolved.mode === 'empty') return [];
+
+    const assignments = await this.assignmentsRepository.find({
+      where: resolved.mode === 'area' ? { areaId: resolved.areaId } : {},
+      order: { createdAt: 'DESC' },
+    });
     return assignments.map((assignment) => this.toAssignmentResponse(assignment));
   }
 
@@ -106,6 +147,7 @@ export class SprService {
     const builder = this.monthlyRecordsRepository
       .createQueryBuilder('record')
       .leftJoinAndSelect('record.submittedByUser', 'submittedByUser')
+      .leftJoinAndSelect('record.approvedByUser', 'approvedByUser')
       .orderBy('record.created_at', 'DESC');
 
     if (query.parameterId) builder.andWhere('record.parameter_id = :parameterId', { parameterId: query.parameterId });
@@ -264,6 +306,34 @@ export class SprService {
     return this.toMonthlyRecordResponse(saved);
   }
 
+  private async resolveCatalogAreaScope(
+    scope: SprCatalogScopeInput,
+  ): Promise<{ mode: 'all' } | { mode: 'area'; areaId: string } | { mode: 'empty' }> {
+    if (scope.areaId) {
+      return { mode: 'area', areaId: scope.areaId };
+    }
+
+    const roles = scope.roles ?? [];
+    const isUnscopedRole = roles.some((role) => SPR_CATALOG_UNSCOPED_ROLES.has(role));
+    if (isUnscopedRole) {
+      return { mode: 'all' };
+    }
+
+    const shouldAutoScope = roles.some((role) => SPR_AREA_AUTO_SCOPE_ROLES.has(role));
+    if (!shouldAutoScope) {
+      return { mode: 'all' };
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: scope.userId },
+      select: { id: true, areaId: true },
+    });
+    if (!user?.areaId) {
+      return { mode: 'empty' };
+    }
+    return { mode: 'area', areaId: user.areaId };
+  }
+
   private async ensureParameterExists(parameterId: string): Promise<SprParameterEntity> {
     const parameter = await this.parametersRepository.findOne({ where: { id: parameterId } });
     if (!parameter) throw new NotFoundException('SPR parameter not found');
@@ -279,7 +349,7 @@ export class SprService {
   private async ensureRecordExists(id: string): Promise<SprMonthlyRecordEntity> {
     const record = await this.monthlyRecordsRepository.findOne({
       where: { id },
-      relations: { submittedByUser: true },
+      relations: { submittedByUser: true, approvedByUser: true },
     });
     if (!record) throw new NotFoundException('SPR monthly record not found');
     return record;
@@ -369,6 +439,9 @@ export class SprService {
     const submittedByFullName = record.submittedByUser
       ? `${record.submittedByUser.firstName} ${record.submittedByUser.lastName}`.trim() || null
       : null;
+    const approvedByFullName = record.approvedByUser
+      ? `${record.approvedByUser.firstName} ${record.approvedByUser.lastName}`.trim() || null
+      : null;
 
     return {
       id: record.id,
@@ -385,6 +458,7 @@ export class SprService {
       submittedByFullName,
       submittedAt: record.submittedAt?.toISOString() ?? null,
       approvedByUserId: record.approvedByUserId,
+      approvedByFullName,
       approvedAt: record.approvedAt?.toISOString() ?? null,
       notes: record.notes,
       createdAt: record.createdAt.toISOString(),

@@ -21,6 +21,16 @@ export interface SprMonthlyRecordsQuery {
   periodMonth?: number;
 }
 
+export interface SprCatalogQuery {
+  areaId?: string | null;
+}
+
+function buildCatalogQuery(query?: SprCatalogQuery) {
+  if (!query?.areaId) return '';
+  const searchParams = new URLSearchParams({ areaId: query.areaId });
+  return `?${searchParams.toString()}`;
+}
+
 function buildMonthlyRecordsQuery(query?: SprMonthlyRecordsQuery) {
   if (!query) return '';
   const searchParams = new URLSearchParams();
@@ -32,12 +42,12 @@ function buildMonthlyRecordsQuery(query?: SprMonthlyRecordsQuery) {
   return serialized ? `?${serialized}` : '';
 }
 
-export function getSprParameters(): Promise<SprParameterResponse[]> {
-  return httpGet<SprParameterResponse[]>('/spr/parameters');
+export function getSprParameters(query?: SprCatalogQuery): Promise<SprParameterResponse[]> {
+  return httpGet<SprParameterResponse[]>(`/spr/parameters${buildCatalogQuery(query)}`);
 }
 
-export function getSprAssignments(): Promise<SprParameterAreaAssignmentResponse[]> {
-  return httpGet<SprParameterAreaAssignmentResponse[]>('/spr/assignments');
+export function getSprAssignments(query?: SprCatalogQuery): Promise<SprParameterAreaAssignmentResponse[]> {
+  return httpGet<SprParameterAreaAssignmentResponse[]>(`/spr/assignments${buildCatalogQuery(query)}`);
 }
 
 export function getSprUnits(): Promise<SprUnitResponse[]> {

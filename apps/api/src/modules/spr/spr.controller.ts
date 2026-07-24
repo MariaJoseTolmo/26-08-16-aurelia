@@ -57,13 +57,21 @@ export class SprController {
   }
 
   @Get('parameters')
-  findParameters() {
-    return this.sprService.findParameters();
+  findParameters(@Query('areaId') areaId: string | undefined, @Req() request: AuthenticatedRequest) {
+    return this.sprService.findParameters({
+      areaId,
+      roles: request.user.roles,
+      userId: request.user.sub,
+    });
   }
 
   @Get('assignments')
-  findAssignments() {
-    return this.sprService.findAssignments();
+  findAssignments(@Query('areaId') areaId: string | undefined, @Req() request: AuthenticatedRequest) {
+    return this.sprService.findAssignments({
+      areaId,
+      roles: request.user.roles,
+      userId: request.user.sub,
+    });
   }
 
   @RequirePermissions('spr:write')
