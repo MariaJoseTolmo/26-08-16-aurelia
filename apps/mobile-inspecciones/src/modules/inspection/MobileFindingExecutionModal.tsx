@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import type {
   InspectionDetailEvidenceResponse,
@@ -172,7 +172,7 @@ function ScreenHeader({
       <View style={styles.header}>
         {!success ? (
           <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel="Volver al detalle">
-            <FontAwesome5 name="arrow-left" size={20} color="rgba(255,255,255,0.92)" />
+            <Feather name="arrow-left" size={20} color="rgba(255,255,255,0.92)" />
           </TouchableOpacity>
         ) : null}
         <View style={styles.headerCopy}>
@@ -184,7 +184,7 @@ function ScreenHeader({
         <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>{success ? 'GF HSE' : roleBadge}</Text></View>
       </View>
       <View style={styles.offlineBanner}>
-        <FontAwesome5 name="wifi" size={11} color={colors.gold} />
+        <Feather name="wifi-off" size={11} color={colors.gold} />
         <Text style={styles.offlineText}>Sin red · guardando localmente</Text>
       </View>
     </>
@@ -195,7 +195,7 @@ function LoadedEvidenceChip({ filename, onPress }: { filename: string; onPress: 
   return (
     <TouchableOpacity style={styles.loadedEvidenceChip} onPress={onPress} activeOpacity={0.84}>
       <View style={styles.loadedEvidenceIcon}>
-        <FontAwesome5 name="camera" size={14} color={colors.white} solid />
+        <Feather name="camera" size={14} color={colors.white} />
       </View>
       <Text style={styles.loadedEvidenceName} numberOfLines={1}>{filename}</Text>
     </TouchableOpacity>
@@ -374,7 +374,7 @@ export function MobileFindingExecutionModal({
             <View style={styles.footer}>
               <View style={styles.footerButtons}>
                 <TouchableOpacity style={styles.secondaryButton} onPress={onClose} disabled={pending}>
-                  {valid ? <FontAwesome5 name="arrow-left" size={14} color={colors.gold} /> : null}
+                  {valid ? <Feather name="arrow-left" size={14} color={colors.gold} /> : null}
                   <Text style={styles.secondaryButtonText}>{valid ? 'Atrás' : 'Cancelar'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -383,7 +383,7 @@ export function MobileFindingExecutionModal({
                   disabled={!valid}
                 >
                   <Text style={[styles.submitButtonText, !valid && styles.submitButtonTextDisabled]}>Marcar como ejecutado</Text>
-                  <FontAwesome5 name="arrow-right" size={14} color={valid ? colors.white : colors.placeholder} />
+                  <Feather name="arrow-right" size={14} color={valid ? colors.white : colors.placeholder} />
                 </TouchableOpacity>
               </View>
               <View style={styles.homeIndicator} />
@@ -396,7 +396,7 @@ export function MobileFindingExecutionModal({
             <ScrollView style={styles.summaryBody} contentContainerStyle={styles.summaryContent} showsVerticalScrollIndicator={false}>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryCardHeader}>
-                  <FontAwesome5 name="user" size={11} color={colors.muted} solid />
+                  <Feather name="user" size={11} color={colors.muted} />
                   <Text style={styles.summaryCardTitle}>RESPONSABLES</Text>
                 </View>
                 <View style={styles.summaryRow}>
@@ -421,7 +421,7 @@ export function MobileFindingExecutionModal({
 
               <View style={styles.summaryCard}>
                 <View style={styles.summaryCardHeader}>
-                  <FontAwesome5 name="list-ul" size={11} color={colors.muted} />
+                  <Feather name="list" size={11} color={colors.muted} />
                   <Text style={styles.summaryCardTitle}>CORRECCIÓN</Text>
                 </View>
                 <View style={styles.correctionBody}>
@@ -450,7 +450,7 @@ export function MobileFindingExecutionModal({
             <View style={styles.footer}>
               <View style={styles.footerButtons}>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => setStage('detail')} disabled={pending}>
-                  <FontAwesome5 name="arrow-left" size={14} color={colors.gold} />
+                  <Feather name="arrow-left" size={14} color={colors.gold} />
                   <Text style={styles.secondaryButtonText}>Atrás</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.sendButton} onPress={() => { void sendToAdmin(); }} disabled={pending}>
@@ -459,7 +459,7 @@ export function MobileFindingExecutionModal({
                   ) : (
                     <>
                       <Text style={styles.sendButtonText}>Enviar al ADMIN GF</Text>
-                      <FontAwesome5 name="arrow-right" size={14} color={colors.white} />
+                      <Feather name="arrow-right" size={14} color={colors.white} />
                     </>
                   )}
                 </TouchableOpacity>
@@ -472,7 +472,7 @@ export function MobileFindingExecutionModal({
         {stage === 'success' ? (
           <View style={styles.successBody}>
             <View style={styles.successIcon}>
-              <FontAwesome5 name="check" size={34} color={colors.white} />
+              <Feather name="check" size={34} color={colors.white} />
             </View>
             <Text style={styles.successTitle}>Corrección de observación{`\n`}marcado como ejecutado</Text>
             <View style={styles.successAlert}>

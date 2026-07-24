@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 
 export type MobileFindingReviewMode = 'approve' | 'reject' | null;
@@ -51,14 +51,14 @@ export function MobileFindingReviewDialog({
       <View style={styles.overlay}>
         <View style={styles.dialog}>
           <View style={styles.iconRow}>
-            <FontAwesome5 name="info-circle" size={32} color="#24588b" />
+            <Feather name="info" size={32} color="#24588b" />
             <TouchableOpacity
               style={styles.closeButton}
               onPress={onClose}
               disabled={pending}
               accessibilityLabel="Cerrar diálogo"
             >
-              <FontAwesome5 name="times" size={22} color="#131313" />
+              <Feather name="x" size={16} color="#131313" />
             </TouchableOpacity>
           </View>
 
@@ -135,14 +135,14 @@ export function MobileFindingReviewSnackbar({ message, onClose }: SnackbarProps)
   return (
     <View pointerEvents="box-none" style={styles.snackbarLayer}>
       <View style={styles.snackbar}>
-        <FontAwesome5 name="check-circle" size={24} color={colors.white} />
+        <Feather name="check-circle" size={24} color={colors.white} />
         <Text style={styles.snackbarText}>{message}</Text>
         <TouchableOpacity
           style={styles.snackbarClose}
           onPress={onClose}
           accessibilityLabel="Cerrar mensaje"
         >
-          <FontAwesome5 name="times" size={20} color={colors.white} />
+          <Feather name="x" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
     </View>
