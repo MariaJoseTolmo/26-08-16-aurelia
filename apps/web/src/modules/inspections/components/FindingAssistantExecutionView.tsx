@@ -11,7 +11,7 @@ const API_URL = env.apiUrl;
 const apiOrigin = API_URL.replace(/\/api\/?$/, '');
 const photoReceivedText = 'Foto recibida ✓. Te propongo esta descripción basada en la medida solicitada. Acéptala o edítala.';
 
-type AssistantPhase = 'details' | 'response' | 'done';
+type AssistantPhase = 'details' | 'response' | 'summary' | 'done';
 
 type ExtraBubble = {
   id: string;
@@ -21,6 +21,7 @@ type ExtraBubble = {
 
 type AssistantViewProps = {
   subtitle: string;
+  inspectionLabel?: string;
   item?: InspectionDetailFindingItemResponse | null;
   index?: number;
   isSubmitting?: boolean;
@@ -34,6 +35,8 @@ type FooterProps = {
   onInputChange: (value: string) => void;
   onSend: () => void;
   onDone: () => void;
+  onConfirm: () => void;
+  confirming: boolean;
 };
 
 function currentTime() {
@@ -233,8 +236,50 @@ function ResponseCard({ item, file, suggestion, editing, accepted, description, 
   );
 }
 
-function Footer({ phase, inputValue, onInputChange, onSend, onDone }: FooterProps) {
+
+function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="flex border-b border-[#E3E3E3] px-[12px] py-[8px] last:border-b-0"><span className="w-[80px] shrink-0 text-[10px] font-medium text-[#646464]">{label}</span><div className="min-w-0 flex-1 text-[11px] font-semibold leading-[15px] text-[#131313]">{children}</div></div>;
+}
+
+function SummaryCard({ item, index, file, description, subtitle, inspectionLabel, summaryAt }: { item: InspectionDetailFindingItemResponse | null | undefined; index: number; file: File | null; description: string; subtitle: string; inspectionLabel?: string; summaryAt: string | null }) {
+  const responsible = item?.responsibleUsers[0];
+  const beforeEvidence = item?.beforeEvidence[0];
+  const beforeUrl = resolveEvidenceContentUrl(beforeEvidence);
+  const [afterUrl, setAfterUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setAfterUrl(null);
+      return undefined;
+    }
+    const nextUrl = URL.createObjectURL(file);
+    setAfterUrl(nextUrl);
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [file]);
+  const inspectionNumber = inspectionLabel?.split(' · ')[0] ?? '';
+  const inspectionDescription = inspectionLabel ?? subtitle;
+  const companyName = item?.responsibleCompanyName ?? responsible?.companyName ?? '—';
+  const executedBy = responsible?.fullName ?? 'Responsable EECC';
+  const executedAt = summaryAt ?? new Date().toISOString();
+  return (
+    <div className="overflow-hidden rounded-[12px] border border-[#E3E3E3] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+      <div className="flex min-h-[36px] items-center justify-between bg-[#001E39] px-[12px] py-[8px]"><span className="min-w-0 truncate text-[11px] font-bold text-white">Observación {inspectionNumber ? `${inspectionNumber} · ` : ''}Obs. {index + 1}</span><span className="rounded-[5px] bg-[#C5FFF6] px-[7px] py-[2px] text-[9px] font-bold text-[#006153]">Ejecutado</span></div>
+      <div className="grid grid-cols-2 gap-[8px] px-[12px] py-[10px]">
+        <div className="overflow-hidden rounded-[8px] border border-[#E3E3E3]"><div className="bg-[#001E39] px-[8px] py-[4px] text-[9px] font-bold uppercase text-[rgba(255,255,255,0.72)]">Antes · Inspector</div><div className="flex h-[80px] flex-col items-center justify-center gap-[4px] overflow-hidden bg-gradient-to-br from-[#E8F4FD] to-[#C8E6F0]">{beforeUrl ? <img src={beforeUrl} alt={evidenceLabel(beforeEvidence, 'Foto original')} className="h-full w-full object-cover" /> : <><ImageIcon className="size-[22px] text-[#24588B]" /><span className="text-[9px] text-[#646464]">Foto original</span></>}</div></div>
+        <div className="overflow-hidden rounded-[8px] border border-[#E3E3E3]"><div className="bg-[#001E39] px-[8px] py-[4px] text-[9px] font-bold uppercase text-[rgba(255,255,255,0.72)]">Después · EECC</div><div className="flex h-[80px] flex-col items-center justify-center gap-[4px] overflow-hidden bg-gradient-to-br from-[#E0FFD3] to-[#C5F0B0]">{afterUrl ? <img src={afterUrl} alt="Evidencia posterior" className="h-full w-full object-cover" /> : <><ImageIcon className="size-[22px] text-[#2A5C16]" /><span className="text-[9px] text-[#2A5C16]">Evidencia ✓</span></>}</div></div>
+      </div>
+      <SummaryRow label="Ejecutado por">{executedBy}</SummaryRow>
+      <SummaryRow label="Empresa">{companyName}</SummaryRow>
+      <SummaryRow label="Fecha y hora">{formatDateTime(executedAt)}</SummaryRow>
+      <SummaryRow label="Inspección">{inspectionDescription}</SummaryRow>
+      <SummaryRow label="Criticidad"><FindingBadge className={severityClassName(item?.severityLabel)}>{item?.severityLabel ?? 'Moderado'}</FindingBadge></SummaryRow>
+      <div className="flex flex-col gap-[4px] px-[12px] py-[8px]"><span className="text-[10px] font-medium text-[#646464]">Acción tomada</span><p className="text-[11px] leading-[16.5px] text-[#131313]">{description}</p></div>
+    </div>
+  );
+}
+
+function Footer({ phase, inputValue, onInputChange, onSend, onDone, onConfirm, confirming }: FooterProps) {
   if (phase === 'done') return <div className="shrink-0 border-t border-[#E3E3E3] bg-white px-[12px] pb-[6px] pt-[8px]"><button type="button" onClick={onDone} className="flex h-[48px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[#C8A064] text-[14px] font-bold text-[#001E39]">← Volver a observaciones</button><div className="mx-auto mt-[10px] h-[4px] w-[120px] rounded-[2px] bg-[#D1D1D1]" /></div>;
+  if (phase === 'summary') return <div className="shrink-0 border-t border-[#E3E3E3] bg-white px-[12px] pb-[6px] pt-[8px]"><button type="button" onClick={onConfirm} disabled={confirming} className="flex h-[48px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[#00B398] text-[14px] font-bold text-white disabled:opacity-55">{confirming ? 'Guardando…' : '✓ Confirmar ejecución'}</button><div className="mx-auto mt-[10px] h-[4px] w-[120px] rounded-[2px] bg-[#D1D1D1]" /></div>;
   return <div className="shrink-0 border-t border-[#E3E3E3] bg-white px-[12px] pb-[6px] pt-[8px]"><div className="flex items-center gap-[8px]"><textarea value={inputValue} onChange={(event) => onInputChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend(); } }} placeholder="Escribe aquí o usa los controles…" rows={1} className="min-h-[40px] max-h-[80px] flex-1 resize-none rounded-[20px] border-[1.5px] border-[#D1D1D1] bg-[#F4F6F9] px-[14px] py-[10px] text-[13px] leading-[18px] text-[#131313] outline-none placeholder:text-[#ACACAC]" /><button type="button" onClick={onSend} className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-[#00B398] text-white"><ChatSendIcon /></button></div><div className="mx-auto mt-[10px] h-[4px] w-[120px] rounded-[2px] bg-[#D1D1D1]" /></div>;
 }
 
@@ -258,7 +303,7 @@ function DoneScreen({ item, index, submittedAt }: { item: InspectionDetailFindin
   );
 }
 
-export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSubmitting = false, onBack, onCancel }: AssistantViewProps) {
+export function FindingAssistantExecutionView({ subtitle, inspectionLabel, item, index = 0, isSubmitting = false, onBack, onCancel }: AssistantViewProps) {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<AssistantPhase>('details');
   const [file, setFile] = useState<File | null>(null);
@@ -270,6 +315,7 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
   const [responseAckText, setResponseAckText] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [summaryAt, setSummaryAt] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [extraBubbles, setExtraBubbles] = useState<ExtraBubble[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -277,7 +323,7 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
-    if (phase === 'done') node.scrollTop = 0;
+    if (phase === 'done' || phase === 'summary') node.scrollTop = 0;
     else node.scrollTop = node.scrollHeight;
   }, [phase, file, suggestion, description, editing, loadingSuggestion, responseAccepted, extraBubbles.length]);
 
@@ -326,6 +372,19 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
     setResponseAckText('✓ Descripción guardada');
   }
 
+  function showSummary() {
+    if (!file || !description.trim() || !responseAccepted) return;
+    setSummaryAt(new Date().toISOString());
+    setPhase('summary');
+  }
+
+  function editSummary() {
+    setPhase('response');
+    setEditing(true);
+    setResponseAccepted(false);
+    setResponseAckText(null);
+  }
+
   async function confirmExecution() {
     if (!item?.findingId || !file || !description.trim() || submitting) return;
     setSubmitting(true);
@@ -364,6 +423,10 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
   }
 
   function handleBack() {
+    if (phase === 'summary') {
+      setPhase('response');
+      return;
+    }
     if (phase === 'response') {
       setPhase('details');
       return;
@@ -378,7 +441,7 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#F4F6F9]">
           <DoneScreen item={item} index={index} submittedAt={submittedAt} />
         </div>
-        <Footer phase={phase} inputValue={inputValue} onInputChange={setInputValue} onSend={sendFreeText} onDone={onCancel} />
+        <Footer phase={phase} inputValue={inputValue} onInputChange={setInputValue} onSend={sendFreeText} onDone={onCancel} onConfirm={() => { void confirmExecution(); }} confirming={isSubmitting || submitting} />
       </div>
     );
   }
@@ -388,15 +451,22 @@ export function FindingAssistantExecutionView({ subtitle, item, index = 0, isSub
       <Header subtitle={subtitle} phase={phase} onBack={handleBack} />
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#F4F6F9] px-[12px] py-[12px]">
         <div className="flex flex-col gap-[10px]">
-          <AgentBubble>¡Hola! 👋 Iniciaste el flujo asistido para ejecutar la <strong>Obs. {index + 1}</strong>. Revisa los detalles antes de continuar:</AgentBubble>
-          <FindingCard item={item} index={index} />
-          <SlaCard item={item} />
-          {extraBubbles.map((bubble) => bubble.from === 'agent' ? <AgentBubble key={bubble.id}>{bubble.text}</AgentBubble> : <UserBubble key={bubble.id}>{bubble.text}</UserBubble>)}
-          {phase === 'details' ? <><AgentBubble>¿Estás listo para registrar tu respuesta?</AgentBubble><QuickOption tone="teal" onClick={startResponse}>→ Sí, iniciar respuesta</QuickOption><QuickOption onClick={askQuestion}>? Tengo una consulta</QuickOption></> : null}
-          {phase === 'response' ? <><AgentBubble>Perfecto. Completa tu respuesta: sube la foto <strong>Después</strong> y describe la acción que tomaste.</AgentBubble><ResponseCard item={item} file={file} suggestion={suggestion} editing={editing} accepted={responseAccepted} description={description} onFile={handleFile} onAccept={acceptSuggestion} onEdit={editSuggestion} onDescriptionChange={(value) => { setDescription(value); setResponseAccepted(false); setResponseAckText(null); }} onSaveDescription={saveDescription} />{loadingSuggestion ? <TypingDots /> : null}{file && suggestion && !loadingSuggestion ? <AgentBubble>{photoReceivedText}</AgentBubble> : null}{responseAccepted && responseAckText ? <UserBubble>{responseAckText}</UserBubble> : null}{responseAccepted ? <QuickOption tone="teal" disabled={isSubmitting || submitting} onClick={confirmExecution}>{submitting ? 'Guardando…' : '→ Continuar al resumen'}</QuickOption> : null}</> : null}
+          {phase === 'summary' ? <>
+            <AgentBubble>Revisa el resumen completo antes de confirmar:</AgentBubble>
+            <SummaryCard item={item} index={index} file={file} description={description} subtitle={subtitle} inspectionLabel={inspectionLabel} summaryAt={summaryAt} />
+            <AgentBubble>¿Todo correcto? Al confirmar, el hallazgo quedará como <strong>Ejecutado</strong> y el Admin GF e Inspector serán notificados para aprobar.</AgentBubble>
+            <QuickOption onClick={editSummary}>✎ Editar algo</QuickOption>
+          </> : <>
+            <AgentBubble>¡Hola! 👋 Iniciaste el flujo asistido para ejecutar la <strong>Obs. {index + 1}</strong>. Revisa los detalles antes de continuar:</AgentBubble>
+            <FindingCard item={item} index={index} />
+            <SlaCard item={item} />
+            {extraBubbles.map((bubble) => bubble.from === 'agent' ? <AgentBubble key={bubble.id}>{bubble.text}</AgentBubble> : <UserBubble key={bubble.id}>{bubble.text}</UserBubble>)}
+            {phase === 'details' ? <><AgentBubble>¿Estás listo para registrar tu respuesta?</AgentBubble><QuickOption tone="teal" onClick={startResponse}>→ Sí, iniciar respuesta</QuickOption><QuickOption onClick={askQuestion}>? Tengo una consulta</QuickOption></> : null}
+            {phase === 'response' ? <><AgentBubble>Perfecto. Completa tu respuesta: sube la foto <strong>Después</strong> y describe la acción que tomaste.</AgentBubble><ResponseCard item={item} file={file} suggestion={suggestion} editing={editing} accepted={responseAccepted} description={description} onFile={handleFile} onAccept={acceptSuggestion} onEdit={editSuggestion} onDescriptionChange={(value) => { setDescription(value); setResponseAccepted(false); setResponseAckText(null); }} onSaveDescription={saveDescription} />{loadingSuggestion ? <TypingDots /> : null}{file && suggestion && !loadingSuggestion ? <AgentBubble>{photoReceivedText}</AgentBubble> : null}{responseAccepted && responseAckText ? <UserBubble>{responseAckText}</UserBubble> : null}{responseAccepted ? <QuickOption tone="teal" disabled={isSubmitting} onClick={showSummary}>→ Continuar al resumen</QuickOption> : null}</> : null}
+          </>}
         </div>
       </div>
-      <Footer phase={phase} inputValue={inputValue} onInputChange={setInputValue} onSend={sendFreeText} onDone={onCancel} />
+      <Footer phase={phase} inputValue={inputValue} onInputChange={setInputValue} onSend={sendFreeText} onDone={onCancel} onConfirm={() => { void confirmExecution(); }} confirming={isSubmitting || submitting} />
     </div>
   );
 }

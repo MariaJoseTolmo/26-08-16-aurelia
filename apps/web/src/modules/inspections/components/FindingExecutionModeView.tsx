@@ -25,6 +25,7 @@ function FeatureRow({ children }: { children: string }) {
 
 type FindingExecutionModeViewProps = {
   subtitle: string;
+  inspectionLabel?: string;
   item?: InspectionDetailFindingItemResponse | null;
   index?: number;
   isSubmitting?: boolean;
@@ -35,13 +36,13 @@ type FindingExecutionModeViewProps = {
 };
 
 export function FindingExecutionModeView(props: FindingExecutionModeViewProps) {
-  const { subtitle, item = null, index = 1, isSubmitting = false, onBack, onStartManual, onCancel } = props;
+  const { subtitle, inspectionLabel, item = null, index = 1, isSubmitting = false, onBack, onStartManual, onCancel } = props;
   const rejectedFlow = item?.statusGroup === 'rejected';
   const [manualOpen, setManualOpen] = useState(rejectedFlow);
   const [assistantOpen, setAssistantOpen] = useState(false);
 
   if (manualOpen) return <FindingManualExecutionView subtitle={subtitle} item={item} index={index} isSubmitting={isSubmitting} onBack={rejectedFlow ? onBack : () => setManualOpen(false)} onCancel={onCancel} onSubmit={onStartManual} />;
-  if (assistantOpen) return <FindingAssistantExecutionView subtitle={subtitle} item={item} index={index} isSubmitting={isSubmitting} onBack={() => setAssistantOpen(false)} onCancel={onCancel} />;
+  if (assistantOpen) return <FindingAssistantExecutionView subtitle={subtitle} inspectionLabel={inspectionLabel} item={item} index={index} isSubmitting={isSubmitting} onBack={() => setAssistantOpen(false)} onCancel={onCancel} />;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[#F4F6F9]">
