@@ -1,0 +1,99 @@
+name: Temporary inspection detail icon fidelity
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Apply Figma icon fidelity changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          icons_path = Path('apps/web/src/modules/inspections/components/InspectionDetailIcons.tsx')
+          modal_path = Path('apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx')
+          icons = icons_path.read_text(encoding='utf-8')
+          modal = modal_path.read_text(encoding='utf-8')
+
+          anchor = "export function InspectionDetailPdfIcon({ className = 'h-[13px] w-[16.25px]' }: IconProps) {"
+          sla_icon = '''export function InspectionDetailSlaClosedIcon({ className = 'h-[9px] w-[11.25px]' }: IconProps) {
+  return (
+    <svg className={className} width="11.25" height="9" viewBox="0 0 11.25 9" fill="none" aria-hidden="true">
+      <circle cx="4.5" cy="4.5" r="4.5" fill="#532A0E" />
+      <path d="M4.5 2.05V5.05" stroke="white" strokeWidth="1.05" strokeLinecap="round" />
+      <circle cx="4.5" cy="6.62" r="0.62" fill="white" />
+    </svg>
+  );
+}
+
+'''
+          if 'export function InspectionDetailSlaClosedIcon' not in icons:
+              if anchor not in icons:
+                  raise SystemExit('Could not find SLA icon insertion anchor')
+              icons = icons.replace(anchor, sla_icon + anchor, 1)
+
+          replacements = [
+              ('strokeWidth="1.8" strokeLinecap="round" />', 'strokeWidth="1.25" strokeLinecap="round" />', 'reject icon'),
+              ('strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />', 'strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />', 'approve icon'),
+          ]
+          for old, new, label in replacements:
+              if old not in icons:
+                  raise SystemExit(f'Could not find {label} stroke')
+              icons = icons.replace(old, new, 1)
+
+          import_anchor = '  InspectionDetailRejectIcon,\n  InspectionDetailStatusChipIcon,'
+          if 'InspectionDetailSlaClosedIcon' not in modal:
+              if import_anchor not in modal:
+                  raise SystemExit('Could not find modal import anchor')
+              modal = modal.replace(import_anchor, '  InspectionDetailRejectIcon,\n  InspectionDetailSlaClosedIcon,\n  InspectionDetailStatusChipIcon,', 1)
+
+          old_closed_icon = '<InspectionDetailStatusRowIcon status="open" className="h-[9px] w-[11.25px]" />'
+          if old_closed_icon not in modal:
+              raise SystemExit('Could not find closed SLA icon usage')
+          modal = modal.replace(old_closed_icon, '<InspectionDetailSlaClosedIcon className="h-[9px] w-[11.25px] shrink-0" />', 1)
+
+          icons_path.write_text(icons, encoding='utf-8')
+          modal_path.write_text(modal, encoding='utf-8')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Activate pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate web
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter web typecheck
+          pnpm --filter web lint
+          pnpm --filter web build
+
+      - name: Commit implementation and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/temp-inspection-detail-icon-fidelity.yml
+          git config user.name "OpenAI Automation"
+          git config user.email "automation@openai.com"
+          git add apps/web/src/modules/inspections/components/InspectionDetailIcons.tsx \
+                  apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx \
+                  .github/workflows/temp-inspection-detail-icon-fidelity.yml
+          git commit -m "fix(inspections): align SLA and review action icons with Figma"
+          git push origin HEAD:feature/inspecciones/carlo
