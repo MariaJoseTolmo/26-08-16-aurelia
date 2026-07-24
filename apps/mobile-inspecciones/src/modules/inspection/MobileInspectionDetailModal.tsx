@@ -474,7 +474,7 @@ function FindingCard({
         {canExecute ? (
           <TouchableOpacity style={styles.primaryAction} disabled={actions.isPending} onPress={() => onExecute(item)}>
             <Text style={styles.primaryActionText}>
-              {item.statusGroup === 'rejected' ? 'Reenviar evidencia' : 'Ejecutar observación'}
+              {item.statusGroup === 'rejected' ? 'Ejecutar observación rechazada' : 'Ejecutar observación'}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -921,6 +921,20 @@ export function MobileInspectionDetailModal({
     }
   }
 
+  async function submitExecution(description: string, evidence: MobileFindingEvidenceInput) {
+    if (!detail || !actionTarget) throw new Error('No se encontró la observación seleccionada.');
+    await actions.executeWithEvidence({
+      inspectionId: detail.header.inspectionId,
+      findingId: actionTarget.findingId,
+      description,
+      evidence,
+      latitude: detail.general.latitude,
+      longitude: detail.general.longitude,
+      resubmission: actionTarget.statusGroup === 'rejected',
+      rejectionReason: actionTarget.rejectionReason ?? undefined,
+    });
+  }
+
   async function submitApproval() {
     if (!detail || !actionTarget) return;
     try {
@@ -1087,7 +1101,8 @@ export function MobileInspectionDetailModal({
           pending={actions.isPending}
           canReview={actions.canReview}
           onClose={() => { setActionMode(null); setActionTarget(null); }}
-          onSubmit={(description, evidence) => { void submitAction(description, evidence); }}
+          onFinish={() => { setActionMode(null); setActionTarget(null); onClose(); }}
+          onSubmit={submitExecution}
         />
       ) : null}
       <MobileFindingReviewDialog
