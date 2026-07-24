@@ -949,6 +949,7 @@ export function MobileInspectionDetailModal({
   }
 
   const assignedCompanyView = actions.canExecute && !actions.canReview;
+  const reviewDialogOpen = actionMode === 'approve' || actionMode === 'reject';
   const tabs: Array<{ key: DetailTab; label: string }> = detail?.header.kind === 'checklist'
     ? [
         { key: 'observations', label: 'Ítems NO' },
@@ -969,6 +970,7 @@ export function MobileInspectionDetailModal({
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
+      {!reviewDialogOpen ? (
       <View style={styles.modalRoot}>
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Cerrar detalle" />
         <View style={styles.screen}>
@@ -1073,6 +1075,7 @@ export function MobileInspectionDetailModal({
         />
         </View>
       </View>
+      ) : null}
 
       {detail && actionTarget ? (
         <MobileFindingExecutionModal
