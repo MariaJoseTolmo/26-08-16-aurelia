@@ -1,1 +1,0 @@
-Temporary file used only to trigger the executed finding fidelity validation workflow. It will be removed after validation.
