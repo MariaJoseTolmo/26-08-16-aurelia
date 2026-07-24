@@ -1,0 +1,127 @@
+name: Temporary mobile finding assistant parity
+
+on:
+  pull_request:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .tmp-mobile-finding-assistant-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Integrate assistant flow into execution modal
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileFindingExecutionModal.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str, label: str):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "import type { MobileFindingEvidenceInput } from './hooks/useMobileInspectionManagement';\n",
+              "import type { MobileFindingEvidenceInput } from './hooks/useMobileInspectionManagement';\nimport { MobileFindingAssistantExecutionFlow } from './MobileFindingAssistantExecutionFlow';\n",
+              'assistant import',
+          )
+          replace_once(
+              "type ExecutionStage = 'mode' | 'detail' | 'summary' | 'success';",
+              "type ExecutionStage = 'mode' | 'assistant' | 'detail' | 'summary' | 'success';",
+              'execution stage',
+          )
+          replace_once(
+              "function ExecutionModeSelection({\n  locationLabel,\n  onBack,\n  onManual,\n}: {\n  locationLabel: string;\n  onBack: () => void;\n  onManual: () => void;\n}) {",
+              "function ExecutionModeSelection({\n  locationLabel,\n  onBack,\n  onAssistant,\n  onManual,\n}: {\n  locationLabel: string;\n  onBack: () => void;\n  onAssistant: () => void;\n  onManual: () => void;\n}) {",
+              'mode selection props',
+          )
+          replace_once(
+              "          <TouchableOpacity\n            style={styles.assistantButton}\n            disabled\n            activeOpacity={1}\n            accessibilityRole=\"button\"\n            accessibilityState={{ disabled: true }}\n            accessibilityLabel=\"Iniciar con asistente, disponible en una próxima iteración\"\n          >",
+              "          <TouchableOpacity\n            style={styles.assistantButton}\n            onPress={onAssistant}\n            activeOpacity={0.82}\n            accessibilityRole=\"button\"\n            accessibilityLabel=\"Iniciar con asistente AurelIA\"\n          >",
+              'assistant button',
+          )
+          replace_once(
+              "  const [stage, setStage] = useState<ExecutionStage>('mode');",
+              "  const [stage, setStage] = useState<ExecutionStage>(item.statusGroup === 'rejected' ? 'detail' : 'mode');",
+              'initial stage',
+          )
+          replace_once(
+              "    setStage('mode');\n    setDescription('');",
+              "    setStage(isRejected ? 'detail' : 'mode');\n    setDescription('');",
+              'reset stage',
+          )
+          replace_once(
+              "  }, [item.findingId, visible]);",
+              "  }, [isRejected, item.findingId, visible]);",
+              'effect dependencies',
+          )
+          replace_once(
+              "  function handleBack() {\n    if (stage === 'summary') {\n      setStage('detail');\n      return;\n    }\n    if (stage === 'detail') {\n      setStage('mode');\n      return;\n    }\n    onClose();\n  }",
+              "  function handleBack() {\n    if (stage === 'summary') {\n      setStage('detail');\n      return;\n    }\n    if (stage === 'assistant') {\n      setStage('mode');\n      return;\n    }\n    if (stage === 'detail' && !isRejected) {\n      setStage('mode');\n      return;\n    }\n    onClose();\n  }",
+              'back routing',
+          )
+          replace_once(
+              "            locationLabel={locationLabel}\n            onBack={onClose}\n            onManual={() => setStage('detail')}",
+              "            locationLabel={locationLabel}\n            onBack={onClose}\n            onAssistant={() => setStage('assistant')}\n            onManual={() => setStage('detail')}",
+              'mode handlers',
+          )
+          replace_once(
+              "        ) : null}\n\n        {stage !== 'mode' ? (\n          <ScreenHeader",
+              "        ) : null}\n\n        {stage === 'assistant' ? (\n          <MobileFindingAssistantExecutionFlow\n            detail={detail}\n            item={item}\n            index={index}\n            itemLabel={itemLabel}\n            pending={pending}\n            onBack={() => setStage('mode')}\n            onCancel={onClose}\n            onFinish={onClose}\n            onSubmit={onSubmit}\n          />\n        ) : null}\n\n        {stage !== 'mode' && stage !== 'assistant' ? (\n          <ScreenHeader",
+              'assistant rendering',
+          )
+          replace_once(
+              "                  onPress={valid ? () => setStage('mode') : onClose}",
+              "                  onPress={valid && !isRejected ? () => setStage('mode') : onClose}",
+              'manual back routing',
+          )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Activate pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate contracts and mobile
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "chatgpt-automation"
+          git config user.email "chatgpt-automation@users.noreply.github.com"
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileFindingExecutionModal.tsx
+          if git diff --cached --quiet; then
+            echo "No integration changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(mobile): connect finding assistant execution flow"
+          git push origin HEAD:feature/inspecciones/carlo
