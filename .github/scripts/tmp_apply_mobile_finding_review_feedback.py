@@ -29,15 +29,46 @@ replace_once(
 )
 
 replace_once(
-    "  onExecute,\n  onReject,\n}: {",
-    "  onExecute,\n  onApprove,\n  onReject,\n}: {",
-)
-replace_once(
+    "function FindingCard({\n"
+    "  inspectionId,\n"
+    "  item,\n"
+    "  index,\n"
+    "  itemLabel,\n"
+    "  readOnly,\n"
+    "  actions,\n"
+    "  onExecute,\n"
+    "  onReject,\n"
+    "}: {\n"
+    "  inspectionId: string;\n"
+    "  item: InspectionDetailFindingItemResponse;\n"
+    "  index: number;\n"
+    "  itemLabel: ItemLabel;\n"
+    "  readOnly: boolean;\n"
+    "  actions: ReturnType<typeof useMobileInspectionFindingActions>;\n"
     "  onExecute: (item: InspectionDetailFindingItemResponse) => void;\n"
-    "  onReject: (item: InspectionDetailFindingItemResponse) => void;\n",
+    "  onReject: (item: InspectionDetailFindingItemResponse) => void;\n"
+    "}) {",
+    "function FindingCard({\n"
+    "  inspectionId,\n"
+    "  item,\n"
+    "  index,\n"
+    "  itemLabel,\n"
+    "  readOnly,\n"
+    "  actions,\n"
+    "  onExecute,\n"
+    "  onApprove,\n"
+    "  onReject,\n"
+    "}: {\n"
+    "  inspectionId: string;\n"
+    "  item: InspectionDetailFindingItemResponse;\n"
+    "  index: number;\n"
+    "  itemLabel: ItemLabel;\n"
+    "  readOnly: boolean;\n"
+    "  actions: ReturnType<typeof useMobileInspectionFindingActions>;\n"
     "  onExecute: (item: InspectionDetailFindingItemResponse) => void;\n"
     "  onApprove: (item: InspectionDetailFindingItemResponse) => void;\n"
-    "  onReject: (item: InspectionDetailFindingItemResponse) => void;\n",
+    "  onReject: (item: InspectionDetailFindingItemResponse) => void;\n"
+    "}) {",
 )
 replace_once(
     "\n  function approve() {\n"
