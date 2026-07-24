@@ -53,9 +53,11 @@ type TabConfig = {
 
 type FollowupStep = {
   id: string;
+  sequenceNumber?: number;
   title: string;
   date: string;
   summary?: string;
+  bullets?: string[];
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -283,27 +285,107 @@ function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutio
 }
 
 function FollowupTimelineMarker({ completed }: { completed: boolean }) {
-  return <div className={`flex size-[24px] shrink-0 items-center justify-center rounded-[12px] text-[10px] font-normal leading-none ${completed ? 'bg-[#6cc24a] text-white' : 'bg-[#e3e3e3] text-[#acacac]'}`}>{completed ? '✓' : '○'}</div>;
+  if (completed) {
+    return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#6cc24a]"><svg className="h-[9px] w-[12px]" width="12" height="9" viewBox="0 0 12 9" fill="none" aria-hidden="true"><path d="M1.4 4.7L4.45 7.55L10.55 1.45" stroke="white" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" /></svg></div>;
+  }
+  return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#e3e3e3]"><svg className="size-[10px]" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><circle cx="5" cy="5" r="3.5" stroke="#acacac" strokeWidth="1.2" /></svg></div>;
 }
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
-  const observedCount = allFindings(detail).length;
-  const events: FollowupStep[] = [];
-  detail.followups.forEach((step) => {
-    events.push({ id: `followup-${step.followupId}`, title: step.title || `Seguimiento ${step.sequenceNumber}`, date: formatDate(step.performedAt), summary: step.description, completed: step.completed, occurredAt: step.performedAt });
+  const findings = allFindings(detail);
+  const total = findings.length;
+  const percent = (value: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const bulletsAt = (occurredAt: string | null) => {
+    const closed = occurredAt
+      ? findings.filter((item) => item.closedAt && toTimestamp(item.closedAt) <= toTimestamp(occurredAt)).length
+      : detail.header.counts.closed;
+    const normalizedClosed = Math.max(0, Math.min(total, closed));
+    const pending = Math.max(0, total - normalizedClosed);
+    return [
+      `Observaciones cerradas: ${normalizedClosed} obs / ${percent(normalizedClosed)}%`,
+      `Observaciones pendientes: ${pending} obs / ${percent(pending)}%`,
+    ];
+  };
+
+  const followupsBySequence = new Map<number, typeof detail.followups>();
+  detail.followups.forEach((followup) => {
+    const current = followupsBySequence.get(followup.sequenceNumber) ?? [];
+    current.push(followup);
+    followupsBySequence.set(followup.sequenceNumber, current);
   });
-  allFindings(detail).forEach((item, index) => {
-    const observationLabel = `Obs. ${index + 1}`;
-    if (item.executedAt) events.push({ id: `executed-${item.findingId}`, title: `${observationLabel} ejecutada`, date: formatDate(item.executedAt), summary: item.executedActionDescription ?? 'Observación marcada como ejecutada', completed: true, occurredAt: item.executedAt });
-    if (item.rejectedAt) events.push({ id: `rejected-${item.findingId}`, title: `${observationLabel} rechazada`, date: formatDate(item.rejectedAt), summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección', completed: true, occurredAt: item.rejectedAt });
-    if (item.closedAt) events.push({ id: `closed-${item.findingId}`, title: `${observationLabel} cerrada`, date: formatDate(item.closedAt), summary: 'Cierre aprobado por Admin GF HSE', completed: true, occurredAt: item.closedAt });
+
+  let recordedSteps: FollowupStep[] = Array.from(followupsBySequence.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([sequenceNumber, records]) => {
+      const dates = records
+        .map((record) => record.performedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => toTimestamp(left) - toTimestamp(right));
+      const occurredAt = dates.length > 0 ? dates[dates.length - 1] : null;
+      const completed = records.some((record) => record.completed);
+      return {
+        id: `followup-${sequenceNumber}`,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        date: completed ? formatDate(occurredAt) : '—',
+        bullets: completed ? bulletsAt(occurredAt) : undefined,
+        completed,
+        occurredAt,
+      };
+    });
+
+  if (recordedSteps.length === 0) {
+    const latestActivityByDate = new Map<string, string>();
+    findings.forEach((item) => {
+      [item.executedAt, item.rejectedAt, item.closedAt].forEach((value) => {
+        if (!value) return;
+        const timestamp = toTimestamp(value);
+        if (timestamp === Number.MAX_SAFE_INTEGER) return;
+        const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+        const current = latestActivityByDate.get(dateKey);
+        if (!current || toTimestamp(value) > toTimestamp(current)) latestActivityByDate.set(dateKey, value);
+      });
+    });
+    recordedSteps = Array.from(latestActivityByDate.values())
+      .sort((left, right) => toTimestamp(left) - toTimestamp(right))
+      .slice(0, 3)
+      .map((occurredAt, index) => ({
+        id: `derived-followup-${index + 1}`,
+        sequenceNumber: index + 1,
+        title: `Seguimiento ${index + 1}`,
+        date: formatDate(occurredAt),
+        bullets: bulletsAt(occurredAt),
+        completed: true,
+        occurredAt,
+      }));
+  }
+
+  const stepBySequence = new Map(recordedSteps.map((step, index) => [step.sequenceNumber ?? index + 1, step]));
+  const highestSequence = Math.max(3, ...Array.from(stepBySequence.keys()));
+  const followupSteps = Array.from({ length: highestSequence }, (_, index) => {
+    const sequenceNumber = index + 1;
+    return stepBySequence.get(sequenceNumber) ?? {
+      id: `pending-followup-${sequenceNumber}`,
+      sequenceNumber,
+      title: `Seguimiento ${sequenceNumber}`,
+      date: '—',
+      completed: false,
+      occurredAt: null,
+    };
   });
-  const sortedEvents = events.sort((left, right) => toTimestamp(left.occurredAt) - toTimestamp(right.occurredAt));
-  return [{ id: 'initial', title: 'Inspección inicial', date: formatDate(detail.general.scheduledAt), summary: `${observedCount} observaciones detectadas`, completed: true, occurredAt: detail.general.scheduledAt }, ...sortedEvents];
+
+  return [{
+    id: 'initial',
+    title: 'Inspección inicial',
+    date: formatDate(detail.general.scheduledAt),
+    summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`,
+    completed: true,
+    occurredAt: detail.general.scheduledAt,
+  }, ...followupSteps];
 }
 
 function FollowupTimelineItem({ step, isLast }: { step: FollowupStep; isLast: boolean }) {
-  return <div className={`relative flex w-full gap-[12px] ${isLast ? '' : 'pb-[16px]'}`}><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="absolute left-[11px] top-[24px] h-[23px] w-[2px] bg-[#e3e3e3]" /> : null}<div className="min-w-0 flex-1 pt-[2px]"><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-[15px] text-[#646464]">{step.summary}</p> : null}</div></div>;
+  return <div className="flex w-full gap-[12px]"><div className="flex w-[24px] shrink-0 flex-col items-center self-stretch"><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div><div className={`min-w-0 flex-1 pt-[2px] ${isLast ? '' : 'pb-[16px]'}`}><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-none text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div></div>;
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
