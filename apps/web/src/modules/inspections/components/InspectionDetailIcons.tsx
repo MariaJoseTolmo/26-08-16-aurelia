@@ -41,6 +41,16 @@ export function InspectionDetailStatusChipIcon({ status, className = 'h-[6px] w-
 
 export function InspectionDetailStatusRowIcon({ status, className = 'h-[11px] w-[13.75px]' }: StatusIconProps) {
   const color = statusColors[status];
+  const isClosedSlaIndicator = status === 'open' && className.includes('h-[9px]') && className.includes('w-[11.25px]');
+  if (isClosedSlaIndicator) {
+    return (
+      <svg className={className} width="11.25" height="9" viewBox="0 0 11.25 9" fill="none" aria-hidden="true">
+        <circle cx="4.5" cy="4.5" r="4.5" fill="#532A0E" />
+        <path d="M4.5 2.05V5.05" stroke="white" strokeWidth="1.05" strokeLinecap="round" />
+        <circle cx="4.5" cy="6.62" r="0.62" fill="white" />
+      </svg>
+    );
+  }
   if (status === 'closed') {
     return (
       <svg className={className} width="14" height="11" viewBox="0 0 14 11" fill="none" aria-hidden="true">
@@ -91,7 +101,7 @@ export function InspectionDetailImageIcon({ className = 'h-[18px] w-[22.5px]', t
 export function InspectionDetailRejectIcon({ className = 'h-[12px] w-[15px]' }: IconProps) {
   return (
     <svg className={className} width="15" height="12" viewBox="0 0 15 12" fill="none" aria-hidden="true">
-      <path d="M3.75 2.25L11.25 9.75M11.25 2.25L3.75 9.75" stroke="#570B1D" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M3.75 2.25L11.25 9.75M11.25 2.25L3.75 9.75" stroke="#570B1D" strokeWidth="1.25" strokeLinecap="round" />
     </svg>
   );
 }
@@ -99,7 +109,7 @@ export function InspectionDetailRejectIcon({ className = 'h-[12px] w-[15px]' }: 
 export function InspectionDetailApproveIcon({ className = 'h-[12px] w-[15px]' }: IconProps) {
   return (
     <svg className={className} width="15" height="12" viewBox="0 0 15 12" fill="none" aria-hidden="true">
-      <path d="M3.1 6.2L6.15 9.25L11.9 2.75" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3.1 6.2L6.15 9.25L11.9 2.75" stroke="white" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
