@@ -427,9 +427,9 @@ function FindingCard({
           </View>
         ) : null}
         {item.statusGroup === 'rejected' ? (
-          <View style={styles.rejectBlock}>
+          <View style={styles.textBlock}>
             <Text style={styles.blockLabel}>MOTIVO DE RECHAZO</Text>
-            <Text style={[styles.blockValue, styles.rejectValue]}>{item.rejectionReason || '—'}</Text>
+            <Text style={styles.blockValue}>{item.rejectionReason || '—'}</Text>
           </View>
         ) : null}
 
@@ -1178,10 +1178,8 @@ const styles = StyleSheet.create({
   findingCopy: { marginTop: 12, gap: 4 },
   textBlock: { borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 10, paddingVertical: 8 },
   conditionTextBlock: { borderWidth: 1, borderColor: colors.border, paddingHorizontal: 11, paddingVertical: 9 },
-  rejectBlock: { borderRadius: 8, backgroundColor: '#fff0f4', borderWidth: 1, borderColor: colors.dangerSurf, paddingHorizontal: 10, paddingVertical: 8 },
   blockLabel: { color: colors.muted, fontSize: 9, lineHeight: 11, letterSpacing: 1.2, fontWeight: fontWeight.bold },
   blockValue: { marginTop: 3, color: colors.primary, fontSize: 12, lineHeight: 17 },
-  rejectValue: { color: colors.dangerTxt },
   responsibleLine: { minHeight: 21, flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 6 },
   responsibleLineText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
   evidenceRow: { flexDirection: 'row', gap: 4, paddingTop: 8 },
