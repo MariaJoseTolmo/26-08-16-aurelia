@@ -28,6 +28,15 @@ import {
   MobileFindingReviewSnackbar,
 } from './MobileFindingReviewFeedback';
 import { MobileInspectionChecklistResultPanel } from './MobileInspectionChecklistResultPanel';
+import {
+  MobileInspectionApproveIcon,
+  MobileInspectionFollowupIcon,
+  MobileInspectionPdfIcon,
+  MobileInspectionRejectIcon,
+  MobileInspectionSlaAlertIcon,
+  MobileInspectionTimelineCompletedIcon,
+  MobileInspectionTimelinePendingIcon,
+} from './MobileInspectionDetailIcons';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { useMobileSession } from '../auth/mobileSession.store';
 import {
@@ -61,9 +70,11 @@ type GroupConfig = {
 
 type FollowupStep = {
   id: string;
+  sequenceNumber?: number;
   title: string;
   date: string;
   summary?: string;
+  bullets?: string[];
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -264,7 +275,7 @@ function CompactInfoRow({
     <View style={styles.compactInfoRow}>
       <Text style={styles.compactInfoLabel}>{label}</Text>
       <View style={styles.compactInfoValueRow}>
-        {alert ? <FontAwesome5 name="exclamation-circle" size={9} color={valueColor} solid /> : null}
+        {alert ? <MobileInspectionSlaAlertIcon color={valueColor} /> : null}
         <Text style={[styles.compactInfoValue, { color: valueColor }]}>{value}</Text>
       </View>
     </View>
@@ -466,7 +477,7 @@ function FindingCard({
         ) : null}
         {item.statusGroup === 'closed' ? (
           <>
-            <CompactInfoRow label="SLA cerrado" value={daysLabel(item.dueAt)} valueColor={colors.ocreTxt} />
+            <CompactInfoRow label="SLA cerrado" value={daysLabel(item.dueAt)} valueColor={colors.ocreTxt} alert />
             <CompactInfoRow label="Fecha de cierre" value={formatDate(item.closedAt)} valueColor={colors.muted} />
           </>
         ) : null}
@@ -481,11 +492,11 @@ function FindingCard({
         {canReview ? (
           <View style={styles.reviewActions}>
             <TouchableOpacity style={styles.rejectAction} disabled={actions.isPending} onPress={() => onReject(item)}>
-              <Feather name="x-circle" size={14} color={colors.dangerTxt} />
+              <MobileInspectionRejectIcon />
               <Text style={styles.rejectActionText}>Rechazar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.approveAction} disabled={actions.isPending} onPress={() => onApprove(item)}>
-              <Feather name="check-circle" size={14} color={colors.white} />
+              <MobileInspectionApproveIcon />
               <Text style={styles.approveActionText}>Aprobar cierre</Text>
             </TouchableOpacity>
           </View>
@@ -658,26 +669,96 @@ function ObservationsPanel({
 }
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
-  const observedCount = allFindings(detail).length;
-  const events: FollowupStep[] = [];
-  detail.followups.forEach((step) => {
-    events.push({
-      id: `followup-${step.followupId}`,
-      title: step.title || `Seguimiento ${step.sequenceNumber}`,
-      date: formatDate(step.performedAt),
-      summary: step.description,
-      completed: step.completed,
-      occurredAt: step.performedAt,
+  const findings = allFindings(detail);
+  const total = findings.length;
+  const percentage = (value: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const bulletsAt = (occurredAt: string | null) => {
+    const closed = occurredAt
+      ? findings.filter((item) => item.closedAt && toTimestamp(item.closedAt) <= toTimestamp(occurredAt)).length
+      : detail.header.counts.closed;
+    const normalizedClosed = Math.max(0, Math.min(total, closed));
+    const pending = Math.max(0, total - normalizedClosed);
+    return [
+      `Observaciones cerradas: ${normalizedClosed} obs / ${percentage(normalizedClosed)}%`,
+      `Observaciones pendientes: ${pending} obs / ${percentage(pending)}%`,
+    ];
+  };
+
+  const followupsBySequence = new Map<number, typeof detail.followups>();
+  detail.followups.forEach((followup) => {
+    const current = followupsBySequence.get(followup.sequenceNumber) ?? [];
+    current.push(followup);
+    followupsBySequence.set(followup.sequenceNumber, current);
+  });
+
+  let recordedSteps: FollowupStep[] = Array.from(followupsBySequence.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([sequenceNumber, records]) => {
+      const dates = records
+        .map((record) => record.performedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => toTimestamp(left) - toTimestamp(right));
+      const occurredAt = dates.length > 0 ? dates[dates.length - 1] : null;
+      const completed = records.some((record) => record.completed);
+      return {
+        id: `followup-${sequenceNumber}`,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        date: completed ? formatDate(occurredAt) : '—',
+        bullets: completed ? bulletsAt(occurredAt) : undefined,
+        completed,
+        occurredAt,
+      };
     });
+
+  if (recordedSteps.length === 0) {
+    const latestActivityByDate = new Map<string, string>();
+    findings.forEach((item) => {
+      [item.executedAt, item.rejectedAt, item.closedAt].forEach((value) => {
+        if (!value) return;
+        const timestamp = toTimestamp(value);
+        if (timestamp === Number.MAX_SAFE_INTEGER) return;
+        const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+        const current = latestActivityByDate.get(dateKey);
+        if (!current || toTimestamp(value) > toTimestamp(current)) latestActivityByDate.set(dateKey, value);
+      });
+    });
+    recordedSteps = Array.from(latestActivityByDate.values())
+      .sort((left, right) => toTimestamp(left) - toTimestamp(right))
+      .slice(0, 3)
+      .map((occurredAt, index) => ({
+        id: `derived-followup-${index + 1}`,
+        sequenceNumber: index + 1,
+        title: `Seguimiento ${index + 1}`,
+        date: formatDate(occurredAt),
+        bullets: bulletsAt(occurredAt),
+        completed: true,
+        occurredAt,
+      }));
+  }
+
+  const stepBySequence = new Map(recordedSteps.map((step, index) => [step.sequenceNumber ?? index + 1, step]));
+  const highestSequence = Math.max(3, ...Array.from(stepBySequence.keys()));
+  const followupSteps = Array.from({ length: highestSequence }, (_, index) => {
+    const sequenceNumber = index + 1;
+    return stepBySequence.get(sequenceNumber) ?? {
+      id: `pending-followup-${sequenceNumber}`,
+      sequenceNumber,
+      title: `Seguimiento ${sequenceNumber}`,
+      date: '—',
+      completed: false,
+      occurredAt: null,
+    };
   });
-  allFindings(detail).forEach((item, index) => {
-    const observationLabel = `Obs. ${index + 1}`;
-    if (item.executedAt) events.push({ id: `executed-${item.findingId}`, title: `${observationLabel} ejecutada`, date: formatDate(item.executedAt), summary: item.executedActionDescription ?? 'Observación marcada como ejecutada', completed: true, occurredAt: item.executedAt });
-    if (item.rejectedAt) events.push({ id: `rejected-${item.findingId}`, title: `${observationLabel} rechazada`, date: formatDate(item.rejectedAt), summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección', completed: true, occurredAt: item.rejectedAt });
-    if (item.closedAt) events.push({ id: `closed-${item.findingId}`, title: `${observationLabel} cerrada`, date: formatDate(item.closedAt), summary: 'Cierre aprobado por Gold Fields', completed: true, occurredAt: item.closedAt });
-  });
-  const sorted = events.sort((left, right) => toTimestamp(left.occurredAt) - toTimestamp(right.occurredAt));
-  return [{ id: 'initial', title: 'Inspección inicial', date: formatDate(detail.general.scheduledAt), summary: `${observedCount} observaciones detectadas`, completed: true, occurredAt: detail.general.scheduledAt }, ...sorted];
+
+  return [{
+    id: 'initial',
+    title: 'Inspección inicial',
+    date: formatDate(detail.general.scheduledAt),
+    summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`,
+    completed: true,
+    occurredAt: detail.general.scheduledAt,
+  }, ...followupSteps];
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
@@ -685,24 +766,32 @@ function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
   return (
     <View style={styles.tabContent}>
       <View style={styles.sectionHeading}>
-        <FontAwesome5 name="users" size={11} color={colors.blueLink} />
+        <MobileInspectionFollowupIcon />
         <Text style={styles.sectionHeadingText}>HISTORIAL DE SEGUIMIENTOS</Text>
       </View>
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
           return (
-            <View key={step.id} style={[styles.timelineRow, !isLast && styles.timelineRowSpacing]}>
+            <View key={step.id} style={styles.timelineRow}>
               <View style={styles.timelineAxis}>
-                <View style={[styles.timelineMarker, !step.completed && styles.timelineMarkerPending]}>
-                  <Text style={[styles.timelineMarkerText, !step.completed && styles.timelineMarkerTextPending]}>{step.completed ? '✓' : '○'}</Text>
-                </View>
+                {step.completed ? <MobileInspectionTimelineCompletedIcon /> : <MobileInspectionTimelinePendingIcon />}
                 {!isLast ? <View style={styles.timelineLine} /> : null}
               </View>
-              <View style={styles.timelineCopy}>
+              <View style={[styles.timelineCopy, !isLast && styles.timelineCopySpacing]}>
                 <Text style={styles.timelineTitle}>{step.title}</Text>
                 <Text style={styles.timelineDate}>{step.date}</Text>
                 {step.summary ? <Text style={styles.timelineDescription}>{step.summary}</Text> : null}
+                {step.bullets ? (
+                  <View style={styles.timelineBulletList}>
+                    {step.bullets.map((bullet) => (
+                      <View key={bullet} style={styles.timelineBulletRow}>
+                        <Text style={styles.timelineBullet}>•</Text>
+                        <Text style={styles.timelineBulletText}>{bullet}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             </View>
           );
@@ -1078,7 +1167,7 @@ export function MobileInspectionDetailModal({
               style={styles.pdfButton}
               onPress={() => Alert.alert('Descargar PDF', 'La exportación PDF autenticada está disponible actualmente desde la versión web.')}
             >
-              <FontAwesome5 name="file-pdf" size={13} color={colors.body} />
+              <MobileInspectionPdfIcon />
               <Text style={styles.pdfButtonText}>Descargar PDF</Text>
             </TouchableOpacity>
           </View>
@@ -1270,18 +1359,18 @@ const styles = StyleSheet.create({
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionHeadingText: { color: colors.muted, fontSize: 11, lineHeight: 13, letterSpacing: 0.55, fontWeight: fontWeight.bold },
   timeline: { marginTop: 10 },
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  timelineRowSpacing: { minHeight: 64 },
-  timelineAxis: { width: 24, alignItems: 'center' },
-  timelineMarker: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success },
-  timelineMarkerPending: { backgroundColor: colors.border },
-  timelineMarkerText: { color: colors.white, fontSize: 10, lineHeight: 12 },
-  timelineMarkerTextPending: { color: colors.placeholder },
-  timelineLine: { width: 2, flex: 1, minHeight: 38, backgroundColor: colors.border },
-  timelineCopy: { flex: 1, paddingTop: 2, paddingLeft: 12, paddingBottom: 16 },
+  timelineRow: { flexDirection: 'row', alignItems: 'stretch' },
+  timelineAxis: { width: 24, alignItems: 'center', alignSelf: 'stretch' },
+  timelineLine: { width: 2, flex: 1, minHeight: 16, backgroundColor: colors.border },
+  timelineCopy: { flex: 1, paddingTop: 2, paddingLeft: 12 },
+  timelineCopySpacing: { paddingBottom: 16 },
   timelineTitle: { color: colors.primary, fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
   timelineDate: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 13 },
-  timelineDescription: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 15 },
+  timelineDescription: { marginTop: 5, color: colors.muted, fontSize: 11, lineHeight: 15 },
+  timelineBulletList: { marginTop: 4 },
+  timelineBulletRow: { flexDirection: 'row', alignItems: 'flex-start', paddingRight: 8 },
+  timelineBullet: { width: 12, color: colors.muted, fontSize: 11, lineHeight: 14 },
+  timelineBulletText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
   generalSectionCard: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 1.5, elevation: 1 },
   generalSectionHeader: { minHeight: 29, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12 },
   generalSectionTitle: { color: colors.muted, fontSize: 10, lineHeight: 13, letterSpacing: 0.5, fontWeight: fontWeight.bold },
