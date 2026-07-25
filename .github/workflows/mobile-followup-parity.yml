@@ -34,7 +34,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Patch SVG tone support
-        run: python .github/scripts/apply_mobile_followup_parity.py icons
+        run: python .github/scripts/apply_mobile_followup_icon_tone.py
 
       - name: Commit SVG tone support
         run: |
