@@ -357,7 +357,12 @@ export function MobileNotificationsScreen() {
   const dismissThreadMutation = useMutation({ mutationFn: dismissMobileInspectionNotificationThread });
   const notifications = notificationsQuery.data ?? [];
   const sortedNotifications = useMemo(
-    () => [...notifications].sort((left, right) => notificationTimestamp(right) - notificationTimestamp(left)),
+    () => [...notifications].sort((left, right) => {
+      const leftUnread = !left.readAt;
+      const rightUnread = !right.readAt;
+      if (leftUnread !== rightUnread) return leftUnread ? -1 : 1;
+      return notificationTimestamp(right) - notificationTimestamp(left);
+    }),
     [notifications],
   );
   const unreadCount = useMemo(
