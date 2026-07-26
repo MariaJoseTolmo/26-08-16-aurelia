@@ -145,10 +145,16 @@ export class InspectionDashboardService {
       const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
       const observations = this.createObservationSummary(inspectionFindings);
       const openFindings = inspectionFindings.filter((finding) => this.isOpenFinding(finding));
+      const rejectedFindings = inspectionFindings.filter((finding) => finding.status === InspectionFindingStatus.REJECTED);
       const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
         (current, finding) => this.resolveMaxSeverity(current, finding.severity),
         null,
       );
+      const maxRejectedSeverity = rejectedFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
+      const hasOverdueFindings = openFindings.some((finding) => Boolean(finding.dueAt && finding.dueAt < now));
       const date = getDashboardInspectionDate(inspection);
       const closureRate = inspectionFindings.length > 0
         ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2))
@@ -168,6 +174,8 @@ export class InspectionDashboardService {
         ),
         urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
         urgencySeverity: maxSeverity,
+        rejectedUrgencyLabel: maxRejectedSeverity ? `Rechazada · ${this.formatSeverityLabel(maxRejectedSeverity)}` : undefined,
+        hasOverdueFindings,
         observationsCount: inspectionFindings.length,
         observations,
         daysOpen: openFindings.length > 0
@@ -527,7 +535,11 @@ export class InspectionDashboardService {
       areas: this.uniqueSorted(rows.map((row) => row.areaSector)),
       companies: this.uniqueSorted(rows.map((row) => row.company)),
       types: this.uniqueSorted(rows.map((row) => row.type)),
-      urgencies: this.uniqueSorted(rows.map((row) => row.urgencyLabel)),
+      urgencies: this.uniqueSorted(rows.flatMap((row) => [
+        row.urgencyLabel,
+        ...(row.rejectedUrgencyLabel ? [row.rejectedUrgencyLabel] : []),
+        ...(row.hasOverdueFindings ? ['SLA vencido'] : []),
+      ])),
     };
   }
 
@@ -543,7 +555,7 @@ export class InspectionDashboardService {
     if (!this.exactMatches(row.areaSector, query.area)) return false;
     if (!this.exactMatches(row.company, query.company)) return false;
     if (!this.exactMatches(row.type, query.type)) return false;
-    if (!this.exactMatches(row.urgencyLabel, query.urgency)) return false;
+    if (!this.urgencyMatches(row, query.urgency)) return false;
     if (!this.numberMatches(row.observationsCount, query.count, 'equals')) return false;
     if (!this.observationMatches(row.observations, query.obs)) return false;
     if (!this.numberMatches(row.daysOpen, query.daysMin, 'min')) return false;
@@ -560,6 +572,13 @@ export class InspectionDashboardService {
   private exactMatches(value: string, filter?: string): boolean {
     if (!filter?.trim()) return true;
     return value === filter;
+  }
+
+  private urgencyMatches(row: InspectionManagementTableRowResponse, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/_/g, ' ');
+    if (normalized === 'sla overdue' || normalized === 'sla vencido') return row.hasOverdueFindings === true;
+    return row.urgencyLabel === filter || row.rejectedUrgencyLabel === filter;
   }
 
   private observationMatches(
@@ -658,16 +677,20 @@ export class InspectionDashboardService {
     return label.includes('check') ? 'Checklist normativo' : 'Hallazgo';
   }
 
-  private formatUrgencyLabel(inspection: InspectionEntity, severity: InspectionFindingSeverity | null): string {
-    if (inspection.status === InspectionStatus.CLOSED) return 'Cerrada';
-    if (!severity) return 'Abierta · Menor';
+  private formatSeverityLabel(severity: InspectionFindingSeverity): string {
     const labelBySeverity: Record<InspectionFindingSeverity, string> = {
       [InspectionFindingSeverity.CRITICAL]: 'Grave',
       [InspectionFindingSeverity.HIGH]: 'Grave',
       [InspectionFindingSeverity.MEDIUM]: 'Moderado',
       [InspectionFindingSeverity.LOW]: 'Menor',
     };
-    return `${inspection.status === InspectionStatus.UNDER_REVIEW ? 'Ejecutada' : 'Abierta'} · ${labelBySeverity[severity]}`;
+    return labelBySeverity[severity];
+  }
+
+  private formatUrgencyLabel(inspection: InspectionEntity, severity: InspectionFindingSeverity | null): string {
+    if (inspection.status === InspectionStatus.CLOSED) return 'Cerrada';
+    if (!severity) return 'Abierta · Menor';
+    return `${inspection.status === InspectionStatus.UNDER_REVIEW ? 'Ejecutada' : 'Abierta'} · ${this.formatSeverityLabel(severity)}`;
   }
 
   private resolveMaxSeverity(
