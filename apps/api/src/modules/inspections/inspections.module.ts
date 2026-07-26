@@ -107,6 +107,7 @@ import { InspectionsService } from './inspections.service';
     InspectionHistoryService,
     InspectionDetailService,
     InspectionFindingCatalogService,
+    InspectionAssignmentEmailService,
   ],
 })
 export class InspectionsModule {}
