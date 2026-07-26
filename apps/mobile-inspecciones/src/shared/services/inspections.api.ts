@@ -54,6 +54,15 @@ const managementFilterQueryKeys = [
   'closure',
 ] as const;
 
+function normalizeManagementFilterValue(
+  key: typeof managementFilterQueryKeys[number],
+  value: string,
+): string {
+  if (key !== 'date') return value;
+  const match = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  return match ? `${match[1]}-${match[2]}-${match[3].slice(-2)}` : value;
+}
+
 function buildManagementQuery(filters: MobileInspectionManagementFilters): string {
   const params = new URLSearchParams({
     page: String(filters.page),
@@ -61,7 +70,7 @@ function buildManagementQuery(filters: MobileInspectionManagementFilters): strin
   });
   managementFilterQueryKeys.forEach((key) => {
     const value = filters[key]?.trim();
-    if (value) params.set(key, value);
+    if (value) params.set(key, normalizeManagementFilterValue(key, value));
   });
   return `?${params.toString()}`;
 }
