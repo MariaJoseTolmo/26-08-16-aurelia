@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import type { InspectionManagementTableFilterOptionsResponse } from '@aurelia/contracts';
 import type {
   MobileInspectionManagementFilters,
@@ -62,6 +62,27 @@ const observationLabels: Record<string, string> = {
   rejected: 'Rechazadas',
 };
 
+function CloseIcon() {
+  return (
+    <Svg width={32} height={32} viewBox="0 0 32 32">
+      <Path
+        d="M9 9L23 23M23 9L9 23"
+        stroke="#131313"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <Svg width={12.5} height={10} viewBox="0 0 12.5 10">
+      <Path d="M0.5 0.75H12L7.35 5.55V9.1L5.15 8.05V5.55L0.5 0.75Z" fill="#24588B" />
+    </Svg>
+  );
+}
+
 function clean(value: string | undefined): string | undefined {
   const normalized = value?.trim();
   return normalized ? normalized : undefined;
@@ -86,18 +107,34 @@ function urgencyFilterLabel(value: string): string {
 
 function buildActiveFilters(filters: MobileInspectionManagementFilters): ActiveFilter[] {
   const active: ActiveFilter[] = [];
-  if (filters.id?.trim()) active.push({ key: 'id', label: `N°: ${inspectionNumberLabel(filters.id.trim())}` });
+  if (filters.id?.trim()) {
+    active.push({ key: 'id', label: `Nº: ${inspectionNumberLabel(filters.id.trim())}` });
+  }
   if (filters.date?.trim()) active.push({ key: 'date', label: `Fecha: ${filters.date.trim()}` });
-  if (filters.inspector?.trim()) active.push({ key: 'inspector', label: `Inspector: ${filters.inspector.trim()}` });
+  if (filters.inspector?.trim()) {
+    active.push({ key: 'inspector', label: `Inspector: ${filters.inspector.trim()}` });
+  }
   if (filters.area?.trim()) active.push({ key: 'area', label: `Área: ${filters.area.trim()}` });
-  if (filters.company?.trim()) active.push({ key: 'company', label: `Empresa: ${filters.company.trim()}` });
+  if (filters.company?.trim()) {
+    active.push({ key: 'company', label: `Empresa: ${filters.company.trim()}` });
+  }
   if (filters.type?.trim()) active.push({ key: 'type', label: `Tipo: ${filters.type.trim()}` });
-  if (filters.urgency?.trim()) active.push({ key: 'urgency', label: `Urgencia: ${urgencyFilterLabel(filters.urgency.trim())}` });
-  if (filters.count?.trim()) active.push({ key: 'count', label: `N° obs.: ${filters.count.trim()}` });
-  if (filters.obs?.trim()) active.push({ key: 'obs', label: `Obs.: ${observationFilterLabel(filters.obs.trim())}` });
-  if (filters.daysMin?.trim()) active.push({ key: 'daysMin', label: `Días mín.: ${filters.daysMin.trim()}` });
-  if (filters.daysMax?.trim()) active.push({ key: 'daysMax', label: `Días máx.: ${filters.daysMax.trim()}` });
-  if (filters.closure?.trim()) active.push({ key: 'closure', label: `Cierre: ${filters.closure.trim()}%` });
+  if (filters.urgency?.trim()) {
+    active.push({ key: 'urgency', label: `Urgencia: ${urgencyFilterLabel(filters.urgency.trim())}` });
+  }
+  if (filters.count?.trim()) active.push({ key: 'count', label: `Nº obs.: ${filters.count.trim()}` });
+  if (filters.obs?.trim()) {
+    active.push({ key: 'obs', label: `Obs.: ${observationFilterLabel(filters.obs.trim())}` });
+  }
+  if (filters.daysMin?.trim()) {
+    active.push({ key: 'daysMin', label: `Días mín.: ${filters.daysMin.trim()}` });
+  }
+  if (filters.daysMax?.trim()) {
+    active.push({ key: 'daysMax', label: `Días máx.: ${filters.daysMax.trim()}` });
+  }
+  if (filters.closure?.trim()) {
+    active.push({ key: 'closure', label: `Cierre: ${filters.closure.trim()}%` });
+  }
   return active;
 }
 
@@ -132,7 +169,14 @@ export function countMobileInspectionFilters(filters: MobileInspectionManagement
   }, 0);
 }
 
-export function MobileInspectionFiltersSheet({ visible, mode, value, options, onClose, onApply }: Props) {
+export function MobileInspectionFiltersSheet({
+  visible,
+  mode,
+  value,
+  options,
+  onClose,
+  onApply,
+}: Props) {
   const [draft, setDraft] = useState<MobileInspectionManagementFilters>(value);
   const [openControl, setOpenControl] = useState<MobileInspectionFilterControlKey | null>(null);
 
@@ -190,22 +234,36 @@ export function MobileInspectionFiltersSheet({ visible, mode, value, options, on
       onRequestClose={cancel}
     >
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={cancel} accessibilityLabel="Cerrar filtros" />
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={cancel}
+          accessibilityLabel="Cerrar filtros"
+        />
         <View
           style={styles.panel}
           accessible
-          accessibilityLabel={mode === 'history' ? 'Filtros del historial de inspecciones' : 'Filtros de gestión de inspecciones'}
+          accessibilityLabel={
+            mode === 'history'
+              ? 'Filtros del historial de inspecciones'
+              : 'Filtros de gestión de inspecciones'
+          }
         >
           <View style={styles.header}>
             <Text style={styles.title}>Filtros</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={cancel} accessibilityRole="button" accessibilityLabel="Cerrar filtros">
-              <FontAwesome5 name="times" size={25} color="#131313" />
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={cancel}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar filtros"
+            >
+              <CloseIcon />
             </TouchableOpacity>
           </View>
 
           <View style={styles.activeFiltersBar}>
             <View style={styles.activeFiltersTitleRow}>
-              <FontAwesome5 name="filter" size={12} color="#24588B" solid />
+              <FilterIcon />
               <Text style={styles.activeFiltersTitle}>Filtros activos:</Text>
             </View>
             {activeFilters.length > 0 ? (
@@ -233,7 +291,11 @@ export function MobileInspectionFiltersSheet({ visible, mode, value, options, on
             keyboardShouldPersistTaps="handled"
           >
             <FieldSection label="Número">
-              <NumericFilterField value={draft.id} placeholder="#" onChange={(text) => update('id', text)} />
+              <NumericFilterField
+                value={draft.id}
+                placeholder="#"
+                onChange={(text) => update('id', text)}
+              />
             </FieldSection>
 
             <FieldSection label="Fecha">
@@ -294,7 +356,7 @@ export function MobileInspectionFiltersSheet({ visible, mode, value, options, on
             <FieldSection label="Urgencia máxima">
               <UrgencyFilter
                 value={draft.urgency}
-                values={options.urgencies.filter((item) => item !== 'SLA vencido')}
+                values={options.urgencies}
                 open={openControl === 'urgency'}
                 onToggle={() => toggleControl('urgency')}
                 onChange={(next) => update('urgency', next)}
@@ -302,7 +364,11 @@ export function MobileInspectionFiltersSheet({ visible, mode, value, options, on
             </FieldSection>
 
             <FieldSection label="Número de observaciones">
-              <NumericFilterField value={draft.count} placeholder="#" onChange={(text) => update('count', text)} />
+              <NumericFilterField
+                value={draft.count}
+                placeholder="#"
+                onChange={(text) => update('count', text)}
+              />
             </FieldSection>
 
             <FieldSection label="Observaciones">
@@ -317,25 +383,46 @@ export function MobileInspectionFiltersSheet({ visible, mode, value, options, on
             <FieldSection label="Días">
               <View style={styles.rangeRow}>
                 <View style={styles.rangeInputWrap}>
-                  <NumericFilterField value={draft.daysMin} placeholder="Min" onChange={(text) => update('daysMin', text)} />
+                  <NumericFilterField
+                    value={draft.daysMin}
+                    placeholder="Min"
+                    onChange={(text) => update('daysMin', text)}
+                  />
                 </View>
                 <Text style={styles.rangeSeparator}>-</Text>
                 <View style={styles.rangeInputWrap}>
-                  <NumericFilterField value={draft.daysMax} placeholder="Máx" onChange={(text) => update('daysMax', text)} />
+                  <NumericFilterField
+                    value={draft.daysMax}
+                    placeholder="Máx"
+                    onChange={(text) => update('daysMax', text)}
+                  />
                 </View>
               </View>
             </FieldSection>
 
             <FieldSection label="Cierre">
-              <NumericFilterField value={draft.closure} placeholder="#%" percentage onChange={(text) => update('closure', text)} />
+              <NumericFilterField
+                value={draft.closure}
+                placeholder="#%"
+                percentage
+                onChange={(text) => update('closure', text)}
+              />
             </FieldSection>
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.cancelButton} onPress={cancel} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={cancel}
+              accessibilityRole="button"
+            >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.applyButton} onPress={apply} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={apply}
+              accessibilityRole="button"
+            >
               <Text style={styles.applyButtonText}>Aplicar filtros</Text>
             </TouchableOpacity>
           </View>
@@ -374,7 +461,6 @@ const styles = StyleSheet.create({
   },
   closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   activeFiltersBar: {
-    minHeight: 54,
     gap: 10,
     justifyContent: 'center',
     paddingHorizontal: 14,
@@ -382,10 +468,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF4FF',
   },
   activeFiltersTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  activeFiltersTitle: { color: '#0D3862', fontSize: 11, lineHeight: 13, fontWeight: fontWeight.semibold },
-  activeFiltersWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  activeFiltersTitle: {
+    color: '#0D3862',
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: fontWeight.semibold,
+  },
+  activeFiltersWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
   activeFilterChip: {
-    minHeight: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -393,11 +488,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#B4D1ED',
     backgroundColor: '#E6F3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    padding: 9,
   },
-  activeFilterChipText: { color: '#0D3862', fontSize: 10, lineHeight: 12, fontWeight: fontWeight.semibold },
-  activeFilterChipClose: { color: '#0D3862', fontSize: 12, lineHeight: 12 },
+  activeFilterChipText: {
+    color: '#0D3862',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: fontWeight.semibold,
+  },
+  activeFilterChipClose: {
+    color: '#0D3862',
+    fontSize: 10,
+    lineHeight: 10,
+    fontFamily: 'Arial',
+  },
   content: { flex: 1, backgroundColor: colors.white },
   contentInner: { paddingBottom: 4 },
   fieldSection: {
@@ -408,10 +512,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E3E3E3',
     backgroundColor: colors.white,
   },
-  fieldLabel: { color: '#131313', fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
+  fieldLabel: {
+    color: '#131313',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: fontWeight.bold,
+  },
   rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rangeInputWrap: { flex: 1 },
-  rangeSeparator: { color: '#131313', fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
+  rangeSeparator: {
+    color: '#131313',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: fontWeight.bold,
+  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -434,7 +548,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     paddingHorizontal: 20,
   },
-  cancelButtonText: { color: '#C8A064', fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
+  cancelButtonText: {
+    color: '#C8A064',
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: fontWeight.bold,
+  },
   applyButton: {
     flex: 1,
     height: 50,
@@ -448,5 +567,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  applyButtonText: { color: colors.white, fontSize: 14, lineHeight: 17, fontWeight: fontWeight.bold },
+  applyButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: fontWeight.bold,
+  },
 });
