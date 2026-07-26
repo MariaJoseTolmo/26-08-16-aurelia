@@ -145,7 +145,12 @@ export class InspectionDashboardService {
       const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
       const observations = this.createObservationSummary(inspectionFindings);
       const openFindings = inspectionFindings.filter((finding) => this.isOpenFinding(finding));
+      const rejectedFindings = inspectionFindings.filter((finding) => finding.status === InspectionFindingStatus.REJECTED);
       const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
+      const maxRejectedSeverity = rejectedFindings.reduce<InspectionFindingSeverity | null>(
         (current, finding) => this.resolveMaxSeverity(current, finding.severity),
         null,
       );
@@ -169,6 +174,7 @@ export class InspectionDashboardService {
         ),
         urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
         urgencySeverity: maxSeverity,
+        rejectedUrgencyLabel: maxRejectedSeverity ? `Rechazada · ${this.formatSeverityLabel(maxRejectedSeverity)}` : undefined,
         hasOverdueFindings,
         observationsCount: inspectionFindings.length,
         observations,
@@ -531,6 +537,7 @@ export class InspectionDashboardService {
       types: this.uniqueSorted(rows.map((row) => row.type)),
       urgencies: this.uniqueSorted(rows.flatMap((row) => [
         row.urgencyLabel,
+        ...(row.rejectedUrgencyLabel ? [row.rejectedUrgencyLabel] : []),
         ...(row.hasOverdueFindings ? ['SLA vencido'] : []),
       ])),
     };
@@ -571,7 +578,7 @@ export class InspectionDashboardService {
     if (!filter?.trim()) return true;
     const normalized = this.normalizeSearch(filter).replace(/_/g, ' ');
     if (normalized === 'sla overdue' || normalized === 'sla vencido') return row.hasOverdueFindings === true;
-    return row.urgencyLabel === filter;
+    return row.urgencyLabel === filter || row.rejectedUrgencyLabel === filter;
   }
 
   private observationMatches(
@@ -670,16 +677,20 @@ export class InspectionDashboardService {
     return label.includes('check') ? 'Checklist normativo' : 'Hallazgo';
   }
 
-  private formatUrgencyLabel(inspection: InspectionEntity, severity: InspectionFindingSeverity | null): string {
-    if (inspection.status === InspectionStatus.CLOSED) return 'Cerrada';
-    if (!severity) return 'Abierta · Menor';
+  private formatSeverityLabel(severity: InspectionFindingSeverity): string {
     const labelBySeverity: Record<InspectionFindingSeverity, string> = {
       [InspectionFindingSeverity.CRITICAL]: 'Grave',
       [InspectionFindingSeverity.HIGH]: 'Grave',
       [InspectionFindingSeverity.MEDIUM]: 'Moderado',
       [InspectionFindingSeverity.LOW]: 'Menor',
     };
-    return `${inspection.status === InspectionStatus.UNDER_REVIEW ? 'Ejecutada' : 'Abierta'} · ${labelBySeverity[severity]}`;
+    return labelBySeverity[severity];
+  }
+
+  private formatUrgencyLabel(inspection: InspectionEntity, severity: InspectionFindingSeverity | null): string {
+    if (inspection.status === InspectionStatus.CLOSED) return 'Cerrada';
+    if (!severity) return 'Abierta · Menor';
+    return `${inspection.status === InspectionStatus.UNDER_REVIEW ? 'Ejecutada' : 'Abierta'} · ${this.formatSeverityLabel(severity)}`;
   }
 
   private resolveMaxSeverity(
