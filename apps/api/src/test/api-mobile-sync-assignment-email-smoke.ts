@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     operations,
   );
 
-  const operation = {
+  const operation: MobileSyncOperationRequest = {
     localId: 'finding-local-1',
     operationType: 'CREATE_INSPECTION_FINDING' as MobileSyncOperationType,
     entityType: 'inspection_finding',
@@ -82,22 +82,22 @@ async function main(): Promise<void> {
     },
     createdBy: actorId,
     deviceId,
-    deviceSessionId: 'session-1',
-    schemaVersion: 1,
+    deviceSessionId: '44444444-4444-4444-8444-444444444444',
+    schemaVersion: '1',
     clientCreatedAt: new Date().toISOString(),
     idempotencyKey: 'mobile-finding-email-smoke-1',
     dependsOnLocalIds: [localInspectionId],
-  } as MobileSyncOperationRequest;
+  };
 
-  const batch = {
+  const batch: MobileSyncBatchRequest = {
     batchId: 'mobile-assignment-email-smoke-batch',
     appId: 'mobile-inspecciones',
     deviceId,
-    deviceSessionId: 'session-1',
-    bootstrapVersion: null,
+    deviceSessionId: operation.deviceSessionId,
+    bootstrapVersion: 'test-bootstrap',
     createdAt: new Date().toISOString(),
     operations: [operation],
-  } as MobileSyncBatchRequest;
+  };
 
   const response = await service.acceptBatch(batch);
 
