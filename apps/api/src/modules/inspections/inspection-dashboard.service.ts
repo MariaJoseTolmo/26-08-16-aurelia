@@ -149,6 +149,7 @@ export class InspectionDashboardService {
         (current, finding) => this.resolveMaxSeverity(current, finding.severity),
         null,
       );
+      const hasOverdueFindings = openFindings.some((finding) => Boolean(finding.dueAt && finding.dueAt < now));
       const date = getDashboardInspectionDate(inspection);
       const closureRate = inspectionFindings.length > 0
         ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2))
@@ -168,6 +169,7 @@ export class InspectionDashboardService {
         ),
         urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
         urgencySeverity: maxSeverity,
+        hasOverdueFindings,
         observationsCount: inspectionFindings.length,
         observations,
         daysOpen: openFindings.length > 0
@@ -527,7 +529,10 @@ export class InspectionDashboardService {
       areas: this.uniqueSorted(rows.map((row) => row.areaSector)),
       companies: this.uniqueSorted(rows.map((row) => row.company)),
       types: this.uniqueSorted(rows.map((row) => row.type)),
-      urgencies: this.uniqueSorted(rows.map((row) => row.urgencyLabel)),
+      urgencies: this.uniqueSorted(rows.flatMap((row) => [
+        row.urgencyLabel,
+        ...(row.hasOverdueFindings ? ['SLA vencido'] : []),
+      ])),
     };
   }
 
@@ -543,7 +548,7 @@ export class InspectionDashboardService {
     if (!this.exactMatches(row.areaSector, query.area)) return false;
     if (!this.exactMatches(row.company, query.company)) return false;
     if (!this.exactMatches(row.type, query.type)) return false;
-    if (!this.exactMatches(row.urgencyLabel, query.urgency)) return false;
+    if (!this.urgencyMatches(row, query.urgency)) return false;
     if (!this.numberMatches(row.observationsCount, query.count, 'equals')) return false;
     if (!this.observationMatches(row.observations, query.obs)) return false;
     if (!this.numberMatches(row.daysOpen, query.daysMin, 'min')) return false;
@@ -560,6 +565,13 @@ export class InspectionDashboardService {
   private exactMatches(value: string, filter?: string): boolean {
     if (!filter?.trim()) return true;
     return value === filter;
+  }
+
+  private urgencyMatches(row: InspectionManagementTableRowResponse, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/_/g, ' ');
+    if (normalized === 'sla overdue' || normalized === 'sla vencido') return row.hasOverdueFindings === true;
+    return row.urgencyLabel === filter;
   }
 
   private observationMatches(
