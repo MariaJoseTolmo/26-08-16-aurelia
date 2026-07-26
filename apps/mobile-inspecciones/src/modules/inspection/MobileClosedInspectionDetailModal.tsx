@@ -42,9 +42,11 @@ type Props = {
 
 type FollowupStep = {
   id: string;
+  sequenceNumber?: number;
   title: string;
   date: string;
   summary?: string;
+  bullets?: string[];
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -352,69 +354,95 @@ function ClosedObservationsPanel({ detail }: { detail: InspectionDetailResponse 
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
   const findings = allFindings(detail);
-  const events: FollowupStep[] = [];
+  const total = findings.length;
+  const percentage = (value: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const bulletsAt = (occurredAt: string | null) => {
+    const closed = occurredAt
+      ? findings.filter((item) => item.closedAt && toTimestamp(item.closedAt) <= toTimestamp(occurredAt)).length
+      : detail.header.counts.closed;
+    const normalizedClosed = Math.max(0, Math.min(total, closed));
+    const pending = Math.max(0, total - normalizedClosed);
+    return [
+      `Observaciones cerradas: ${normalizedClosed} obs / ${percentage(normalizedClosed)}%`,
+      `Observaciones pendientes: ${pending} obs / ${percentage(pending)}%`,
+    ];
+  };
 
+  const followupsBySequence = new Map<number, typeof detail.followups>();
   detail.followups.forEach((followup) => {
-    events.push({
-      id: `followup-${followup.followupId}`,
-      title: followup.title || `Seguimiento ${followup.sequenceNumber}`,
-      date: formatDate(followup.performedAt),
-      summary: followup.description,
-      completed: followup.completed,
-      occurredAt: followup.performedAt,
+    const current = followupsBySequence.get(followup.sequenceNumber) ?? [];
+    current.push(followup);
+    followupsBySequence.set(followup.sequenceNumber, current);
+  });
+
+  let recordedSteps: FollowupStep[] = Array.from(followupsBySequence.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([sequenceNumber, records]) => {
+      const dates = records
+        .map((record) => record.performedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => toTimestamp(left) - toTimestamp(right));
+      const occurredAt = dates.length > 0 ? dates[dates.length - 1] : null;
+      const completed = records.some((record) => record.completed);
+      return {
+        id: `followup-${sequenceNumber}`,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        date: completed ? formatDate(occurredAt) : '—',
+        bullets: completed ? bulletsAt(occurredAt) : undefined,
+        completed,
+        occurredAt,
+      };
     });
-  });
 
-  findings.forEach((item, index) => {
-    const itemNumber = closedFindingIndex(detail, item) || index + 1;
-    const label = detail.header.kind === 'checklist' ? `Ítem ${itemNumber}` : `Obs. ${itemNumber}`;
-    if (item.executedAt) {
-      events.push({
-        id: `executed-${item.findingId}`,
-        title: `${label} ejecutada`,
-        date: formatDate(item.executedAt),
-        summary: item.executedActionDescription ?? 'Observación marcada como ejecutada',
-        completed: true,
-        occurredAt: item.executedAt,
+  if (recordedSteps.length === 0) {
+    const latestActivityByDate = new Map<string, string>();
+    findings.forEach((item) => {
+      [item.executedAt, item.rejectedAt, item.closedAt].forEach((value) => {
+        if (!value) return;
+        const timestamp = toTimestamp(value);
+        if (!Number.isFinite(timestamp)) return;
+        const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+        const current = latestActivityByDate.get(dateKey);
+        if (!current || toTimestamp(value) > toTimestamp(current)) latestActivityByDate.set(dateKey, value);
       });
-    }
-    if (item.rejectedAt) {
-      events.push({
-        id: `rejected-${item.findingId}`,
-        title: `${label} rechazada`,
-        date: formatDate(item.rejectedAt),
-        summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección',
+    });
+    recordedSteps = Array.from(latestActivityByDate.values())
+      .sort((left, right) => toTimestamp(left) - toTimestamp(right))
+      .slice(0, 3)
+      .map((occurredAt, index) => ({
+        id: `derived-followup-${index + 1}`,
+        sequenceNumber: index + 1,
+        title: `Seguimiento ${index + 1}`,
+        date: formatDate(occurredAt),
+        bullets: bulletsAt(occurredAt),
         completed: true,
-        occurredAt: item.rejectedAt,
-      });
-    }
-    if (item.closedAt) {
-      events.push({
-        id: `closed-${item.findingId}`,
-        title: `${label} cerrada`,
-        date: formatDate(item.closedAt),
-        summary: 'Cierre aprobado por Admin GF HSE',
-        completed: true,
-        occurredAt: item.closedAt,
-      });
-    }
-  });
+        occurredAt,
+      }));
+  }
 
-  events.sort((left, right) => {
-    const leftTime = toTimestamp(left.occurredAt);
-    const rightTime = toTimestamp(right.occurredAt);
-    return (Number.isFinite(leftTime) ? leftTime : Number.MAX_SAFE_INTEGER)
-      - (Number.isFinite(rightTime) ? rightTime : Number.MAX_SAFE_INTEGER);
+  const stepBySequence = new Map(recordedSteps.map((step, index) => [step.sequenceNumber ?? index + 1, step]));
+  const highestSequence = Math.max(3, ...Array.from(stepBySequence.keys()));
+  const followupSteps = Array.from({ length: highestSequence }, (_, index) => {
+    const sequenceNumber = index + 1;
+    return stepBySequence.get(sequenceNumber) ?? {
+      id: `pending-followup-${sequenceNumber}`,
+      sequenceNumber,
+      title: `Seguimiento ${sequenceNumber}`,
+      date: '—',
+      completed: false,
+      occurredAt: null,
+    };
   });
 
   return [{
     id: 'initial',
     title: 'Inspección inicial',
     date: formatDate(detail.general.scheduledAt),
-    summary: `${findings.length} observaciones detectadas`,
+    summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`,
     completed: true,
     occurredAt: detail.general.scheduledAt,
-  }, ...events];
+  }, ...followupSteps];
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
@@ -428,16 +456,27 @@ function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
+          const longConnector = Boolean(step.summary || step.bullets);
           return (
             <View key={step.id} style={[styles.timelineRow, !isLast && styles.timelineRowSpacing]}>
               <View style={styles.timelineAxis}>
                 {step.completed ? <MobileInspectionTimelineCompletedIcon /> : <MobileInspectionTimelinePendingIcon />}
               </View>
-              {!isLast ? <View style={styles.timelineLine} /> : null}
+              {!isLast ? <View style={[styles.timelineLine, longConnector && styles.timelineLineLong]} /> : null}
               <View style={styles.timelineCopy}>
                 <Text style={styles.timelineTitle}>{step.title}</Text>
                 <Text style={styles.timelineDate}>{step.date}</Text>
                 {step.summary ? <Text style={styles.timelineSummary}>{step.summary}</Text> : null}
+                {step.bullets ? (
+                  <View style={styles.timelineBulletList}>
+                    {step.bullets.map((bullet) => (
+                      <View key={bullet} style={styles.timelineBulletRow}>
+                        <Text style={styles.timelineBullet}>•</Text>
+                        <Text style={styles.timelineBulletText}>{bullet}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             </View>
           );
@@ -776,10 +815,15 @@ const styles = StyleSheet.create({
   timelineRowSpacing: { paddingBottom: 16 },
   timelineAxis: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   timelineLine: { position: 'absolute', left: 11, top: 24, width: 2, height: 23, backgroundColor: colors.border },
+  timelineLineLong: { height: 38 },
   timelineCopy: { flex: 1, minWidth: 0, paddingTop: 2 },
   timelineTitle: { color: colors.primary, fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
   timelineDate: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 13 },
   timelineSummary: { marginTop: 5, color: colors.muted, fontSize: 11, lineHeight: 15 },
+  timelineBulletList: { marginTop: 2 },
+  timelineBulletRow: { flexDirection: 'row', alignItems: 'flex-start', paddingRight: 8 },
+  timelineBullet: { width: 12, color: colors.muted, fontSize: 11, lineHeight: 14 },
+  timelineBulletText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 14 },
   generalPanel: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 20, gap: 12 },
   generalSection: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 },
   generalSectionHeader: { height: 29, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 },
