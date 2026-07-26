@@ -11,11 +11,12 @@ import {
   View,
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import type {
   InspectionDetailEvidenceResponse,
   InspectionDetailFindingItemResponse,
   InspectionDetailResponse,
+  InspectionDetailResponsibleResponse,
 } from '@aurelia/contracts';
 import { API_URL } from '../../shared/services/http-client';
 import { colors, fontWeight } from '../../shared/theme/tokens';
@@ -31,6 +32,7 @@ import {
 } from './MobileInspectionDetailIcons';
 
 type DetailTab = 'observations' | 'result' | 'followups' | 'general';
+type GeneralIconName = React.ComponentProps<typeof FontAwesome5>['name'];
 
 type Props = {
   visible: boolean;
@@ -47,7 +49,19 @@ type FollowupStep = {
   occurredAt?: string | null;
 };
 
+type GeneralInfoRow = {
+  label: string;
+  value: string;
+  mono?: boolean;
+};
+
 const apiOrigin = API_URL.replace(/\/api\/?$/, '');
+const avatarPalette = [
+  { backgroundColor: '#c8a064', color: '#001e39' },
+  { backgroundColor: '#24588b', color: colors.white },
+  { backgroundColor: '#00b398', color: colors.white },
+  { backgroundColor: '#532a0e', color: colors.white },
+];
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -56,6 +70,17 @@ function formatDate(value: string | null | undefined): string {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${day}-${month}-${date.getFullYear()}`;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return 'dd-mm-aaaa · 00:00';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'dd-mm-aaaa · 00:00';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}-${month}-${date.getFullYear()} · ${hours}:${minutes}`;
 }
 
 function toTimestamp(value: string | null | undefined): number {
@@ -87,6 +112,12 @@ function closedSlaDays(dueAt: string | null | undefined, closedAt: string | null
   if (!Number.isFinite(due) || !Number.isFinite(closed)) return '—';
   const days = Math.max(0, Math.ceil((closed - due) / 86_400_000));
   return `${days} ${days === 1 ? 'día' : 'días'}`;
+}
+
+function initials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NA';
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
 
 function ClosedChipIcon() {
@@ -242,6 +273,20 @@ function checklistQuestion(detail: InspectionDetailResponse, item: InspectionDet
   return checklistItem?.question?.trim() || item.title?.trim() || null;
 }
 
+function FindingPills({ detail, item }: { detail: InspectionDetailResponse; item: InspectionDetailFindingItemResponse }) {
+  const index = closedFindingIndex(detail, item);
+  const severity = severityColors(item.severityLabel);
+  const label = detail.header.kind === 'checklist' ? `Ítem ${index}` : `Obs. ${index}`;
+  return (
+    <View style={styles.pillRow}>
+      <View style={styles.indexPill}><Text style={styles.indexPillText}>{label}</Text></View>
+      <View style={[styles.severityPill, { backgroundColor: severity.background }]}>
+        <Text style={[styles.severityPillText, { color: severity.color }]}>{item.severityLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
 function ClosedFindingCard({
   detail,
   item,
@@ -249,19 +294,11 @@ function ClosedFindingCard({
   detail: InspectionDetailResponse;
   item: InspectionDetailFindingItemResponse;
 }) {
-  const severity = severityColors(item.severityLabel);
-  const index = closedFindingIndex(detail, item);
   const question = checklistQuestion(detail, item);
-  const label = detail.header.kind === 'checklist' ? `Ítem. ${index}` : `Obs. ${index}`;
   return (
     <View style={styles.findingCard}>
       <View style={styles.findingTop}>
-        <View style={styles.pillRow}>
-          <View style={styles.indexPill}><Text style={styles.indexPillText}>{label}</Text></View>
-          <View style={[styles.severityPill, { backgroundColor: severity.background }]}>
-            <Text style={[styles.severityPillText, { color: severity.color }]}>{item.severityLabel}</Text>
-          </View>
-        </View>
+        <FindingPills detail={detail} item={item} />
         <View style={styles.closedPill}>
           <ClosedChipIcon />
           <Text style={styles.closedPillText}>Cerrado</Text>
@@ -315,16 +352,22 @@ function ClosedObservationsPanel({ detail }: { detail: InspectionDetailResponse 
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
   const findings = allFindings(detail);
-  const events: FollowupStep[] = detail.followups.map((followup) => ({
-    id: `followup-${followup.followupId}`,
-    title: followup.title || `Seguimiento ${followup.sequenceNumber}`,
-    date: formatDate(followup.performedAt),
-    summary: followup.description,
-    completed: followup.completed,
-    occurredAt: followup.performedAt,
-  }));
+  const events: FollowupStep[] = [];
+
+  detail.followups.forEach((followup) => {
+    events.push({
+      id: `followup-${followup.followupId}`,
+      title: followup.title || `Seguimiento ${followup.sequenceNumber}`,
+      date: formatDate(followup.performedAt),
+      summary: followup.description,
+      completed: followup.completed,
+      occurredAt: followup.performedAt,
+    });
+  });
+
   findings.forEach((item, index) => {
-    const label = detail.header.kind === 'checklist' ? `Ítem ${index + 1}` : `Obs. ${index + 1}`;
+    const itemNumber = closedFindingIndex(detail, item) || index + 1;
+    const label = detail.header.kind === 'checklist' ? `Ítem ${itemNumber}` : `Obs. ${itemNumber}`;
     if (item.executedAt) {
       events.push({
         id: `executed-${item.findingId}`,
@@ -333,6 +376,16 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
         summary: item.executedActionDescription ?? 'Observación marcada como ejecutada',
         completed: true,
         occurredAt: item.executedAt,
+      });
+    }
+    if (item.rejectedAt) {
+      events.push({
+        id: `rejected-${item.findingId}`,
+        title: `${label} rechazada`,
+        date: formatDate(item.rejectedAt),
+        summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección',
+        completed: true,
+        occurredAt: item.rejectedAt,
       });
     }
     if (item.closedAt) {
@@ -346,17 +399,19 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
       });
     }
   });
+
   events.sort((left, right) => {
     const leftTime = toTimestamp(left.occurredAt);
     const rightTime = toTimestamp(right.occurredAt);
     return (Number.isFinite(leftTime) ? leftTime : Number.MAX_SAFE_INTEGER)
       - (Number.isFinite(rightTime) ? rightTime : Number.MAX_SAFE_INTEGER);
   });
+
   return [{
     id: 'initial',
     title: 'Inspección inicial',
     date: formatDate(detail.general.scheduledAt),
-    summary: findings.length === 1 ? '1 observación detectada' : `${findings.length} observaciones detectadas`,
+    summary: `${findings.length} observaciones detectadas`,
     completed: true,
     occurredAt: detail.general.scheduledAt,
   }, ...events];
@@ -365,7 +420,7 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
   const steps = useMemo(() => buildFollowupSteps(detail), [detail]);
   return (
-    <View style={styles.tabContent}>
+    <View style={styles.followupsPanel}>
       <View style={styles.sectionHeading}>
         <MobileInspectionFollowupIcon />
         <Text style={styles.sectionHeadingText}>HISTORIAL DE SEGUIMIENTOS</Text>
@@ -374,12 +429,12 @@ function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
           return (
-            <View key={step.id} style={styles.timelineRow}>
+            <View key={step.id} style={[styles.timelineRow, !isLast && styles.timelineRowSpacing]}>
               <View style={styles.timelineAxis}>
                 {step.completed ? <MobileInspectionTimelineCompletedIcon /> : <MobileInspectionTimelinePendingIcon />}
-                {!isLast ? <View style={styles.timelineLine} /> : null}
               </View>
-              <View style={[styles.timelineCopy, !isLast && styles.timelineCopySpacing]}>
+              {!isLast ? <View style={styles.timelineLine} /> : null}
+              <View style={styles.timelineCopy}>
                 <Text style={styles.timelineTitle}>{step.title}</Text>
                 <Text style={styles.timelineDate}>{step.date}</Text>
                 {step.summary ? <Text style={styles.timelineSummary}>{step.summary}</Text> : null}
@@ -392,20 +447,21 @@ function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
   );
 }
 
-function GeneralRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.generalRow}>
-      <Text style={styles.generalLabel}>{label}</Text>
-      <Text style={styles.generalValue}>{value}</Text>
-    </View>
-  );
-}
-
-function GeneralSection({ title, icon, children }: { title: string; icon: React.ComponentProps<typeof FontAwesome5>['name']; children: React.ReactNode }) {
+function GeneralSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: GeneralIconName;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.generalSection}>
       <View style={styles.generalSectionHeader}>
-        <FontAwesome5 name={icon} size={11} color={colors.muted} />
+        <View style={styles.generalSectionIcon}>
+          <FontAwesome5 name={icon} size={10} color={colors.muted} />
+        </View>
         <Text style={styles.generalSectionTitle}>{title}</Text>
       </View>
       {children}
@@ -413,25 +469,133 @@ function GeneralSection({ title, icon, children }: { title: string; icon: React.
   );
 }
 
-function GeneralPanel({ detail }: { detail: InspectionDetailResponse }) {
-  const location = [detail.general.areaName, detail.general.sectorName].filter(Boolean).join(' · ') || '—';
+function GeneralInfoRows({ rows }: { rows: GeneralInfoRow[] }) {
   return (
-    <View style={styles.tabContent}>
+    <View>
+      {rows.map((row, index) => (
+        <View key={row.label} style={[styles.generalRow, index < rows.length - 1 && styles.generalRowBorder]}>
+          <Text style={styles.generalLabel}>{row.label}</Text>
+          <Text style={[styles.generalValue, row.mono && styles.generalValueMono]}>{row.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function GeneralPhotoGallery({ evidences }: { evidences: InspectionDetailEvidenceResponse[] }) {
+  const token = useMobileSession((state) => state.accessToken);
+  const evidence = evidences[0];
+  const uri = evidenceUrl(evidence);
+  return (
+    <View style={styles.generalPhotoFrame}>
+      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id="closedInspectionPhoto" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#1e3050" />
+            <Stop offset="1" stopColor="#0f1f35" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#closedInspectionPhoto)" />
+      </Svg>
+      {uri ? (
+        <Image
+          source={{ uri, headers: token ? { Authorization: `Bearer ${token}` } : undefined }}
+          style={styles.generalPhoto}
+          resizeMode="cover"
+        />
+      ) : null}
+      <View style={styles.generalPhotoLabel}><Text style={styles.generalPhotoLabelText}>FOTO GENERAL</Text></View>
+      <View style={styles.generalPhotoDate}><Text style={styles.generalPhotoDateText}>{formatDateTime(evidence?.capturedAt)}</Text></View>
+    </View>
+  );
+}
+
+function GeneralObservations({ detail }: { detail: InspectionDetailResponse }) {
+  const findings = allFindings(detail);
+  const title = detail.header.kind === 'checklist' ? `ÍTEMS (${findings.length})` : `OBSERVACIONES (${findings.length})`;
+  return (
+    <GeneralSection title={title} icon="list-ul">
+      {findings.length > 0 ? findings.map((item, index) => (
+        <View key={item.findingId} style={[styles.generalObservation, index < findings.length - 1 && styles.generalObservationBorder]}>
+          <FindingPills detail={detail} item={item} />
+          <Text style={styles.generalObservationText}>{item.condition ?? '—'}</Text>
+        </View>
+      )) : (
+        <Text style={styles.generalEmptyText}>No hay observaciones registradas.</Text>
+      )}
+    </GeneralSection>
+  );
+}
+
+function ResponsibleAvatar({ responsible, index }: { responsible: InspectionDetailResponsibleResponse; index: number }) {
+  const palette = avatarPalette[index % avatarPalette.length] ?? avatarPalette[0];
+  return (
+    <View style={[styles.avatar, { backgroundColor: palette.backgroundColor }]}>
+      <Text style={[styles.avatarText, { color: palette.color }]}>{initials(responsible.fullName)}</Text>
+    </View>
+  );
+}
+
+function ResponsiblesSection({ detail }: { detail: InspectionDetailResponse }) {
+  const responsibles = detail.general.responsibles;
+  return (
+    <GeneralSection title="RESPONSABLES" icon="users">
+      <GeneralInfoRows rows={[{ label: 'EECC', value: detail.general.companyName ?? '—' }]} />
+      <View style={styles.responsiblesList}>
+        {responsibles.length > 0 ? responsibles.map((responsible, index) => (
+          <View
+            key={responsible.userId}
+            style={[styles.responsibleRow, index < responsibles.length - 1 && styles.responsibleRowBorder]}
+          >
+            <ResponsibleAvatar responsible={responsible} index={index} />
+            <View style={styles.responsibleCopy}>
+              <Text style={styles.responsibleName} numberOfLines={1}>{responsible.fullName}</Text>
+              <Text style={styles.responsibleRole}>{responsible.position ?? 'Sin cargo'}</Text>
+            </View>
+            {responsible.currentUser ? (
+              <View style={styles.currentUserChip}><Text style={styles.currentUserChipText}>Tú</Text></View>
+            ) : null}
+          </View>
+        )) : (
+          <Text style={styles.generalEmptyText}>Sin responsables asignados.</Text>
+        )}
+      </View>
+    </GeneralSection>
+  );
+}
+
+function GeneralPanel({ detail }: { detail: InspectionDetailResponse }) {
+  const general = detail.general;
+  const locationRows: GeneralInfoRow[] = [
+    { label: 'Área · Sector', value: [general.areaName, general.sectorName].filter(Boolean).join(' · ') || '—' },
+    { label: 'Fecha', value: formatDate(general.scheduledAt) },
+    { label: 'Tipo', value: detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo' },
+    {
+      label: 'Ubicación UTM',
+      value: general.latitude && general.longitude
+        ? `${general.latitude} · ${general.longitude}`
+        : general.locationLabel ?? '—',
+      mono: true,
+    },
+  ];
+  return (
+    <View style={styles.generalPanel}>
       <GeneralSection title="QUIÉN REALIZÓ LA INSPECCIÓN" icon="user-tie">
-        <GeneralRow label="Nombre" value={detail.general.inspectorName ?? '—'} />
-        <GeneralRow label="Empresa" value={detail.general.inspectorCompanyName ?? detail.general.companyName ?? '—'} />
+        <GeneralInfoRows rows={[
+          { label: 'Nombre', value: general.inspectorName ?? '—' },
+          { label: 'Empresa', value: general.inspectorCompanyName ?? general.companyName ?? '—' },
+        ]} />
       </GeneralSection>
       <GeneralSection title="DÓNDE Y CUÁNDO" icon="map-marker-alt">
-        <GeneralRow label="Área · Sector" value={location} />
-        <GeneralRow label="Fecha" value={formatDate(detail.general.scheduledAt)} />
-        <GeneralRow label="Tipo" value={detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo'} />
-        {detail.general.templateName ? <GeneralRow label="Plantilla" value={detail.general.templateName} /> : null}
-        {detail.general.templateCode ? <GeneralRow label="Código" value={detail.general.templateCode} /> : null}
+        <GeneralInfoRows rows={locationRows} />
       </GeneralSection>
-      <GeneralSection title="CIERRE" icon="check-circle">
-        <GeneralRow label="Fecha de cierre" value={formatDate(latestClosedAt(detail))} />
-        <GeneralRow label="Observaciones cerradas" value={String(detail.findings.closed.length)} />
+      <GeneralSection title="FOTOGRAFÍA GENERAL DE LA INSPECCIÓN" icon="camera">
+        <View style={styles.generalPhotoContent}>
+          <GeneralPhotoGallery evidences={general.generalEvidence} />
+        </View>
       </GeneralSection>
+      <GeneralObservations detail={detail} />
+      <ResponsiblesSection detail={detail} />
     </View>
   );
 }
@@ -604,24 +768,49 @@ const styles = StyleSheet.create({
   infoLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
   infoValueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   infoValue: { fontSize: 11, lineHeight: 13, fontWeight: fontWeight.bold },
-  tabContent: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 16, gap: 12 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionHeadingText: { color: colors.muted, fontSize: 11, lineHeight: 14, letterSpacing: 0.45, fontWeight: fontWeight.bold },
-  timeline: { marginTop: 6 },
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  timelineAxis: { width: 34, alignItems: 'center' },
-  timelineLine: { width: 2, flex: 1, minHeight: 36, backgroundColor: colors.border, marginTop: 2 },
-  timelineCopy: { flex: 1, paddingTop: 1 },
-  timelineCopySpacing: { paddingBottom: 16 },
-  timelineTitle: { color: colors.primary, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.bold },
-  timelineDate: { marginTop: 2, color: colors.muted, fontSize: 11, lineHeight: 14 },
-  timelineSummary: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 15 },
-  generalSection: { borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, overflow: 'hidden' },
-  generalSectionHeader: { height: 38, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12 },
-  generalSectionTitle: { color: colors.muted, fontSize: 10, lineHeight: 12, letterSpacing: 0.55, fontWeight: fontWeight.bold },
-  generalRow: { minHeight: 42, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 12, paddingVertical: 9 },
-  generalLabel: { color: colors.muted, fontSize: 11, lineHeight: 14 },
-  generalValue: { flex: 1, color: colors.primary, fontSize: 11, lineHeight: 14, fontWeight: fontWeight.semibold, textAlign: 'right' },
+  followupsPanel: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 20 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionHeadingText: { color: colors.muted, fontSize: 11, lineHeight: 13, letterSpacing: 0.55, fontWeight: fontWeight.bold },
+  timeline: { marginTop: 10 },
+  timelineRow: { position: 'relative', flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  timelineRowSpacing: { paddingBottom: 16 },
+  timelineAxis: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  timelineLine: { position: 'absolute', left: 11, top: 24, width: 2, height: 23, backgroundColor: colors.border },
+  timelineCopy: { flex: 1, minWidth: 0, paddingTop: 2 },
+  timelineTitle: { color: colors.primary, fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
+  timelineDate: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 13 },
+  timelineSummary: { marginTop: 5, color: colors.muted, fontSize: 11, lineHeight: 15 },
+  generalPanel: { flexGrow: 1, backgroundColor: colors.white, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 20, gap: 12 },
+  generalSection: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 },
+  generalSectionHeader: { height: 29, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: '#f7f7f7', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 },
+  generalSectionIcon: { width: 13, height: 11, alignItems: 'center', justifyContent: 'center' },
+  generalSectionTitle: { flex: 1, color: colors.muted, fontSize: 10, lineHeight: 12, letterSpacing: 0.5, fontWeight: fontWeight.bold },
+  generalRow: { minHeight: 33, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 12, paddingVertical: 9 },
+  generalRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  generalLabel: { color: colors.muted, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.medium },
+  generalValue: { flex: 1, color: colors.primary, fontSize: 12, lineHeight: 15, fontWeight: fontWeight.bold, textAlign: 'right' },
+  generalValueMono: { fontFamily: 'monospace', fontSize: 11 },
+  generalPhotoContent: { paddingHorizontal: 12, paddingVertical: 9 },
+  generalPhotoFrame: { position: 'relative', height: 80, borderRadius: 8, overflow: 'hidden', backgroundColor: '#0f1f35' },
+  generalPhoto: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  generalPhotoLabel: { position: 'absolute', left: 8, top: 6, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 7, paddingVertical: 2 },
+  generalPhotoLabelText: { color: colors.white, fontSize: 9, lineHeight: 11, letterSpacing: 1.5, fontWeight: fontWeight.bold },
+  generalPhotoDate: { position: 'absolute', right: 8, bottom: 6, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2 },
+  generalPhotoDateText: { color: 'rgba(255,255,255,0.8)', fontSize: 9, lineHeight: 11 },
+  generalObservation: { gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  generalObservationBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  generalObservationText: { color: colors.primary, fontSize: 12, lineHeight: 16.8 },
+  generalEmptyText: { color: colors.muted, fontSize: 11, lineHeight: 15, paddingHorizontal: 12, paddingVertical: 12 },
+  responsiblesList: { borderTopWidth: 1, borderTopColor: colors.border },
+  responsibleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  responsibleRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avatarText: { fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
+  responsibleCopy: { flex: 1, minWidth: 0 },
+  responsibleName: { color: colors.primary, fontSize: 12, lineHeight: 14, fontWeight: fontWeight.bold },
+  responsibleRole: { marginTop: 4, color: colors.muted, fontSize: 11, lineHeight: 13 },
+  currentUserChip: { height: 16, borderRadius: 5, backgroundColor: '#c5fff6', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  currentUserChipText: { color: '#00b398', fontSize: 10, lineHeight: 12, fontWeight: fontWeight.bold },
   footer: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 20, paddingTop: 15, paddingBottom: 14 },
   pdfButton: { height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: colors.borderMid, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   pdfButtonText: { color: colors.body, fontSize: 13, lineHeight: 16, fontWeight: fontWeight.semibold },
