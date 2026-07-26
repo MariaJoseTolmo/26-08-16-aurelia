@@ -1,0 +1,72 @@
+name: Apply mobile notification order
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - '.github/workflows/apply-mobile-notification-order.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Order unread notifications first
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/mobile-inspecciones/src/modules/notifications/MobileNotificationsScreen.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = """  const sortedNotifications = useMemo(
+    () => [...notifications].sort((left, right) => notificationTimestamp(right) - notificationTimestamp(left)),
+    [notifications],
+  );"""
+          new = """  const sortedNotifications = useMemo(
+    () => [...notifications].sort((left, right) => {
+      const leftUnread = !left.readAt;
+      const rightUnread = !right.readAt;
+      if (leftUnread !== rightUnread) return leftUnread ? -1 : 1;
+      return notificationTimestamp(right) - notificationTimestamp(left);
+    }),
+    [notifications],
+  );"""
+          if old not in text:
+              raise SystemExit('No se encontró el bloque de ordenamiento esperado.')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Validate mobile
+        run: |
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+
+      - name: Commit notification order
+        run: |
+          rm .github/workflows/apply-mobile-notification-order.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile-inspecciones/src/modules/notifications/MobileNotificationsScreen.tsx .github/workflows/apply-mobile-notification-order.yml
+          git commit -m "Ordena notificaciones no leídas primero"
+          git push origin HEAD:feature/inspecciones/carlo
