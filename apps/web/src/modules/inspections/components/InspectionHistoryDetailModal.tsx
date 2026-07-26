@@ -179,7 +179,7 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
         .map((record) => record.performedAt)
         .filter((value): value is string => Boolean(value))
         .sort((left, right) => toTimestamp(left) - toTimestamp(right));
-      const occurredAt = dates.length > 0 ? dates[dates.length - 1] : null;
+      const occurredAt = dates.at(-1) ?? null;
       const completed = records.some((record) => record.completed);
       return {
         id: `followup-${sequenceNumber}`,
