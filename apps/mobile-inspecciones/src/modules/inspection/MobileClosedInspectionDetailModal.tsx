@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
+import Svg, { Circle, Path } from 'react-native-svg';
 import type {
   InspectionDetailEvidenceResponse,
   InspectionDetailFindingItemResponse,
@@ -80,12 +81,48 @@ function latestClosedAt(detail: InspectionDetailResponse): string | null {
   return values[0] ?? null;
 }
 
-function closureDays(start: string | null | undefined, end: string | null | undefined): string {
-  const startAt = toTimestamp(start);
-  const endAt = toTimestamp(end);
-  if (!Number.isFinite(startAt) || !Number.isFinite(endAt)) return '—';
-  const days = Math.max(0, Math.ceil((endAt - startAt) / 86_400_000));
+function closedSlaDays(dueAt: string | null | undefined, closedAt: string | null | undefined): string {
+  const due = toTimestamp(dueAt);
+  const closed = toTimestamp(closedAt);
+  if (!Number.isFinite(due) || !Number.isFinite(closed)) return '—';
+  const days = Math.max(0, Math.ceil((closed - due) / 86_400_000));
   return `${days} ${days === 1 ? 'día' : 'días'}`;
+}
+
+function ClosedChipIcon() {
+  return (
+    <Svg width={8} height={6} viewBox="0 0 8 6" fill="none">
+      <Circle cx={3.75} cy={3} r={3} fill={colors.successTxt} />
+    </Svg>
+  );
+}
+
+function ClosedRowIcon() {
+  return (
+    <Svg width={14} height={11} viewBox="0 0 14 11" fill="none">
+      <Circle cx={5.5} cy={5.5} r={5.5} fill={colors.successTxt} />
+      <Path d="M3.15 5.55L4.75 7.15L8.35 3.65" stroke="white" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function EvidenceImageIcon({ after = false }: { after?: boolean }) {
+  const tone = after ? colors.successTxt : colors.blueLink;
+  return (
+    <Svg width={after ? 25 : 23} height={after ? 20 : 18} viewBox="0 0 23 18" fill="none">
+      <Path d="M4 1H19C20.6569 1 22 2.34315 22 4V14C22 15.6569 20.6569 17 19 17H4C2.34315 17 1 15.6569 1 14V4C1 2.34315 2.34315 1 4 1Z" fill={tone} />
+      <Circle cx={7.2} cy={6} r={2} fill="white" />
+      <Path d="M4.3 14.2L9.1 9.6L12.2 12.4L15.3 8.8L19.2 14.2H4.3Z" fill="white" />
+    </Svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+      <Path d="M7.5 7.5L24.5 24.5M24.5 7.5L7.5 24.5" stroke={colors.primary} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 function evidenceUrl(evidence: InspectionDetailEvidenceResponse | undefined): string | null {
@@ -163,7 +200,7 @@ function EvidenceBox({
         />
       ) : (
         <View style={[styles.evidenceEmpty, after && styles.evidenceAfterEmpty]}>
-          <FontAwesome5 name="image" size={after ? 20 : 17} color={after ? colors.successTxt : colors.blueLink} />
+          <EvidenceImageIcon after={after} />
         </View>
       )}
     </View>
@@ -226,7 +263,7 @@ function ClosedFindingCard({
           </View>
         </View>
         <View style={styles.closedPill}>
-          <FontAwesome5 name="circle" size={5} color={colors.successTxt} solid />
+          <ClosedChipIcon />
           <Text style={styles.closedPillText}>Cerrado</Text>
         </View>
       </View>
@@ -244,7 +281,7 @@ function ClosedFindingCard({
           <Text style={styles.infoLabel}>SLA cerrado</Text>
           <View style={styles.infoValueRow}>
             <MobileInspectionSlaAlertIcon color={colors.ocreTxt} />
-            <Text style={[styles.infoValue, { color: colors.ocreTxt }]}>{closureDays(detail.general.scheduledAt, item.closedAt)}</Text>
+            <Text style={[styles.infoValue, { color: colors.ocreTxt }]}>{closedSlaDays(item.dueAt, item.closedAt)}</Text>
           </View>
         </View>
         <View style={styles.infoRow}>
@@ -261,7 +298,7 @@ function ClosedObservationsPanel({ detail }: { detail: InspectionDetailResponse 
   return (
     <View style={styles.observationsPanel}>
       <View style={styles.closedGroupRow}>
-        <FontAwesome5 name="check-circle" size={14} color={colors.successTxt} solid />
+        <ClosedRowIcon />
         <Text style={styles.closedGroupLabel}>CERRADAS</Text>
         <View style={styles.closedGroupCount}><Text style={styles.closedGroupCountText}>{items.length}</Text></View>
       </View>
@@ -450,7 +487,7 @@ export function MobileClosedInspectionDetailModal({ visible, inspectionId, onClo
               ) : null}
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Cerrar detalle">
-              <Feather name="x" size={21} color={colors.primary} />
+              <CloseIcon />
             </TouchableOpacity>
           </View>
 
