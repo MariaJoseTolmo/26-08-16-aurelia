@@ -142,8 +142,10 @@ function buildActiveFilters(filters: MobileInspectionManagementFilters): ActiveF
 function FieldSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.fieldSection}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      {children}
+      <View style={styles.fieldContent}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {children}
+      </View>
     </View>
   );
 }
@@ -509,13 +511,17 @@ const styles = StyleSheet.create({
   contentInner: { paddingBottom: 4 },
   fieldSection: {
     width: '100%',
-    alignItems: 'flex-start',
-    gap: 6,
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E3E3E3',
     backgroundColor: colors.white,
+  },
+  fieldContent: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
+    gap: 6,
   },
   fieldLabel: {
     color: '#131313',
@@ -526,7 +532,6 @@ const styles = StyleSheet.create({
   rangeRow: {
     width: '100%',
     maxWidth: CONTROL_MAX_WIDTH,
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
