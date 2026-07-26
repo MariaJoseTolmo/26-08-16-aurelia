@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -83,13 +84,12 @@ function BackIcon() {
   return (
     <Svg width={22} height={23} viewBox="0 0 22 23">
       <Path
-        d="M13.75 5.5L7.75 11.5L13.75 17.5"
+        d="M13.75 5.5L7.75 11.5L13.75 17.5M8.2 11.5H18"
         stroke="#131313"
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M8.2 11.5H18" stroke="#131313" strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -135,6 +135,30 @@ function MonthStepIcon({ direction }: { direction: 'previous' | 'next' }) {
         strokeLinejoin="round"
       />
     </Svg>
+  );
+}
+
+function DropdownOptionRow({
+  label,
+  selected = false,
+  onPress,
+}: {
+  label: string;
+  selected?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.dropdownRow,
+        (pressed || selected) && styles.dropdownRowHighlighted,
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+    >
+      <Text style={styles.dropdownRowText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -218,19 +242,14 @@ function DropdownMenu({
 }) {
   return (
     <View style={styles.dropdownMenu}>
-      {options.map((option) => {
-        const selected = option.value === selectedValue;
-        return (
-          <TouchableOpacity
-            key={`${option.value}-${option.label}`}
-            style={[styles.dropdownRow, selected && styles.dropdownRowSelected]}
-            onPress={() => onSelect(option)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.dropdownRowText}>{option.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+      {options.map((option) => (
+        <DropdownOptionRow
+          key={`${option.value}-${option.label}`}
+          label={option.label}
+          selected={option.value === selectedValue}
+          onPress={() => onSelect(option)}
+        />
+      ))}
     </View>
   );
 }
@@ -264,6 +283,8 @@ export function SingleSelectFilter({
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
         <Text style={styles.fieldText} numberOfLines={1}>
           {value || placeholder}
@@ -346,11 +367,16 @@ function CalendarPanel({
           const selected = Boolean(selectedDate && day.toDateString() === selectedDate.toDateString());
           const muted = day.getMonth() !== viewDate.getMonth();
           return (
-            <TouchableOpacity
+            <Pressable
               key={day.toISOString()}
-              style={[styles.calendarDay, selected && styles.calendarDaySelected]}
+              style={({ pressed }) => [
+                styles.calendarDay,
+                pressed && !selected && styles.calendarDayPressed,
+                selected && styles.calendarDaySelected,
+              ]}
               onPress={() => onSelect(formatFullDate(day))}
-              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
             >
               <Text
                 style={[
@@ -361,16 +387,16 @@ function CalendarPanel({
               >
                 {day.getDate()}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
 
       <View style={styles.calendarActions}>
-        <TouchableOpacity onPress={() => onSelect(undefined)}>
+        <TouchableOpacity onPress={() => onSelect(undefined)} accessibilityRole="button">
           <Text style={styles.calendarActionText}>Borrar</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onSelect(formatFullDate(new Date()))}>
+        <TouchableOpacity onPress={() => onSelect(formatFullDate(new Date()))} accessibilityRole="button">
           <Text style={styles.calendarActionText}>Hoy</Text>
         </TouchableOpacity>
       </View>
@@ -405,7 +431,9 @@ export function DateFilterField({
         <TouchableOpacity
           style={styles.calendarButton}
           onPress={onToggle}
+          accessibilityRole="button"
           accessibilityLabel="Abrir calendario"
+          accessibilityState={{ expanded: open }}
         >
           <CalendarIcon />
         </TouchableOpacity>
@@ -475,6 +503,8 @@ export function AreaSectorFilter({
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
         <Text style={styles.fieldText} numberOfLines={1}>
           {selectedEntry?.value ?? 'Todas las áreas'}
@@ -486,48 +516,43 @@ export function AreaSectorFilter({
         <View style={styles.dropdownMenu}>
           {areaStage ? (
             <>
-              <TouchableOpacity style={styles.dropdownHeaderRow} onPress={() => setAreaStage(null)}>
+              <Pressable
+                style={({ pressed }) => [styles.dropdownHeaderRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => setAreaStage(null)}
+                accessibilityRole="button"
+              >
                 <BackIcon />
                 <Text style={styles.dropdownHeaderText}>Sectores de [{areaStage}]</Text>
-              </TouchableOpacity>
+              </Pressable>
               {sectorEntries.map((entry) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={entry.value}
-                  style={[styles.dropdownRow, entry.value === value && styles.dropdownRowSelected]}
+                  label={entry.sector ?? ''}
+                  selected={entry.value === value}
                   onPress={() => {
                     onChange(entry.value);
                     onToggle();
                   }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.dropdownRowText}>{entry.sector}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           ) : (
             <>
-              <TouchableOpacity
-                style={[styles.dropdownRow, !value && styles.dropdownRowSelected]}
+              <DropdownOptionRow
+                label="Todas las áreas"
+                selected={!value}
                 onPress={() => {
                   onChange(undefined);
                   onToggle();
                 }}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.dropdownRowText}>Todas las áreas</Text>
-              </TouchableOpacity>
+              />
               {areas.map((area) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={area}
-                  style={[
-                    styles.dropdownRow,
-                    selectedEntry?.area === area && styles.dropdownRowSelected,
-                  ]}
+                  label={area}
+                  selected={selectedEntry?.area === area}
                   onPress={() => chooseArea(area)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.dropdownRowText}>{area}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           )}
@@ -593,7 +618,7 @@ export function UrgencyFilter({
 
     const matching = entries.filter((entry) => entry.state === state);
     if (matching.length === 1 && !matching[0]?.severity) {
-      onChange(matching[0].value);
+      onChange(matching[0]?.value);
       onToggle();
       return;
     }
@@ -617,6 +642,8 @@ export function UrgencyFilter({
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
         <Text style={styles.fieldText} numberOfLines={1}>
           {urgencyDisplayValue(value)}
@@ -628,56 +655,49 @@ export function UrgencyFilter({
         <View style={styles.dropdownMenu}>
           {stateStage ? (
             <>
-              <TouchableOpacity style={styles.dropdownHeaderRow} onPress={() => setStateStage(null)}>
+              <Pressable
+                style={({ pressed }) => [styles.dropdownHeaderRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => setStateStage(null)}
+                accessibilityRole="button"
+              >
                 <BackIcon />
                 <Text style={styles.dropdownHeaderText}>Criticidad para [{stateStage}]</Text>
-              </TouchableOpacity>
+              </Pressable>
               {stageEntries.map((entry) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={entry.value}
-                  style={[styles.dropdownRow, entry.value === value && styles.dropdownRowSelected]}
+                  label={entry.severity ?? ''}
+                  selected={entry.value === value}
                   onPress={() => {
                     onChange(entry.value);
                     onToggle();
                   }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.dropdownRowText}>{entry.severity}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           ) : (
             <>
-              <TouchableOpacity
-                style={[styles.dropdownRow, !value && styles.dropdownRowSelected]}
+              <DropdownOptionRow
+                label="Todos"
+                selected={!value}
                 onPress={() => {
                   onChange(undefined);
                   onToggle();
                 }}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.dropdownRowText}>Todos</Text>
-              </TouchableOpacity>
+              />
               {states.map((state) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={state}
-                  style={[styles.dropdownRow, selectedState === state && styles.dropdownRowSelected]}
+                  label={state}
+                  selected={selectedState === state}
                   onPress={() => chooseState(state)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.dropdownRowText}>{state}</Text>
-                </TouchableOpacity>
+                />
               ))}
-              <TouchableOpacity
-                style={[
-                  styles.dropdownRow,
-                  (value === 'sla_overdue' || value === 'SLA vencido') && styles.dropdownRowSelected,
-                ]}
+              <DropdownOptionRow
+                label="SLA vencido"
+                selected={value === 'sla_overdue' || value === 'SLA vencido'}
                 onPress={() => chooseState('SLA vencido')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.dropdownRowText}>SLA vencido</Text>
-              </TouchableOpacity>
+              />
             </>
           )}
         </View>
@@ -722,6 +742,8 @@ export function ObservationMultiSelectFilter({
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
         <Text style={styles.fieldText} numberOfLines={1}>
           {observationDisplayValue(value)}
@@ -731,20 +753,30 @@ export function ObservationMultiSelectFilter({
 
       {open ? (
         <View style={styles.dropdownMenu}>
-          <TouchableOpacity style={styles.multiSelectRow} onPress={() => onChange(undefined)}>
+          <Pressable
+            style={({ pressed }) => [styles.multiSelectRow, pressed && styles.dropdownRowHighlighted]}
+            onPress={() => onChange(undefined)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected.length === 0 }}
+          >
             <Checkbox checked={selected.length === 0} />
             <Text style={styles.dropdownRowText}>Todos</Text>
-          </TouchableOpacity>
-          {observationOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={styles.multiSelectRow}
-              onPress={() => toggleOption(option.value)}
-            >
-              <Checkbox checked={selected.includes(option.value)} />
-              <Text style={styles.dropdownRowText}>{option.label}</Text>
-            </TouchableOpacity>
-          ))}
+          </Pressable>
+          {observationOptions.map((option) => {
+            const checked = selected.includes(option.value);
+            return (
+              <Pressable
+                key={option.value}
+                style={({ pressed }) => [styles.multiSelectRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => toggleOption(option.value)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+              >
+                <Checkbox checked={checked} />
+                <Text style={styles.dropdownRowText}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -752,7 +784,11 @@ export function ObservationMultiSelectFilter({
 }
 
 const styles = StyleSheet.create({
-  controlWrapper: { width: '100%' },
+  controlWrapper: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
+    alignSelf: 'flex-start',
+  },
   field: {
     width: '100%',
     maxWidth: CONTROL_MAX_WIDTH,
@@ -800,6 +836,7 @@ const styles = StyleSheet.create({
   dropdownMenu: {
     marginTop: 10,
     width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     padding: 8,
@@ -811,7 +848,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 12,
   },
-  dropdownRowSelected: { backgroundColor: '#F0F0F0' },
+  dropdownRowHighlighted: { backgroundColor: '#F0F0F0' },
   dropdownRowText: {
     color: '#131313',
     fontSize: 14,
@@ -916,6 +953,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 2,
   },
+  calendarDayPressed: { backgroundColor: '#F0F0F0' },
   calendarDaySelected: { backgroundColor: '#3978E8' },
   calendarDayText: { color: '#131313', fontSize: 14, lineHeight: 18 },
   calendarDayMuted: { color: '#888888' },
