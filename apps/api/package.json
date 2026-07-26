@@ -13,7 +13,7 @@
     "test:smoke": "ts-node src/test/api-smoke.ts",
     "test:scope": "ts-node src/test/api-scope-smoke.ts",
     "test:roles": "ts-node src/test/api-functional-roles-smoke.ts",
-    "test:mail": "ts-node src/test/api-messaging-template-smoke.ts && ts-node src/test/api-smtp-email-smoke.ts",
+    "test:mail": "ts-node src/test/api-messaging-template-smoke.ts && ts-node src/test/api-smtp-email-smoke.ts && ts-node src/test/api-mobile-sync-assignment-email-smoke.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "pnpm run typeorm migration:generate ./src/database/migrations/Migration -d ./src/database/data-source.ts",
     "migration:create": "pnpm run typeorm migration:create ./src/database/migrations/Migration",
@@ -50,7 +50,6 @@
     "@types/express": "^5.0.0",
     "@types/multer": "^2.1.0",
     "@types/node": "^22.7.0",
-    "@types/pdfkit": "^0.17.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
   }
