@@ -1,11 +1,9 @@
 name: Apply mobile notification order
 
 on:
-  push:
+  pull_request:
     branches:
       - feature/inspecciones/carlo
-    paths:
-      - '.github/workflows/apply-mobile-notification-order.yml'
 
 permissions:
   contents: write
