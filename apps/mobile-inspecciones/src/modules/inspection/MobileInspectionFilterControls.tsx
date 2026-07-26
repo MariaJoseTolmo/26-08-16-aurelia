@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +30,19 @@ type OpenControlProps = {
   onToggle: () => void;
 };
 
+type AreaSectorEntry = {
+  value: string;
+  area: string;
+  sector?: string;
+};
+
+type UrgencyEntry = {
+  value: string;
+  state: string;
+  severity?: string;
+};
+
+const CONTROL_MAX_WIDTH = 323;
 const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const observationOptions: SelectOption[] = [
   { value: 'open', label: 'Abiertas' },
@@ -70,7 +84,7 @@ function BackIcon() {
   return (
     <Svg width={22} height={23} viewBox="0 0 22 23">
       <Path
-        d="M13.75 5.5L7.75 11.5L13.75 17.5"
+        d="M13.75 5.5L7.75 11.5L13.75 17.5M8.2 11.5H18"
         stroke="#131313"
         strokeWidth={1.8}
         strokeLinecap="round"
@@ -98,18 +112,53 @@ function Checkbox({ checked }: { checked: boolean }) {
   );
 }
 
-function MonthArrow({ direction }: { direction: 'previous' | 'next' }) {
-  const path = direction === 'previous' ? 'M9 11L5 7L9 3' : 'M5 3L9 7L5 11';
+function MonthCaretIcon() {
   return (
-    <Svg width={14} height={14} viewBox="0 0 14 14">
+    <Svg width={12} height={12} viewBox="0 0 12 12">
+      <Path d="M2.6 4.35H9.4L6 7.75L2.6 4.35Z" fill="#131313" />
+    </Svg>
+  );
+}
+
+function MonthStepIcon({ direction }: { direction: 'previous' | 'next' }) {
+  const path = direction === 'previous'
+    ? 'M12 21V4M12 4L5.5 10.5M12 4L18.5 10.5'
+    : 'M12 3V20M12 20L5.5 13.5M12 20L18.5 13.5';
+
+  return (
+    <Svg width={28} height={28} viewBox="0 0 24 24">
       <Path
         d={path}
         stroke="#131313"
-        strokeWidth={1.5}
+        strokeWidth={1.45}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </Svg>
+  );
+}
+
+function DropdownOptionRow({
+  label,
+  selected = false,
+  onPress,
+}: {
+  label: string;
+  selected?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.dropdownRow,
+        (pressed || selected) && styles.dropdownRowHighlighted,
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+    >
+      <Text style={styles.dropdownRowText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -137,7 +186,9 @@ function parseFilterDate(value: string | undefined): Date | null {
   const [day, month, yearValue] = parts;
   const year = yearValue < 100 ? 2000 + yearValue : yearValue;
   const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
   return date;
 }
 
@@ -148,8 +199,7 @@ function formatFullDate(date: Date): string {
 }
 
 function calendarMonthLabel(date: Date): string {
-  const value = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(date);
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+  return new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(date);
 }
 
 export function NumericFilterField({
@@ -166,6 +216,7 @@ export function NumericFilterField({
   keyboardType?: KeyboardTypeOptions;
 }) {
   const [focused, setFocused] = useState(false);
+
   return (
     <TextInput
       value={value ?? ''}
@@ -191,19 +242,14 @@ function DropdownMenu({
 }) {
   return (
     <View style={styles.dropdownMenu}>
-      {options.map((option) => {
-        const selected = option.value === selectedValue;
-        return (
-          <TouchableOpacity
-            key={`${option.value}-${option.label}`}
-            style={[styles.dropdownRow, selected && styles.dropdownRowSelected]}
-            onPress={() => onSelect(option)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.dropdownRowText}>{option.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+      {options.map((option) => (
+        <DropdownOptionRow
+          key={`${option.value}-${option.label}`}
+          label={option.label}
+          selected={option.value === selectedValue}
+          onPress={() => onSelect(option)}
+        />
+      ))}
     </View>
   );
 }
@@ -223,19 +269,24 @@ export function SingleSelectFilter({
   allLabel: string;
   onChange: (value: string | undefined) => void;
 } & OpenControlProps) {
-  const options = useMemo<SelectOption[]>(() => [
-    { value: '', label: allLabel },
-    ...unique(values).map((item) => ({ value: item, label: item })),
-  ], [allLabel, values]);
+  const options = useMemo<SelectOption[]>(
+    () => [
+      { value: '', label: allLabel },
+      ...unique(values).map((item) => ({ value: item, label: item })),
+    ],
+    [allLabel, values],
+  );
 
   return (
-    <View>
+    <View style={styles.controlWrapper}>
       <TouchableOpacity
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
-        <Text style={[styles.fieldText, !value && styles.placeholder]} numberOfLines={1}>
+        <Text style={styles.fieldText} numberOfLines={1}>
           {value || placeholder}
         </Text>
         <CaretIcon open={open} />
@@ -254,12 +305,20 @@ export function SingleSelectFilter({
   );
 }
 
-function CalendarPanel({ value, onSelect }: { value?: string; onSelect: (value: string | undefined) => void }) {
+function CalendarPanel({
+  value,
+  onSelect,
+}: {
+  value?: string;
+  onSelect: (value: string | undefined) => void;
+}) {
   const selectedDate = parseFilterDate(value);
   const [viewDate, setViewDate] = useState(() => selectedDate ?? new Date());
 
   useEffect(() => {
-    if (selectedDate) setViewDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    if (selectedDate) {
+      setViewDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    }
   }, [value]);
 
   const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
@@ -273,36 +332,51 @@ function CalendarPanel({ value, onSelect }: { value?: string; onSelect: (value: 
   return (
     <View style={styles.calendarPanel}>
       <View style={styles.calendarHeader}>
-        <Text style={styles.calendarMonth}>{calendarMonthLabel(viewDate)}</Text>
+        <View style={styles.calendarMonthRow}>
+          <Text style={styles.calendarMonth}>{calendarMonthLabel(viewDate)}</Text>
+          <MonthCaretIcon />
+        </View>
         <View style={styles.calendarNavigation}>
           <TouchableOpacity
             style={styles.calendarNavigationButton}
             onPress={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+            accessibilityLabel="Mes anterior"
           >
-            <MonthArrow direction="previous" />
+            <MonthStepIcon direction="previous" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.calendarNavigationButton}
             onPress={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+            accessibilityLabel="Mes siguiente"
           >
-            <MonthArrow direction="next" />
+            <MonthStepIcon direction="next" />
           </TouchableOpacity>
         </View>
       </View>
+
       <View style={styles.calendarWeekRow}>
         {weekDays.map((day, index) => (
-          <Text key={`${day}-${index}`} style={styles.calendarWeekDay}>{day}</Text>
+          <Text key={`${day}-${index}`} style={styles.calendarWeekDay}>
+            {day}
+          </Text>
         ))}
       </View>
+
       <View style={styles.calendarGrid}>
         {days.map((day) => {
           const selected = Boolean(selectedDate && day.toDateString() === selectedDate.toDateString());
           const muted = day.getMonth() !== viewDate.getMonth();
           return (
-            <TouchableOpacity
+            <Pressable
               key={day.toISOString()}
-              style={[styles.calendarDay, selected && styles.calendarDaySelected]}
+              style={({ pressed }) => [
+                styles.calendarDay,
+                pressed && !selected && styles.calendarDayPressed,
+                selected && styles.calendarDaySelected,
+              ]}
               onPress={() => onSelect(formatFullDate(day))}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
             >
               <Text
                 style={[
@@ -313,15 +387,16 @@ function CalendarPanel({ value, onSelect }: { value?: string; onSelect: (value: 
               >
                 {day.getDate()}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
+
       <View style={styles.calendarActions}>
-        <TouchableOpacity onPress={() => onSelect(undefined)}>
+        <TouchableOpacity onPress={() => onSelect(undefined)} accessibilityRole="button">
           <Text style={styles.calendarActionText}>Borrar</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onSelect(formatFullDate(new Date()))}>
+        <TouchableOpacity onPress={() => onSelect(formatFullDate(new Date()))} accessibilityRole="button">
           <Text style={styles.calendarActionText}>Hoy</Text>
         </TouchableOpacity>
       </View>
@@ -339,8 +414,9 @@ export function DateFilterField({
   onChange: (value: string | undefined) => void;
 } & OpenControlProps) {
   const [focused, setFocused] = useState(false);
+
   return (
-    <View>
+    <View style={styles.controlWrapper}>
       <View style={[styles.selectField, (open || focused) && styles.fieldFocused]}>
         <TextInput
           value={value ?? ''}
@@ -355,7 +431,9 @@ export function DateFilterField({
         <TouchableOpacity
           style={styles.calendarButton}
           onPress={onToggle}
+          accessibilityRole="button"
           accessibilityLabel="Abrir calendario"
+          accessibilityState={{ expanded: open }}
         >
           <CalendarIcon />
         </TouchableOpacity>
@@ -373,16 +451,14 @@ export function DateFilterField({
   );
 }
 
-type AreaSectorEntry = {
-  value: string;
-  area: string;
-  sector?: string;
-};
-
 function parseAreaSectorOptions(values: string[]): AreaSectorEntry[] {
   return unique(values).map((value) => {
     const parts = value.split(/\s*·\s*/).map((part) => part.trim()).filter(Boolean);
-    return { value, area: parts[0] ?? value, sector: parts.slice(1).join(' · ') || undefined };
+    return {
+      value,
+      area: parts[0] ?? value,
+      sector: parts.slice(1).join(' · ') || undefined,
+    };
   });
 }
 
@@ -422,60 +498,61 @@ export function AreaSectorFilter({
     : [];
 
   return (
-    <View>
+    <View style={styles.controlWrapper}>
       <TouchableOpacity
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
-        <Text style={[styles.fieldText, !value && styles.placeholder]} numberOfLines={1}>
+        <Text style={styles.fieldText} numberOfLines={1}>
           {selectedEntry?.value ?? 'Todas las áreas'}
         </Text>
         <CaretIcon open={open} />
       </TouchableOpacity>
+
       {open ? (
         <View style={styles.dropdownMenu}>
           {areaStage ? (
             <>
-              <TouchableOpacity style={styles.dropdownHeaderRow} onPress={() => setAreaStage(null)}>
+              <Pressable
+                style={({ pressed }) => [styles.dropdownHeaderRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => setAreaStage(null)}
+                accessibilityRole="button"
+              >
                 <BackIcon />
-                <Text style={styles.dropdownHeaderText}>Sectores de {areaStage}</Text>
-              </TouchableOpacity>
+                <Text style={styles.dropdownHeaderText}>Sectores de [{areaStage}]</Text>
+              </Pressable>
               {sectorEntries.map((entry) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={entry.value}
-                  style={[styles.dropdownRow, entry.value === value && styles.dropdownRowSelected]}
+                  label={entry.sector ?? ''}
+                  selected={entry.value === value}
                   onPress={() => {
                     onChange(entry.value);
                     onToggle();
                   }}
-                >
-                  <Text style={styles.dropdownRowText}>{entry.sector}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           ) : (
             <>
-              <TouchableOpacity
-                style={[styles.dropdownRow, !value && styles.dropdownRowSelected]}
+              <DropdownOptionRow
+                label="Todas las áreas"
+                selected={!value}
                 onPress={() => {
                   onChange(undefined);
                   onToggle();
                 }}
-              >
-                <Text style={styles.dropdownRowText}>Todas las áreas</Text>
-              </TouchableOpacity>
+              />
               {areas.map((area) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={area}
-                  style={[
-                    styles.dropdownRow,
-                    selectedEntry?.area === area && styles.dropdownRowSelected,
-                  ]}
+                  label={area}
+                  selected={selectedEntry?.area === area}
                   onPress={() => chooseArea(area)}
-                >
-                  <Text style={styles.dropdownRowText}>{area}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           )}
@@ -485,18 +562,16 @@ export function AreaSectorFilter({
   );
 }
 
-type UrgencyEntry = {
-  value: string;
-  state: string;
-  severity?: string;
-};
-
 function parseUrgencyOptions(values: string[]): UrgencyEntry[] {
   return unique(values)
     .filter((value) => value !== 'SLA vencido')
     .map((value) => {
       const parts = value.split(/\s*(?:·|-)\s*/).map((part) => part.trim()).filter(Boolean);
-      return { value, state: parts[0] ?? value, severity: parts.slice(1).join(' - ') || undefined };
+      return {
+        value,
+        state: parts[0] ?? value,
+        severity: parts.slice(1).join(' - ') || undefined,
+      };
     });
 }
 
@@ -504,6 +579,11 @@ function urgencyDisplayValue(value: string | undefined): string {
   if (!value) return 'Todos';
   if (value === 'sla_overdue' || value === 'SLA vencido') return 'SLA vencido';
   return value.replace(/\s*·\s*/g, ' - ');
+}
+
+function urgencyStateFromValue(value: string | undefined): string | undefined {
+  if (!value || value === 'sla_overdue' || value === 'SLA vencido') return undefined;
+  return value.split(/\s*(?:·|-)\s*/)[0]?.trim();
 }
 
 export function UrgencyFilter({
@@ -519,6 +599,7 @@ export function UrgencyFilter({
 } & OpenControlProps) {
   const entries = useMemo(() => parseUrgencyOptions(values), [values]);
   const [stateStage, setStateStage] = useState<string | null>(null);
+  const selectedState = urgencyStateFromValue(value);
   const states = useMemo(() => {
     const available = unique(entries.map((entry) => entry.state));
     return urgencyStateOrder.filter((state) => available.includes(state));
@@ -534,6 +615,7 @@ export function UrgencyFilter({
       onToggle();
       return;
     }
+
     const matching = entries.filter((entry) => entry.state === state);
     if (matching.length === 1 && !matching[0]?.severity) {
       onChange(matching[0]?.value);
@@ -555,70 +637,67 @@ export function UrgencyFilter({
   }, [entries, stateStage]);
 
   return (
-    <View>
+    <View style={styles.controlWrapper}>
       <TouchableOpacity
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
-        <Text style={[styles.fieldText, !value && styles.placeholder]} numberOfLines={1}>
+        <Text style={styles.fieldText} numberOfLines={1}>
           {urgencyDisplayValue(value)}
         </Text>
         <CaretIcon open={open} />
       </TouchableOpacity>
+
       {open ? (
         <View style={styles.dropdownMenu}>
           {stateStage ? (
             <>
-              <TouchableOpacity style={styles.dropdownHeaderRow} onPress={() => setStateStage(null)}>
+              <Pressable
+                style={({ pressed }) => [styles.dropdownHeaderRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => setStateStage(null)}
+                accessibilityRole="button"
+              >
                 <BackIcon />
-                <Text style={styles.dropdownHeaderText}>Criticidad para {stateStage}</Text>
-              </TouchableOpacity>
+                <Text style={styles.dropdownHeaderText}>Criticidad para [{stateStage}]</Text>
+              </Pressable>
               {stageEntries.map((entry) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={entry.value}
-                  style={[styles.dropdownRow, entry.value === value && styles.dropdownRowSelected]}
+                  label={entry.severity ?? ''}
+                  selected={entry.value === value}
                   onPress={() => {
                     onChange(entry.value);
                     onToggle();
                   }}
-                >
-                  <Text style={styles.dropdownRowText}>{entry.severity}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           ) : (
             <>
-              <TouchableOpacity
-                style={[styles.dropdownRow, !value && styles.dropdownRowSelected]}
+              <DropdownOptionRow
+                label="Todos"
+                selected={!value}
                 onPress={() => {
                   onChange(undefined);
                   onToggle();
                 }}
-              >
-                <Text style={styles.dropdownRowText}>Todos</Text>
-              </TouchableOpacity>
+              />
               {states.map((state) => (
-                <TouchableOpacity
+                <DropdownOptionRow
                   key={state}
-                  style={[
-                    styles.dropdownRow,
-                    value?.startsWith(`${state} ·`) && styles.dropdownRowSelected,
-                  ]}
+                  label={state}
+                  selected={selectedState === state}
                   onPress={() => chooseState(state)}
-                >
-                  <Text style={styles.dropdownRowText}>{state}</Text>
-                </TouchableOpacity>
+                />
               ))}
-              <TouchableOpacity
-                style={[
-                  styles.dropdownRow,
-                  (value === 'sla_overdue' || value === 'SLA vencido') && styles.dropdownRowSelected,
-                ]}
+              <DropdownOptionRow
+                label="SLA vencido"
+                selected={value === 'sla_overdue' || value === 'SLA vencido'}
                 onPress={() => chooseState('SLA vencido')}
-              >
-                <Text style={styles.dropdownRowText}>SLA vencido</Text>
-              </TouchableOpacity>
+              />
             </>
           )}
         </View>
@@ -658,33 +737,46 @@ export function ObservationMultiSelectFilter({
   }
 
   return (
-    <View>
+    <View style={styles.controlWrapper}>
       <TouchableOpacity
         style={[styles.selectField, open && styles.fieldFocused]}
         onPress={onToggle}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
-        <Text style={[styles.fieldText, selected.length === 0 && styles.placeholder]} numberOfLines={1}>
+        <Text style={styles.fieldText} numberOfLines={1}>
           {observationDisplayValue(value)}
         </Text>
         <CaretIcon open={open} />
       </TouchableOpacity>
+
       {open ? (
         <View style={styles.dropdownMenu}>
-          <TouchableOpacity style={styles.multiSelectRow} onPress={() => onChange(undefined)}>
+          <Pressable
+            style={({ pressed }) => [styles.multiSelectRow, pressed && styles.dropdownRowHighlighted]}
+            onPress={() => onChange(undefined)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected.length === 0 }}
+          >
             <Checkbox checked={selected.length === 0} />
             <Text style={styles.dropdownRowText}>Todos</Text>
-          </TouchableOpacity>
-          {observationOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={styles.multiSelectRow}
-              onPress={() => toggleOption(option.value)}
-            >
-              <Checkbox checked={selected.includes(option.value)} />
-              <Text style={styles.dropdownRowText}>{option.label}</Text>
-            </TouchableOpacity>
-          ))}
+          </Pressable>
+          {observationOptions.map((option) => {
+            const checked = selected.includes(option.value);
+            return (
+              <Pressable
+                key={option.value}
+                style={({ pressed }) => [styles.multiSelectRow, pressed && styles.dropdownRowHighlighted]}
+                onPress={() => toggleOption(option.value)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+              >
+                <Checkbox checked={checked} />
+                <Text style={styles.dropdownRowText}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -692,7 +784,14 @@ export function ObservationMultiSelectFilter({
 }
 
 const styles = StyleSheet.create({
+  controlWrapper: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
+    alignSelf: 'flex-start',
+  },
   field: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
     height: 50,
     borderRadius: 10,
     borderWidth: 1.5,
@@ -706,6 +805,8 @@ const styles = StyleSheet.create({
   },
   fieldFocused: { borderColor: '#24588B' },
   selectField: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
@@ -717,7 +818,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15.5,
   },
   fieldText: { flex: 1, color: '#131313', fontSize: 13, lineHeight: 19.5 },
-  placeholder: { color: '#757575' },
   caretOpen: { transform: [{ rotate: '180deg' }] },
   dateInput: {
     flex: 1,
@@ -736,6 +836,7 @@ const styles = StyleSheet.create({
   dropdownMenu: {
     marginTop: 10,
     width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     padding: 8,
@@ -747,7 +848,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 12,
   },
-  dropdownRowSelected: { backgroundColor: '#F0F0F0' },
+  dropdownRowHighlighted: { backgroundColor: '#F0F0F0' },
   dropdownRowText: {
     color: '#131313',
     fontSize: 14,
@@ -794,65 +895,81 @@ const styles = StyleSheet.create({
   calendarPanel: {
     marginTop: 10,
     width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
+    height: 417,
     borderWidth: 1,
     borderColor: '#646464',
     borderRadius: 2,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
     shadowColor: '#131313',
     shadowOpacity: 0.18,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
     elevation: 7,
   },
-  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  calendarHeader: {
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  calendarMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   calendarMonth: {
     color: '#131313',
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: fontWeight.bold,
   },
   calendarNavigation: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   calendarNavigationButton: {
-    width: 30,
-    height: 30,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  calendarWeekRow: { marginTop: 18, flexDirection: 'row' },
+  calendarWeekRow: { marginTop: 14, flexDirection: 'row' },
   calendarWeekDay: {
     width: '14.2857%',
     color: '#131313',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 18,
     textAlign: 'center',
-    fontWeight: fontWeight.bold,
+    fontWeight: fontWeight.semibold,
   },
-  calendarGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', rowGap: 5 },
+  calendarGrid: {
+    flex: 1,
+    marginTop: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'space-between',
+  },
   calendarDay: {
     width: '14.2857%',
-    height: 28,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 4,
+    borderRadius: 2,
   },
-  calendarDaySelected: { backgroundColor: '#0B84FF' },
-  calendarDayText: { color: '#131313', fontSize: 11, lineHeight: 14 },
+  calendarDayPressed: { backgroundColor: '#F0F0F0' },
+  calendarDaySelected: { backgroundColor: '#3978E8' },
+  calendarDayText: { color: '#131313', fontSize: 14, lineHeight: 18 },
   calendarDayMuted: { color: '#888888' },
   calendarDayTextSelected: { color: '#FFFFFF', fontWeight: fontWeight.bold },
   calendarActions: {
-    marginTop: 16,
+    marginTop: 14,
+    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
   },
   calendarActionText: {
-    color: '#0B84FF',
-    fontSize: 12,
-    lineHeight: 15,
+    color: '#3978E8',
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: fontWeight.semibold,
   },
 });
