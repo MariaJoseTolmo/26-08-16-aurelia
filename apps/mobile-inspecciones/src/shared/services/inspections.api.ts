@@ -39,14 +39,29 @@ export type MobileInspectionManagementFilters = {
   closure?: string;
 };
 
+const managementFilterQueryKeys = [
+  'id',
+  'date',
+  'inspector',
+  'area',
+  'company',
+  'type',
+  'urgency',
+  'count',
+  'obs',
+  'daysMin',
+  'daysMax',
+  'closure',
+] as const;
+
 function buildManagementQuery(filters: MobileInspectionManagementFilters): string {
   const params = new URLSearchParams({
     page: String(filters.page),
     pageSize: String(filters.pageSize),
   });
-  Object.entries(filters).forEach(([key, value]) => {
-    if (key === 'page' || key === 'pageSize') return;
-    if (typeof value === 'string' && value.trim()) params.set(key, value.trim());
+  managementFilterQueryKeys.forEach((key) => {
+    const value = filters[key]?.trim();
+    if (value) params.set(key, value);
   });
   return `?${params.toString()}`;
 }

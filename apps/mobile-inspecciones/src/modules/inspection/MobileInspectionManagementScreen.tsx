@@ -202,13 +202,25 @@ function draftDetail(record: import('./manualInspectionDrafts.storage').Persiste
 }
 
 function activeFilterLabels(filters: MobileInspectionManagementFilters): string[] {
+  const observationLabel: Record<string, string> = {
+    executed: 'Ejecutadas',
+    open: 'Abiertas',
+    closed: 'Cerradas',
+    rejected: 'Rechazadas',
+  };
   return [
-    filters.id ? `N° ${filters.id}` : '',
-    filters.type ?? '',
-    filters.urgency ?? '',
-    filters.obs ? `Obs. ${filters.obs}` : '',
-    filters.area ?? '',
-    filters.company ?? '',
+    filters.id ? `N° ${filters.id.startsWith('#') ? filters.id : `#${filters.id}`}` : '',
+    filters.date ? `Fecha ${filters.date}` : '',
+    filters.inspector ? `Inspector ${filters.inspector}` : '',
+    filters.area ? `Área ${filters.area}` : '',
+    filters.company ? `Empresa ${filters.company}` : '',
+    filters.type ? `Tipo ${filters.type}` : '',
+    filters.urgency ? `Urgencia ${filters.urgency}` : '',
+    filters.count ? `N° obs. ${filters.count}` : '',
+    filters.obs ? `Obs. ${observationLabel[filters.obs] ?? filters.obs}` : '',
+    filters.daysMin ? `Días mín. ${filters.daysMin}` : '',
+    filters.daysMax ? `Días máx. ${filters.daysMax}` : '',
+    filters.closure ? `Cierre ${filters.closure}%` : '',
   ].filter(Boolean);
 }
 
