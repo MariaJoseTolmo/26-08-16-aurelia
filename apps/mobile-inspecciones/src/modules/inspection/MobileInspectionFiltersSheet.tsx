@@ -40,6 +40,7 @@ type ActiveFilter = {
   label: string;
 };
 
+const CONTROL_MAX_WIDTH = 323;
 const filterKeys: FilterKey[] = [
   'id',
   'date',
@@ -238,6 +239,7 @@ export function MobileInspectionFiltersSheet({
           style={styles.backdrop}
           activeOpacity={1}
           onPress={cancel}
+          accessibilityRole="button"
           accessibilityLabel="Cerrar filtros"
         />
         <View
@@ -289,6 +291,7 @@ export function MobileInspectionFiltersSheet({
             contentContainerStyle={styles.contentInner}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             <FieldSection label="Número">
               <NumericFilterField
@@ -505,6 +508,8 @@ const styles = StyleSheet.create({
   content: { flex: 1, backgroundColor: colors.white },
   contentInner: { paddingBottom: 4 },
   fieldSection: {
+    width: '100%',
+    alignItems: 'flex-start',
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 16,
@@ -518,8 +523,15 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: fontWeight.bold,
   },
-  rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rangeInputWrap: { flex: 1 },
+  rangeRow: {
+    width: '100%',
+    maxWidth: CONTROL_MAX_WIDTH,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rangeInputWrap: { flex: 1, minWidth: 0 },
   rangeSeparator: {
     color: '#131313',
     fontSize: 13,
