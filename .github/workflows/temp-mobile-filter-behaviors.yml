@@ -1,0 +1,242 @@
+name: Temporary mobile filter behavior validation
+
+on:
+  pull_request:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .github/filter-behavior-trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Patch backend filters
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected exactly one match, found {count}')
+              return text.replace(old, new, 1)
+
+          dashboard_path = Path('apps/api/src/modules/inspections/inspection-dashboard.service.ts')
+          dashboard = dashboard_path.read_text(encoding='utf-8')
+          dashboard = replace_once(
+              dashboard,
+              """      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
+      const date = getDashboardInspectionDate(inspection);""",
+              """      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
+      const hasOverdueFindings = inspectionFindings.some(
+        (finding) => this.isOpenFinding(finding) && Boolean(finding.dueAt && finding.dueAt < now),
+      );
+      const date = getDashboardInspectionDate(inspection);""",
+              'dashboard overdue calculation',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """        urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
+        urgencySeverity: maxSeverity,
+        observationsCount: inspectionFindings.length,""",
+              """        urgencyLabel: this.formatUrgencyLabel(inspection, maxSeverity),
+        urgencySeverity: maxSeverity,
+        hasOverdueFindings,
+        observationsCount: inspectionFindings.length,""",
+              'dashboard row overdue property',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """      urgencies: this.uniqueSorted(rows.map((row) => row.urgencyLabel)),""",
+              """      urgencies: this.uniqueSorted(rows.flatMap((row) => [
+        row.urgencyLabel,
+        ...(row.hasOverdueFindings ? ['SLA vencido'] : []),
+      ])),""",
+              'dashboard urgency options',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """    if (!this.textMatches(this.formatDateForFilter(row.date), query.date)) return false;""",
+              """    if (!this.dateMatches(row.date, query.date)) return false;""",
+              'dashboard date matcher call',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """    if (!this.exactMatches(row.urgencyLabel, query.urgency)) return false;""",
+              """    if (!this.urgencyMatches(row, query.urgency)) return false;""",
+              'dashboard urgency matcher call',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """  private numberMatches(
+    value: number,""",
+              """  private dateMatches(value: string | null, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/\//g, '-');
+    const full = this.normalizeSearch(this.formatDateForFilter(value));
+    const short = this.normalizeSearch(this.formatDateForFilter(value, true));
+    return full.includes(normalized) || short.includes(normalized);
+  }
+
+  private urgencyMatches(row: InspectionManagementTableRowResponse, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/_/g, ' ');
+    if (normalized === 'sla overdue' || normalized === 'sla vencido') return row.hasOverdueFindings === true;
+    return row.urgencyLabel === filter;
+  }
+
+  private numberMatches(
+    value: number,""",
+              'dashboard matcher helpers',
+          )
+          dashboard = replace_once(
+              dashboard,
+              """  private formatDateForFilter(value: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}-${month}-${year}`;
+  }""",
+              """  private formatDateForFilter(value: string | null, shortYear = false): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = shortYear ? String(date.getFullYear()).slice(-2) : String(date.getFullYear());
+    return `${day}-${month}-${year}`;
+  }""",
+              'dashboard date formatter',
+          )
+          dashboard_path.write_text(dashboard, encoding='utf-8')
+
+          history_path = Path('apps/api/src/modules/inspections/inspection-history.service.ts')
+          history = history_path.read_text(encoding='utf-8')
+          history = replace_once(
+              history,
+              """        urgencyLabel: this.formatHistoryUrgencyLabel(maxSeverity),
+        urgencySeverity: maxSeverity,
+        observationsCount: inspectionFindings.length,""",
+              """        urgencyLabel: this.formatHistoryUrgencyLabel(maxSeverity),
+        urgencySeverity: maxSeverity,
+        hasOverdueFindings: false,
+        observationsCount: inspectionFindings.length,""",
+              'history overdue property',
+          )
+          history = replace_once(
+              history,
+              """    if (!this.textMatches(this.formatDateForFilter(row.date), query.date)) return false;""",
+              """    if (!this.dateMatches(row.date, query.date)) return false;""",
+              'history date matcher call',
+          )
+          history = replace_once(
+              history,
+              """    if (!this.exactMatches(row.urgencyLabel, query.urgency)) return false;""",
+              """    if (!this.urgencyMatches(row, query.urgency)) return false;""",
+              'history urgency matcher call',
+          )
+          history = replace_once(
+              history,
+              """  private numberMatches(
+    value: number,""",
+              """  private dateMatches(value: string | null, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/\//g, '-');
+    const full = this.normalizeSearch(this.formatDateForFilter(value));
+    const short = this.normalizeSearch(this.formatDateForFilter(value, true));
+    return full.includes(normalized) || short.includes(normalized);
+  }
+
+  private urgencyMatches(row: InspectionManagementTableRowResponse, filter?: string): boolean {
+    if (!filter?.trim()) return true;
+    const normalized = this.normalizeSearch(filter).replace(/_/g, ' ');
+    if (normalized === 'sla overdue' || normalized === 'sla vencido') return row.hasOverdueFindings === true;
+    return row.urgencyLabel === filter;
+  }
+
+  private numberMatches(
+    value: number,""",
+              'history matcher helpers',
+          )
+          history = replace_once(
+              history,
+              """  private formatDateForFilter(value: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}-${month}-${year}`;
+  }""",
+              """  private formatDateForFilter(value: string | null, shortYear = false): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = shortYear ? String(date.getFullYear()).slice(-2) : String(date.getFullYear());
+    return `${day}-${month}-${year}`;
+  }""",
+              'history date formatter',
+          )
+          history_path.write_text(history, encoding='utf-8')
+
+      - name: Commit backend files separately
+        run: |
+          git config user.name "Aurelia Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add apps/api/src/modules/inspections/inspection-dashboard.service.ts
+          git commit -m "feat(api): support conditional management filters"
+          git add apps/api/src/modules/inspections/inspection-history.service.ts
+          git commit -m "fix(api): support full-year history date filters"
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate contracts
+        run: pnpm --filter @aurelia/contracts build
+
+      - name: Validate API
+        run: |
+          pnpm --filter api build
+          pnpm --filter api lint
+          pnpm --filter api test
+
+      - name: Validate mobile
+        run: |
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/temp-mobile-filter-behaviors.yml
+          git commit -m "chore(ci): remove mobile filter validation workflow"
+
+      - name: Push validated commits
+        run: git push origin HEAD:feature/inspecciones/carlo
