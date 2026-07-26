@@ -489,11 +489,7 @@ export function MobileInspectionManagementScreen() {
             <LogoMobile width={137} height={45} />
             <TouchableOpacity style={styles.bell} onPress={() => router.push('/inspection/notifications')}>
               <BellIcon width={20} height={16} />
-              {unreadNotifications > 0 ? (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text>
-                </View>
-              ) : null}
+              {unreadNotifications > 0 ? <View style={styles.bellUnreadDot} /> : null}
             </TouchableOpacity>
           </View>
           <Text style={styles.hello}>Hola,</Text>
@@ -668,8 +664,7 @@ const styles = StyleSheet.create({
   header: { position: 'relative', overflow: 'hidden', backgroundColor: colors.navyDark, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 20 },
   brandRow: { height: 51, flexDirection: 'row', alignItems: 'center' },
   bell: { position: 'relative', marginLeft: 'auto', width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  bellBadge: { position: 'absolute', right: -3, top: -3, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#c4365a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  bellBadgeText: { color: colors.white, fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
+  bellUnreadDot: { position: 'absolute', left: 22, top: 8, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: '#002659', backgroundColor: '#c4365a' },
   hello: { marginTop: 16, color: 'rgba(255,255,255,0.5)', fontSize: 13 },
   name: { marginTop: 2, color: colors.white, fontSize: 22, lineHeight: 26, fontWeight: fontWeight.bold },
   role: { marginTop: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(200,160,100,0.4)', backgroundColor: 'rgba(200,160,100,0.2)', paddingHorizontal: 11, paddingVertical: 4 },
