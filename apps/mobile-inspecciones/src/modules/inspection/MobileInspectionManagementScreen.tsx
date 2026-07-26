@@ -23,6 +23,7 @@ import { useManualInspectionDraft } from './manualInspection.store';
 import { useManualInspectionFlowStore } from './manualInspectionFlow.store';
 import { useMobileInspectionCapabilities } from './mobileInspectionCapabilities';
 import { useMobileInspectionManagement } from './hooks/useMobileInspectionManagement';
+import { useMobileNotifications } from '../notifications/useMobileNotifications';
 import { countMobileInspectionFilters, MobileInspectionFiltersSheet } from './MobileInspectionFiltersSheet';
 import { MobileInspectionDetailModal } from './MobileInspectionDetailModal';
 import BellIcon from '../../../assets/icons/home-bell.svg';
@@ -212,13 +213,15 @@ function activeFilterLabels(filters: MobileInspectionManagementFilters): string[
 }
 
 export function MobileInspectionManagementScreen() {
-  const params = useLocalSearchParams<{ inspectionId?: string | string[]; findingId?: string | string[]; group?: string | string[] }>();
+  const params = useLocalSearchParams<{ inspectionId?: string | string[]; findingId?: string | string[]; group?: string | string[]; mode?: string | string[]; notificationId?: string | string[] }>();
   const deepInspectionId = Array.isArray(params.inspectionId) ? params.inspectionId[0] : params.inspectionId;
   const deepFindingId = Array.isArray(params.findingId) ? params.findingId[0] : params.findingId;
   const deepGroup = Array.isArray(params.group) ? params.group[0] : params.group;
+  const deepMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const deepNotificationId = Array.isArray(params.notificationId) ? params.notificationId[0] : params.notificationId;
   const user = useMobileSession((state) => state.user);
   const capabilities = useMobileInspectionCapabilities();
-  const [mode, setMode] = useState<MobileInspectionManagementMode>('management');
+  const [mode, setMode] = useState<MobileInspectionManagementMode>(deepMode === 'history' ? 'history' : 'management');
   const [filters, setFilters] = useState<MobileInspectionManagementFilters>(emptyFilters);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(deepInspectionId ?? null);
@@ -234,10 +237,17 @@ export function MobileInspectionManagementScreen() {
   const loading = data.table.isLoading || (mode === 'management' ? data.managementKpis.isLoading : data.historyKpis.isLoading);
   const refreshing = data.table.isRefetching || data.managementKpis.isRefetching || data.historyKpis.isRefetching;
   const badge = profileBadge(user?.roles ?? [], user?.companyName, user?.areaName);
+  const notificationsQuery = useMobileNotifications();
+  const unreadNotifications = notificationsQuery.data?.filter((notification) => !notification.readAt).length ?? 0;
 
   useEffect(() => {
     if (deepInspectionId) setSelectedInspectionId(deepInspectionId);
   }, [deepInspectionId]);
+
+  useEffect(() => {
+    if (deepMode === 'history') setMode('history');
+    else if (deepMode === 'management') setMode('management');
+  }, [deepMode]);
 
   const metrics = useMemo(() => {
     if (mode === 'history') {
@@ -296,7 +306,7 @@ export function MobileInspectionManagementScreen() {
 
   function closeDetail() {
     setSelectedInspectionId(null);
-    if (deepInspectionId || deepFindingId || deepGroup) router.replace('/inspection/dashboard');
+    if (deepInspectionId || deepFindingId || deepGroup || deepMode || deepNotificationId) router.replace('/inspection/dashboard');
   }
 
   if (!capabilities.read) {
@@ -308,7 +318,13 @@ export function MobileInspectionManagementScreen() {
       <View style={styles.screen}>
         <View style={styles.header}>
           <HeaderGradient />
-          <View style={styles.brandRow}><LogoMobile width={137} height={45} /><TouchableOpacity style={styles.bell}><BellIcon width={20} height={16} /></TouchableOpacity></View>
+          <View style={styles.brandRow}>
+            <LogoMobile width={137} height={45} />
+            <TouchableOpacity style={styles.bell} onPress={() => router.push('/inspection/notifications')}>
+              <BellIcon width={20} height={16} />
+              {unreadNotifications > 0 ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</Text></View> : null}
+            </TouchableOpacity>
+          </View>
           <Text style={styles.hello}>Hola,</Text><Text style={styles.name}>{user?.fullName ?? 'Usuario AurelIA'}</Text>
           <View style={styles.role}><ShieldIcon width={13} height={10} /><Text style={styles.roleText}>{badge}</Text></View>
         </View>
@@ -348,7 +364,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f7f7f7' },
   header: { position: 'relative', overflow: 'hidden', backgroundColor: colors.navyDark, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 20 },
   brandRow: { height: 51, flexDirection: 'row', alignItems: 'center' },
-  bell: { marginLeft: 'auto', width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  bell: { position: 'relative', marginLeft: 'auto', width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', right: -3, top: -3, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#C4365A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  bellBadgeText: { color: colors.white, fontSize: 9, lineHeight: 11, fontWeight: fontWeight.bold },
   hello: { marginTop: 16, color: 'rgba(255,255,255,0.5)', fontSize: 13 },
   name: { marginTop: 2, color: colors.white, fontSize: 22, lineHeight: 26, fontWeight: fontWeight.bold },
   role: { marginTop: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(200,160,100,0.4)', backgroundColor: 'rgba(200,160,100,0.2)', paddingHorizontal: 11, paddingVertical: 4 },
