@@ -13,6 +13,7 @@ import { EvidencesModule } from './modules/evidences/evidences.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { InspectionLegacyImportModule } from './modules/inspection-legacy-import/inspection-legacy-import.module';
 import { InspectionMutationAuditInterceptor } from './modules/inspections/inspection-mutation-audit.interceptor';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
@@ -48,6 +49,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
     WorkflowsModule,
     MessagingModule.register(),
     InspectionsModule,
+    InspectionLegacyImportModule,
     IncidentsModule,
     ReportsModule,
     NotificationsModule,
