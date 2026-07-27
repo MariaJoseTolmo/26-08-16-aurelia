@@ -1,25 +1,138 @@
 import React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getLocalMobileBootstrap } from '../../shared/offline/local-catalogs';
+import { localStorageDriver } from '../../shared/storage/local-storage';
 import { useMobileInspectionAssignmentScope } from '../../shared/stores/mobileInspectionAssignmentScope.store';
 import { useMobileSession } from '../auth/mobileSession.store';
 import { InspectionChatScreenV2 } from './InspectionChatScreenV2';
+import {
+  getActiveManualInspectionDraftId,
+  getManualInspectionDraftById,
+} from './manualInspectionDrafts.storage';
 import { useManualInspectionDraft } from './manualInspection.store';
 
+const CHAT_STATE_KEY = 'inspection_chat_session:v1';
+
+type PersistedChatMessage = {
+  t?: string;
+  data?: unknown;
+};
+
+type PersistedChatState = {
+  draftId?: string;
+  messages?: PersistedChatMessage[];
+};
+
+function hasAreaChoices(snapshot: PersistedChatState | null) {
+  return snapshot?.messages?.some((message) => (
+    message.t === 'areas'
+    && Array.isArray(message.data)
+    && message.data.length > 0
+  )) ?? false;
+}
+
+function hasResumeControl(snapshot: PersistedChatState | null) {
+  return snapshot?.messages?.some((message) => (
+    message.t === 'resume' || message.t === 'resumeDraftPick'
+  )) ?? false;
+}
+
+function hasAreaPrompt(snapshot: PersistedChatState | null) {
+  return snapshot?.messages?.some((message) => {
+    if (message.t !== 'bot' || typeof message.data !== 'string') return false;
+    const text = message.data
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return text.includes('area') && (text.includes('hoy') || text.includes('estas'));
+  }) ?? false;
+}
+
+function isBrokenInitialAreaSnapshot(snapshot: PersistedChatState | null) {
+  const messages = snapshot?.messages ?? [];
+  if (messages.length === 0 || hasResumeControl(snapshot)) return false;
+  return hasAreaPrompt(snapshot) && !hasAreaChoices(snapshot);
+}
+
+async function repairBrokenInitialAreaSession() {
+  const activeDraftId = await getActiveManualInspectionDraftId();
+  if (!activeDraftId) return;
+
+  const draftRecord = await getManualInspectionDraftById(activeDraftId);
+  if (!draftRecord || draftRecord.status !== 'IN_PROGRESS' || draftRecord.draft.areaId) return;
+
+  const scopedKey = `${CHAT_STATE_KEY}:${activeDraftId}`;
+  const scopedSnapshot = await localStorageDriver.get<PersistedChatState>(scopedKey);
+  const legacySnapshot = await localStorageDriver.get<PersistedChatState>(CHAT_STATE_KEY);
+
+  if (isBrokenInitialAreaSnapshot(scopedSnapshot)) {
+    await localStorageDriver.remove(scopedKey);
+  }
+
+  const legacyBelongsToActiveDraft = !legacySnapshot?.draftId || legacySnapshot.draftId === activeDraftId;
+  if (legacyBelongsToActiveDraft && isBrokenInitialAreaSnapshot(legacySnapshot)) {
+    await localStorageDriver.remove(CHAT_STATE_KEY);
+  }
+}
+
 export function InspectionAssistantChatScreen() {
+  const queryClient = useQueryClient();
   const user = useMobileSession((state) => state.user);
   const loaded = useMobileInspectionAssignmentScope((state) => state.loaded);
   const inspectorCompanyName = useMobileInspectionAssignmentScope((state) => state.inspectorCompanyName);
   const hydrate = useMobileInspectionAssignmentScope((state) => state.hydrate);
   const setInspectorIdentity = useManualInspectionDraft((state) => state.setInspectorIdentity);
+  const [chatReady, setChatReady] = React.useState(false);
 
   React.useEffect(() => {
     void hydrate(user);
   }, [hydrate, user]);
 
   React.useEffect(() => {
-    if (!loaded || !user) return;
-    setInspectorIdentity(user.fullName, inspectorCompanyName ?? user.companyName ?? 'Sin empresa');
-  }, [inspectorCompanyName, loaded, setInspectorIdentity, user]);
+    if (!loaded || !user) {
+      setChatReady(false);
+      return undefined;
+    }
 
-  if (!loaded || !user) return null;
+    let active = true;
+    setInspectorIdentity(user.fullName, inspectorCompanyName ?? user.companyName ?? 'Sin empresa');
+
+    async function prepareChat() {
+      // React Query usa estas mismas claves dentro de InspectionChatScreenV2.
+      // Precargar el bootstrap local evita que la primera pregunta quede sin
+      // controles cuando el endpoint tarda o la aplicación vuelve desde caché.
+      const bootstrap = await getLocalMobileBootstrap();
+      if (bootstrap) {
+        queryClient.setQueryData(['areas'], bootstrap.catalogs.areas);
+        queryClient.setQueryData(['inspection-types'], bootstrap.catalogs.inspectionTypes);
+        queryClient.setQueryData(['finding-types'], bootstrap.catalogs.findingTypes);
+        queryClient.setQueryData(['finding-severities'], bootstrap.catalogs.findingSeverities);
+        queryClient.setQueryData(['responsible-companies-checklist'], bootstrap.catalogs.companies);
+        queryClient.setQueryData(['responsible-companies-finding'], bootstrap.catalogs.companies);
+
+        bootstrap.catalogs.areas.forEach((area) => {
+          const sectors = bootstrap.catalogs.sectors.filter((sector) => (
+            (sector as { areaId?: string | null }).areaId === area.id
+          ));
+          if (sectors.length > 0) queryClient.setQueryData(['sectors', area.id], sectors);
+        });
+      }
+
+      await repairBrokenInitialAreaSession();
+      if (active) setChatReady(true);
+    }
+
+    void prepareChat().catch(() => {
+      // El chat mantiene su carga online y sus mensajes de reintento. La
+      // preparación local nunca debe bloquear la pantalla por sí sola.
+      if (active) setChatReady(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [inspectorCompanyName, loaded, queryClient, setInspectorIdentity, user]);
+
+  if (!loaded || !user || !chatReady) return null;
   return <InspectionChatScreenV2 />;
 }
