@@ -6,6 +6,8 @@ interface SprAreaStatusViewProps {
   signDateLabel: string;
   managerApprovalDateLabel?: string;
   mode: SprAreaStatusViewMode;
+  onPendingReReviewClick?: () => void;
+  hasCorrectionHistory?: boolean;
 }
 
 const STATUS_VIEW_CONFIG: Record<
@@ -32,23 +34,25 @@ const STATUS_VIEW_CONFIG: Record<
     summaryVariant: 'manager_corrections_pending',
     processVariant: 'manager_rejected_waiting_correction',
   },
-  // Figma 1672:8268 — PROVISIONAL G2.
+  // Figma 1672:8268 — landing post-corrección; CTA en paso Pendiente → 1672:8997.
   pending_review_after_correction: {
     summaryVariant: 'pending_approval',
     processVariant: 'manager_pending_re_review',
   },
-  // Figma 1760:22435 — ciclo cerrado; historial incluye discrepancia pendiente.
+  // Formulario aprobado por gerente (sin mock de discrepancia Especialista).
   approved: {
     summaryVariant: 'manager_approved',
     processVariant: 'manager_approved',
   },
 };
 
-// Vista de estado del gerente de area (Figma 1672:4446 / 1672:5531 / 1672:8268 / 1760:22435).
+// Vista de estado del gerente de area (Figma 1672:4446 / 1672:5531 / 1672:8268).
 export function SprAreaStatusView({
   signDateLabel,
   managerApprovalDateLabel,
   mode,
+  onPendingReReviewClick,
+  hasCorrectionHistory = false,
 }: SprAreaStatusViewProps) {
   const { summaryVariant, processVariant } = STATUS_VIEW_CONFIG[mode];
 
@@ -59,6 +63,8 @@ export function SprAreaStatusView({
         <SprProcessStatusSection
           variant={processVariant}
           managerApprovalDateLabel={managerApprovalDateLabel}
+          onPendingReReviewClick={onPendingReReviewClick}
+          hasCorrectionHistory={hasCorrectionHistory}
         />
       </div>
     </div>

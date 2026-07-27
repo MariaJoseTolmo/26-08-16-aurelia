@@ -8,6 +8,8 @@ interface SprAreaReviewFooterProps {
   isApproving: boolean;
   isRejecting: boolean;
   canAct: boolean;
+  /** Emisión automática (MA / Sustentabilidad): solo firmar, sin rechazar (Alexis). */
+  allowReject?: boolean;
   actionErrorMessage: string | null;
   responsibleLabel: string;
   rejectErrorMessage: string | null;
@@ -21,6 +23,7 @@ export function SprAreaReviewFooter({
   isApproving,
   isRejecting,
   canAct,
+  allowReject = true,
   actionErrorMessage,
   responsibleLabel,
   rejectErrorMessage,
@@ -34,7 +37,7 @@ export function SprAreaReviewFooter({
   const footerMessage = actionErrorMessage ?? SPR_AREA_REVIEW.footerInfo;
 
   function handleOpenRejectModal() {
-    if (!canAct || isBusy) return;
+    if (!allowReject || !canAct || isBusy) return;
     setRejectModalOpen(true);
   }
 
@@ -44,6 +47,7 @@ export function SprAreaReviewFooter({
   }
 
   async function handleConfirmReject(comments: string) {
+    if (!allowReject) return;
     try {
       await onRejectConfirm(comments);
       setRejectModalOpen(false);
@@ -84,22 +88,24 @@ export function SprAreaReviewFooter({
         </div>
 
         <div className="flex items-center gap-[10px]">
-          <button
-            type="button"
-            data-action="spr-area-reject"
-            onClick={handleOpenRejectModal}
-            disabled={!canAct || isBusy}
-            className="flex h-[36px] items-center gap-[6px] rounded-[8px] border-[1.5px] border-[#e3e3e3] bg-white px-[21.5px] font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#bd3b5b] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <SprRejectCrossIcon className="h-[11px] w-[13.75px] shrink-0 text-[#bd3b5b]" />
-            {isRejecting ? 'Rechazando…' : SPR_AREA_REVIEW.rejectLabel}
-          </button>
+          {allowReject ? (
+            <button
+              type="button"
+              data-action="spr-area-reject"
+              onClick={handleOpenRejectModal}
+              disabled={!canAct || isBusy}
+              className="flex h-[36px] items-center gap-[6px] rounded-[8px] border-[1.5px] border-[#bd3b5b] bg-white px-[21.5px] font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#bd3b5b] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <SprRejectCrossIcon className="h-[11px] w-[13.75px] shrink-0 text-[#bd3b5b]" />
+              {isRejecting ? 'Rechazando…' : SPR_AREA_REVIEW.rejectLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             data-action="spr-area-approve"
             onClick={handleOpenApproveModal}
             disabled={!canAct || isBusy}
-            className="flex h-[36px] items-center gap-[6px] rounded-[8px] bg-[#c8a064] px-[24px] font-['Inter:Bold',sans-serif] text-[12px] font-bold text-[#001e39] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-[36px] items-center gap-[6px] rounded-[8px] bg-[#c8a064] px-[24px] font-['Inter:Bold',sans-serif] text-[12px] font-bold text-[#001e39] hover:bg-[#b89158] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <SprSubmitIcon className="h-[13px] w-[16.25px] shrink-0 text-[#001e39]" />
             {isApproving ? 'Aprobando…' : SPR_AREA_REVIEW.approveLabel}
@@ -107,14 +113,16 @@ export function SprAreaReviewFooter({
         </div>
       </div>
 
-      <SprAreaRejectModal
-        open={rejectModalOpen}
-        responsibleLabel={responsibleLabel}
-        isSubmitting={isRejecting}
-        submitErrorMessage={rejectModalOpen ? rejectErrorMessage : null}
-        onClose={handleCloseRejectModal}
-        onConfirm={handleConfirmReject}
-      />
+      {allowReject ? (
+        <SprAreaRejectModal
+          open={rejectModalOpen}
+          responsibleLabel={responsibleLabel}
+          isSubmitting={isRejecting}
+          submitErrorMessage={rejectModalOpen ? rejectErrorMessage : null}
+          onClose={handleCloseRejectModal}
+          onConfirm={handleConfirmReject}
+        />
+      ) : null}
 
       <SprAreaApproveModal
         open={approveModalOpen}

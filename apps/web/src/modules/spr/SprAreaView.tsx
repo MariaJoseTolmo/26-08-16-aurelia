@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSprParameters } from '../../shared/hooks/useSprParameters';
 import { useSprMonthlyRecords } from '../../shared/hooks/useSprMonthlyRecords';
@@ -29,6 +29,7 @@ export function SprAreaView() {
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
   const areaCatalog = getSprFormAreaCatalog(resolveSprFormAreaKey(areaName));
+  const [openReReview, setOpenReReview] = useState(false);
   const parametersQuery = useSprParameters();
   const recordsQuery = useSprMonthlyRecords({
     periodYear: SPR_ACTIVE_CYCLE.periodYear,
@@ -44,7 +45,7 @@ export function SprAreaView() {
     [isAutomaticArea, recordsQuery.data, totalParameterCount],
   );
   const cycleRecordIds = useMemo(() => getSprCycleRecordIds(recordsQuery.data), [recordsQuery.data]);
-  const needsCorrectionHistory = displayMode === 'pending_review';
+  const needsCorrectionHistory = displayMode === 'pending_review' || displayMode === 'approved';
   const correctionHistoryQuery = useSprCycleCorrectionHistory(cycleRecordIds, needsCorrectionHistory);
   const effectiveDisplayMode = useMemo(() => {
     if (demoState === SPR_AREA_DEMO_APPROVED_STATE) return 'approved' as const;
@@ -94,13 +95,19 @@ export function SprAreaView() {
     return <SprAreaStatusView signDateLabel={signDateLabel} mode="rejected_pending_correction" />;
   }
 
-  // PROVISIONAL: implementado sin confirmar con Alexis si esta vista debe navegar a review UI (pregunta G2 pendiente).
-  // Figma 1672:8268 — espejo de 1672:8557 del responsable. Solo lectura, sin CTA inventado.
-  if (effectiveDisplayMode === 'pending_review_after_correction') {
-    return <SprAreaStatusView signDateLabel={signDateLabel} mode="pending_review_after_correction" />;
+  // Figma 1672:8268 — landing post-corrección. Clic en paso Pendiente → 1672:8997.
+  if (effectiveDisplayMode === 'pending_review_after_correction' && !openReReview) {
+    return (
+      <SprAreaStatusView
+        signDateLabel={signDateLabel}
+        mode="pending_review_after_correction"
+        onPendingReReviewClick={() => setOpenReReview(true)}
+      />
+    );
   }
 
-  if (effectiveDisplayMode === 'pending_review') {
+  // Primera revisión, o re-revisión (8997) tras abrir desde 8268.
+  if (effectiveDisplayMode === 'pending_review' || effectiveDisplayMode === 'pending_review_after_correction') {
     return (
       <SprAreaReviewView
         automaticEmission={isAutomaticArea}
@@ -108,6 +115,7 @@ export function SprAreaView() {
         automaticSource={
           isAutomaticArea ? (areaCatalog.automaticSource ?? areaCatalog.sources[0]) : undefined
         }
+        showManagerCorrectionBanner={effectiveDisplayMode === 'pending_review_after_correction'}
       />
     );
   }
@@ -118,6 +126,7 @@ export function SprAreaView() {
         signDateLabel={signDateLabel}
         managerApprovalDateLabel={managerApprovalDateLabel}
         mode="approved"
+        hasCorrectionHistory={correctionHistoryQuery.hasCorrectionHistory}
       />
     );
   }

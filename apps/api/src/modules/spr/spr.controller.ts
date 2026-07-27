@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   CommentResponse,
   EvidenceLinkResponse,
@@ -7,6 +7,7 @@ import {
   SprMonthlyRecordResponse,
   SprRecordApprovalResponse,
 } from '@aurelia/contracts';
+import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { RequirePermissions } from '../auth/require-permissions.decorator';
 import { RequireRoles } from '../auth/require-roles.decorator';
 import { SprService } from './spr.service';
@@ -118,8 +119,15 @@ export class SprController {
   @RequireRoles(...SPR_WRITE_ROLES)
   @Post('monthly-records/:id/submit')
   @HttpCode(200)
-  submitRecord(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SprRecordActionDto): Promise<SprMonthlyRecordResponse> {
-    return this.sprService.submitRecord(id, dto);
+  submitRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SprRecordActionDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<SprMonthlyRecordResponse> {
+    return this.sprService.submitRecord(id, {
+      ...dto,
+      submittedByUserId: dto.submittedByUserId ?? request.user.sub,
+    });
   }
 
   @RequirePermissions('spr:approve')

@@ -11,6 +11,7 @@ import { isSprFormAreaAutomatic, SPR_FORM_FLOW_COPY } from './sprFormFlow.consta
 
 function SprAreaPageHeader() {
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const areaLabel = areaName?.trim() || 'Sin área';
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
   const parametersQuery = useSprParameters();
   const recordsQuery = useSprMonthlyRecords({
@@ -31,7 +32,7 @@ function SprAreaPageHeader() {
       ? isAutomaticArea
         ? `${SPR_FORM_FLOW_COPY.managerAutomaticReadyTitle} · ${SPR_ACTIVE_CYCLE.label}`
         : SPR_AREA_REVIEW.pageSubtitle(SPR_ACTIVE_CYCLE.label)
-      : `Ciclo ${SPR_ACTIVE_CYCLE.label} · Gerente de Área · Servicios Técnicos`;
+      : `Ciclo ${SPR_ACTIVE_CYCLE.label} · Gerente de Área · ${areaLabel}`;
 
   return (
     <div className="relative h-[56px] w-full shrink-0 bg-white" data-name="Header">
@@ -39,7 +40,7 @@ function SprAreaPageHeader() {
       <div className="relative flex size-full items-center px-[22px] pb-px">
         <div className="flex flex-col items-start">
           <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[15px] font-bold leading-[normal] text-[#131313]">
-            SPR — Mi Área · Servicios Técnicos
+            SPR — Mi Área · {areaLabel}
           </p>
           <p className="whitespace-nowrap pt-px font-['Inter:Regular',sans-serif] text-[11px] font-normal leading-[normal] text-[#646464]">
             {subtitle}

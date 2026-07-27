@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { SprMonthlyRecordResponse, SprParameterResponse, SprUnitResponse } from '@aurelia/contracts';
 import { useApproveSprMonthlyRecord } from '../../shared/hooks/useApproveSprMonthlyRecord';
 import { useRejectSprMonthlyRecord } from '../../shared/hooks/useRejectSprMonthlyRecord';
+import { useSprLatestCycleRejection } from '../../shared/hooks/useSprLatestCycleRejection';
 import { useSprParameters } from '../../shared/hooks/useSprParameters';
 import { useSprUnits } from '../../shared/hooks/useSprUnits';
 import { useSprMonthlyRecords } from '../../shared/hooks/useSprMonthlyRecords';
@@ -11,13 +12,16 @@ import { SprAreaKpiHeader } from './components/SprAreaKpiHeader';
 import { SprAreaReviewFooter } from './components/SprAreaReviewFooter';
 import { SprAreaReviewParameterDetail } from './components/SprAreaReviewParameterDetail';
 import { SprAreaReviewSubheader } from './components/SprAreaReviewSubheader';
+import { SprAutomaticEmissionReadyBanner } from './components/SprAutomaticEmissionReadyBanner';
 import { SprDocumentsSection } from './components/SprDocumentsSection';
+import { SprManagerCorrectionBanner } from './components/SprManagerCorrectionBanner';
 import { SprParametersList } from './components/SprParametersList';
 import { SPR_ACTIVE_CYCLE } from './spr.constants';
 import { findSprActionableRecordIds, resolveSprAreaReviewContext } from './sprAreaReview';
 import { evaluateHistoricalRange } from './sprHistoricalRange';
+import { resolveSprManagerCorrectionBanner } from './sprRejectedContext';
 import type { SprParameterRow } from './spr.types';
-import { SprAutomaticEmissionReadyBanner } from './components/SprAutomaticEmissionReadyBanner';
+import { getSprCycleRecordIds } from './sprSubmittedStatus';
 
 const numberFormatter = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
 
@@ -85,16 +89,19 @@ function buildReviewRow(
   };
 }
 
-// Pantalla de revision del gerente (Figma 1399:13951).
+// Pantalla de revision del gerente (Figma 1399:13951 / post-corrección 1672:8997).
 // Áreas automáticas (Figma 2606:5127): banner de notificación "listo para firmar".
 export function SprAreaReviewView({
   automaticEmission = false,
   automaticAreaLabel,
   automaticSource,
+  showManagerCorrectionBanner = false,
 }: {
   automaticEmission?: boolean;
   automaticAreaLabel?: string;
   automaticSource?: string;
+  /** Tras 8268 → 8997: banner con motivo real del rechazo previo. */
+  showManagerCorrectionBanner?: boolean;
 } = {}) {
   const parametersQuery = useSprParameters();
   const unitsQuery = useSprUnits();
@@ -108,10 +115,17 @@ export function SprAreaReviewView({
 
   const [selectedParameterId, setSelectedParameterId] = useState<string | null>(null);
   const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(null);
+  const [correctionBannerDismissed, setCorrectionBannerDismissed] = useState(false);
 
   const unitSymbolMap = useMemo(() => buildUnitSymbolMap(unitsQuery.data), [unitsQuery.data]);
   const recordMap = useMemo(() => buildRecordMap(recordsQuery.data), [recordsQuery.data]);
   const reviewContext = useMemo(() => resolveSprAreaReviewContext(recordsQuery.data), [recordsQuery.data]);
+  const cycleRecordIds = useMemo(() => getSprCycleRecordIds(recordsQuery.data), [recordsQuery.data]);
+  const cycleRejectionQuery = useSprLatestCycleRejection(cycleRecordIds, showManagerCorrectionBanner);
+  const managerCorrectionBanner = useMemo(() => {
+    if (!showManagerCorrectionBanner || correctionBannerDismissed || !cycleRejectionQuery.rejection) return null;
+    return resolveSprManagerCorrectionBanner([cycleRejectionQuery.rejection]);
+  }, [correctionBannerDismissed, cycleRejectionQuery.rejection, showManagerCorrectionBanner]);
 
   const rows = useMemo<SprParameterRow[]>(() => {
     const parameters = [...(parametersQuery.data ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'));
@@ -156,6 +170,8 @@ export function SprAreaReviewView({
   }
 
   async function handleConfirmReject(comments: string) {
+    // Emisión automática: solo firmar (Alexis). No llamar reject aunque se force el handler.
+    if (automaticEmission) return;
     if (!canAct || approveMutation.isPending || rejectMutation.isPending) return;
     setActionErrorMessage(null);
 
@@ -218,6 +234,12 @@ export function SprAreaReviewView({
           automaticSource={automaticSource}
         />
       ) : null}
+      {managerCorrectionBanner ? (
+        <SprManagerCorrectionBanner
+          context={managerCorrectionBanner}
+          onDismiss={() => setCorrectionBannerDismissed(true)}
+        />
+      ) : null}
       <SprAreaKpiHeader
         completedParameterCount={completedCount}
         totalParameterCount={totalCount}
@@ -263,6 +285,7 @@ export function SprAreaReviewView({
         isApproving={approveMutation.isPending}
         isRejecting={rejectMutation.isPending}
         canAct={canAct}
+        allowReject={!automaticEmission}
         actionErrorMessage={actionError}
         responsibleLabel={reviewContext.responsibleLabel}
         rejectErrorMessage={rejectErrorMessage}
