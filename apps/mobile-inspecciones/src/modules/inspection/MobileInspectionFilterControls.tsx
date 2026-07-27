@@ -42,7 +42,6 @@ type UrgencyEntry = {
   severity?: string;
 };
 
-const CONTROL_MAX_WIDTH = 323;
 const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const observationOptions: SelectOption[] = [
   { value: 'open', label: 'Abiertas' },
@@ -786,12 +785,10 @@ export function ObservationMultiSelectFilter({
 const styles = StyleSheet.create({
   controlWrapper: {
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
   },
   field: {
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     height: 50,
     borderRadius: 10,
     borderWidth: 1.5,
@@ -806,7 +803,6 @@ const styles = StyleSheet.create({
   fieldFocused: { borderColor: '#24588B' },
   selectField: {
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
@@ -836,7 +832,6 @@ const styles = StyleSheet.create({
   dropdownMenu: {
     marginTop: 10,
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     padding: 8,
@@ -895,7 +890,6 @@ const styles = StyleSheet.create({
   calendarPanel: {
     marginTop: 10,
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     height: 417,
     borderWidth: 1,
     borderColor: '#646464',
