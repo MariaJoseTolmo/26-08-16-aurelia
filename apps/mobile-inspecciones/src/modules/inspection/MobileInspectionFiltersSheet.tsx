@@ -40,7 +40,6 @@ type ActiveFilter = {
   label: string;
 };
 
-const CONTROL_MAX_WIDTH = 323;
 const filterKeys: FilterKey[] = [
   'id',
   'date',
@@ -511,7 +510,7 @@ const styles = StyleSheet.create({
   contentInner: { paddingBottom: 4 },
   fieldSection: {
     width: '100%',
-    alignItems: 'center',
+    alignItems: 'stretch',
     paddingHorizontal: 14,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -520,7 +519,6 @@ const styles = StyleSheet.create({
   },
   fieldContent: {
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     gap: 6,
   },
   fieldLabel: {
@@ -531,7 +529,6 @@ const styles = StyleSheet.create({
   },
   rangeRow: {
     width: '100%',
-    maxWidth: CONTROL_MAX_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
