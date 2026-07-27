@@ -1,0 +1,139 @@
+# .github/workflows/deploy-qa.yml
+# Workflow de despliegue para QA.
+# Mantiene la misma estructura del workflow de despliegue, apuntando a recursos y secrets QA.
+#
+# Despliega a QA:
+#   - backend  -> App Service Linux Node  (app-gf-aurelia-back-qa-001)
+#   - frontend -> Static Web App (Vite)   (webs-gf-aurelia-front-qa-001)
+#
+# Secrets/variables necesarios en el Environment "qa" de GitHub:
+#   secrets.AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID   (OIDC)
+#   secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_QA                          (deployment token del SWA de qa)
+
+name: deploy-qa
+
+on:
+  push:
+    branches: [qa]
+    paths:
+      - "apps/api/**"
+      - "apps/web/**"
+      - "packages/contracts/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-qa.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "9.12.0"
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Activar pnpm (pineado)
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Cache de pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Build contracts + api
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter api build
+
+      - name: Empaquetar API (deploy --prod)
+        run: pnpm --filter api deploy --prod ./deploy
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy a App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: app-gf-aurelia-back-qa-001
+          package: ./deploy
+
+      - name: Configure startup command (start only)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_NAME="app-gf-aurelia-back-qa-001"
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='${APP_NAME}'].resourceGroup | [0]" -o tsv)
+
+          if [ -z "${RESOURCE_GROUP}" ]; then
+            echo "No se pudo resolver resource group para ${APP_NAME}"
+            exit 1
+          fi
+
+          az webapp config set \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${APP_NAME}" \
+            --startup-file "npm run start:prod"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      VITE_APP_ENV: qa
+      VITE_APP_NAME: "Aurelia"
+      VITE_API_URL: "https://api-aurelia-qa.kabeli.cl/api"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Activar pnpm (pineado)
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Cache de pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Build contracts + web
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter web build
+
+      - name: Deploy a Static Web App
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_QA }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          skip_app_build: true
+          app_location: "apps/web/dist"
+          output_location: ""

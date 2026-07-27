@@ -12,6 +12,7 @@ import { env } from '../../../shared/config/env';
 import { useInspectionFindingActions } from '../../../shared/hooks/useInspectionFindingActions';
 import { getCompanyUsers } from '../../../shared/services/inspections.service';
 import { FindingExecutionModeView } from './FindingExecutionModeView';
+import { InspectionChecklistResultPanel } from './InspectionChecklistResultPanel';
 import { FindingRejectDialog, ObservationRejectedToast } from './FindingRejectDialog';
 import {
   InspectionDetailApproveIcon,
@@ -52,9 +53,11 @@ type TabConfig = {
 
 type FollowupStep = {
   id: string;
+  sequenceNumber?: number;
   title: string;
   date: string;
   summary?: string;
+  bullets?: string[];
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -266,7 +269,7 @@ function FindingObservationCard({ inspectionId, item, actions, index, onRequestE
     actions.rescheduleFinding(inspectionId, item.findingId, dueDateFromDays(days));
     setSlaSheetOpen(false);
   }
-  return <div className="rounded-[10px] border-[1.5px] border-[#e3e3e3] bg-[#f7f7f7] p-[13.5px] shadow-[0px_1px_1.5px_rgba(0,0,0,0.06)]"><div className="flex items-center justify-between"><div className="flex min-w-0 items-center gap-[8px]"><FindingPill className="bg-[#e6f3ff] text-[#24588b]">{`Obs. ${index + 1}`}</FindingPill><FindingPill className={severityClassName(item.severityLabel)}>{item.severityLabel}</FindingPill></div><span className={`inline-flex h-[19px] items-center gap-[4px] rounded-[6px] px-[8px] py-[4px] text-[10px] font-bold leading-none ${config.chipClass}`}><InspectionDetailStatusChipIcon status={status} />{config.itemLabel}</span></div><div className="flex flex-col gap-[4px] pt-[12px]"><FindingTextBlock title="Condición detectada" bordered>{item.condition ?? ''}</FindingTextBlock><FindingTextBlock title="Medida correctiva propuesta">{item.proposedCorrectiveAction ?? ''}</FindingTextBlock>{status !== 'open' ? <FindingTextBlock title="Descripción de la acción tomada">{item.executedActionDescription ?? ''}</FindingTextBlock> : null}{status === 'rejected' ? <FindingTextBlock title="Motivo de rechazo">{item.rejectionReason ?? ''}</FindingTextBlock> : null}<div className="flex gap-[4px] pt-[8px]"><EvidencePreview title="Antes" evidences={item.beforeEvidence} emptyLabel="Pendiente" /><EvidencePreview title="Después" evidences={item.afterEvidence} afterClosed={status === 'closed' || status === 'executed' || status === 'rejected'} /></div>{status === 'open' ? <div className="mt-[4px] flex min-h-[64px] items-center justify-between rounded-[10px] border-[1.5px] border-[#d1d1d1] bg-[#f7f7f7] p-[15.5px]"><div><p className="w-[78px] text-[9px] font-bold uppercase leading-none tracking-[0.63px] text-[#333]">SLA calculado</p><p className="pt-[2px] text-[20px] font-bold leading-[20px] text-[#532a0e]">{daysLabel(item.dueAt, 'X Días')}</p></div><button type="button" className="flex h-[40px] items-center justify-center rounded-[8px] border-[1.5px] border-[#d1d1d1] bg-white px-[15.5px] py-[1.5px] text-[13px] font-semibold text-[#333] disabled:opacity-50" disabled={actionDisabled} onClick={() => setSlaSheetOpen(true)}>Reasignar SLA</button></div> : null}{status === 'executed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div><div className="flex items-center gap-[8px] rounded-[8px] bg-white px-[12px] py-[9px]"><button type="button" className="flex h-[40px] items-center justify-center gap-[5px] rounded-[9px] border-2 border-[#c4365a] bg-white px-[16px] py-[2px] text-[12px] font-bold text-[#570b1d] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestReject(item)}><InspectionDetailRejectIcon />Rechazar</button><button type="button" className="flex h-[40px] min-w-0 flex-1 items-center justify-center gap-[5px] rounded-[9px] bg-[#3a9b3a] px-[12px] text-[12px] font-bold text-white disabled:opacity-50" disabled={actionDisabled} onClick={approve}><InspectionDetailApproveIcon />Aprobar cierre</button></div></> : null}{status === 'closed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA cerrado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="open" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#532a0e]">{daysLabel(item.dueAt)}</p></div></div><div className="flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">Fecha de cierre</p><p className="text-right text-[11px] font-bold leading-none text-[#646464]">{formatDate(item.closedAt)}</p></div></> : null}{status === 'rejected' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div><button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación rechazada</button></> : null}{status === 'open' ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación</button> : null}</div><SlaReassignSheet visible={slaSheetOpen} calculatedLabel={daysLabel(item.dueAt, 'X Días')} severityLabel={item.severityLabel} onClose={() => setSlaSheetOpen(false)} onApply={reschedule} /></div>;
+  return <div className="rounded-[10px] border-[1.5px] border-[#e3e3e3] bg-[#f7f7f7] p-[13.5px] shadow-[0px_1px_1.5px_rgba(0,0,0,0.06)]"><div className="flex items-center justify-between"><div className="flex min-w-0 items-center gap-[8px]"><FindingPill className="bg-[#e6f3ff] text-[#24588b]">{`Obs. ${index + 1}`}</FindingPill><FindingPill className={severityClassName(item.severityLabel)}>{item.severityLabel}</FindingPill></div><span className={`inline-flex h-[19px] items-center gap-[4px] rounded-[6px] px-[8px] py-[4px] text-[10px] font-bold leading-none ${config.chipClass}`}><InspectionDetailStatusChipIcon status={status} />{config.itemLabel}</span></div><div className="flex flex-col gap-[4px] pt-[12px]"><FindingTextBlock title="Condición detectada" bordered>{item.condition ?? ''}</FindingTextBlock><FindingTextBlock title="Medida correctiva propuesta">{item.proposedCorrectiveAction ?? ''}</FindingTextBlock>{status !== 'open' ? <FindingTextBlock title="Descripción de la acción tomada">{item.executedActionDescription ?? ''}</FindingTextBlock> : null}{status === 'rejected' ? <FindingTextBlock title="Motivo de rechazo">{item.rejectionReason ?? ''}</FindingTextBlock> : null}<div className="flex gap-[4px] pt-[8px]"><EvidencePreview title="Antes" evidences={item.beforeEvidence} emptyLabel="Pendiente" /><EvidencePreview title="Después" evidences={item.afterEvidence} afterClosed={status === 'closed' || status === 'executed' || status === 'rejected'} /></div>{status === 'open' ? <div className="mt-[4px] flex min-h-[64px] items-center justify-between rounded-[10px] border-[1.5px] border-[#d1d1d1] bg-[#f7f7f7] p-[15.5px]"><div><p className="w-[78px] text-[9px] font-bold uppercase leading-none tracking-[0.63px] text-[#333]">SLA calculado</p><p className="pt-[2px] text-[20px] font-bold leading-[20px] text-[#532a0e]">{daysLabel(item.dueAt, 'X Días')}</p></div>{actions.canReassign ? <button type="button" className="flex h-[40px] items-center justify-center rounded-[8px] border-[1.5px] border-[#d1d1d1] bg-white px-[15.5px] py-[1.5px] text-[13px] font-semibold text-[#333] disabled:opacity-50" disabled={actionDisabled} onClick={() => setSlaSheetOpen(true)}>Reasignar SLA</button> : null}</div> : null}{status === 'executed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div>{actions.canReview ? <div className="flex items-center gap-[8px] rounded-[8px] bg-white px-[12px] py-[9px]"><button type="button" className="flex h-[40px] items-center justify-center gap-[5px] rounded-[9px] border-2 border-[#c4365a] bg-white px-[16px] py-[2px] text-[12px] font-bold text-[#570b1d] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestReject(item)}><InspectionDetailRejectIcon />Rechazar</button><button type="button" className="flex h-[40px] min-w-0 flex-1 items-center justify-center gap-[5px] rounded-[9px] bg-[#3a9b3a] px-[12px] text-[12px] font-bold text-white disabled:opacity-50" disabled={actionDisabled} onClick={approve}><InspectionDetailApproveIcon />Aprobar cierre</button></div> : <div className="rounded-[8px] bg-white px-[12px] py-[10px]"><p className="text-center text-[11px] font-semibold text-[#646464]">En espera de revisión Gold Fields</p></div>}</> : null}{status === 'closed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA cerrado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="open" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#532a0e]">{daysLabel(item.dueAt)}</p></div></div><div className="flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">Fecha de cierre</p><p className="text-right text-[11px] font-bold leading-none text-[#646464]">{formatDate(item.closedAt)}</p></div></> : null}{status === 'rejected' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div>{actions.canExecute ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación rechazada</button> : null}</> : null}{status === 'open' && actions.canExecute ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación</button> : null}</div><SlaReassignSheet visible={slaSheetOpen} calculatedLabel={daysLabel(item.dueAt, 'X Días')} severityLabel={item.severityLabel} onClose={() => setSlaSheetOpen(false)} onApply={reschedule} /></div>;
 }
 
 function FindingObservationsPanel({ inspectionId, items, actions, onRequestExecutionMode, onRequestReject }: { inspectionId: string; items: InspectionDetailFindingItemResponse[]; actions: ReturnType<typeof useInspectionFindingActions>; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void }) {
@@ -281,32 +284,108 @@ function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutio
   return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const items = findings[config.key] ?? []; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
 }
 
-function ChecklistResultPanel() {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white" />;
-}
-
 function FollowupTimelineMarker({ completed }: { completed: boolean }) {
-  return <div className={`flex size-[24px] shrink-0 items-center justify-center rounded-[12px] text-[10px] font-normal leading-none ${completed ? 'bg-[#6cc24a] text-white' : 'bg-[#e3e3e3] text-[#acacac]'}`}>{completed ? '✓' : '○'}</div>;
+  if (completed) {
+    return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#6cc24a]"><svg className="h-[9px] w-[12px]" width="12" height="9" viewBox="0 0 12 9" fill="none" aria-hidden="true"><path d="M1.4 4.7L4.45 7.55L10.55 1.45" stroke="white" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" /></svg></div>;
+  }
+  return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#e3e3e3]"><svg className="size-[10px]" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><circle cx="5" cy="5" r="3.5" stroke="#acacac" strokeWidth="1.2" /></svg></div>;
 }
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
-  const observedCount = allFindings(detail).length;
-  const events: FollowupStep[] = [];
-  detail.followups.forEach((step) => {
-    events.push({ id: `followup-${step.followupId}`, title: step.title || `Seguimiento ${step.sequenceNumber}`, date: formatDate(step.performedAt), summary: step.description, completed: step.completed, occurredAt: step.performedAt });
+  const findings = allFindings(detail);
+  const total = findings.length;
+  const percent = (value: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const bulletsAt = (occurredAt: string | null) => {
+    const closed = occurredAt
+      ? findings.filter((item) => item.closedAt && toTimestamp(item.closedAt) <= toTimestamp(occurredAt)).length
+      : detail.header.counts.closed;
+    const normalizedClosed = Math.max(0, Math.min(total, closed));
+    const pending = Math.max(0, total - normalizedClosed);
+    return [
+      `Observaciones cerradas: ${normalizedClosed} obs / ${percent(normalizedClosed)}%`,
+      `Observaciones pendientes: ${pending} obs / ${percent(pending)}%`,
+    ];
+  };
+
+  const followupsBySequence = new Map<number, typeof detail.followups>();
+  detail.followups.forEach((followup) => {
+    const current = followupsBySequence.get(followup.sequenceNumber) ?? [];
+    current.push(followup);
+    followupsBySequence.set(followup.sequenceNumber, current);
   });
-  allFindings(detail).forEach((item, index) => {
-    const observationLabel = `Obs. ${index + 1}`;
-    if (item.executedAt) events.push({ id: `executed-${item.findingId}`, title: `${observationLabel} ejecutada`, date: formatDate(item.executedAt), summary: item.executedActionDescription ?? 'Observación marcada como ejecutada', completed: true, occurredAt: item.executedAt });
-    if (item.rejectedAt) events.push({ id: `rejected-${item.findingId}`, title: `${observationLabel} rechazada`, date: formatDate(item.rejectedAt), summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección', completed: true, occurredAt: item.rejectedAt });
-    if (item.closedAt) events.push({ id: `closed-${item.findingId}`, title: `${observationLabel} cerrada`, date: formatDate(item.closedAt), summary: 'Cierre aprobado por Admin GF HSE', completed: true, occurredAt: item.closedAt });
+
+  let recordedSteps: FollowupStep[] = Array.from(followupsBySequence.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([sequenceNumber, records]) => {
+      const dates = records
+        .map((record) => record.performedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => toTimestamp(left) - toTimestamp(right));
+      const occurredAt = dates.at(-1) ?? null;
+      const completed = records.some((record) => record.completed);
+      return {
+        id: `followup-${sequenceNumber}`,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        date: completed ? formatDate(occurredAt) : '—',
+        bullets: completed ? bulletsAt(occurredAt) : undefined,
+        completed,
+        occurredAt,
+      };
+    });
+
+  if (recordedSteps.length === 0) {
+    const latestActivityByDate = new Map<string, string>();
+    findings.forEach((item) => {
+      [item.executedAt, item.rejectedAt, item.closedAt].forEach((value) => {
+        if (!value) return;
+        const timestamp = toTimestamp(value);
+        if (timestamp === Number.MAX_SAFE_INTEGER) return;
+        const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+        const current = latestActivityByDate.get(dateKey);
+        if (!current || toTimestamp(value) > toTimestamp(current)) latestActivityByDate.set(dateKey, value);
+      });
+    });
+    recordedSteps = Array.from(latestActivityByDate.values())
+      .sort((left, right) => toTimestamp(left) - toTimestamp(right))
+      .slice(0, 3)
+      .map((occurredAt, index) => ({
+        id: `derived-followup-${index + 1}`,
+        sequenceNumber: index + 1,
+        title: `Seguimiento ${index + 1}`,
+        date: formatDate(occurredAt),
+        bullets: bulletsAt(occurredAt),
+        completed: true,
+        occurredAt,
+      }));
+  }
+
+  const stepBySequence = new Map(recordedSteps.map((step, index) => [step.sequenceNumber ?? index + 1, step]));
+  const highestSequence = Math.max(3, ...Array.from(stepBySequence.keys()));
+  const followupSteps = Array.from({ length: highestSequence }, (_, index) => {
+    const sequenceNumber = index + 1;
+    return stepBySequence.get(sequenceNumber) ?? {
+      id: `pending-followup-${sequenceNumber}`,
+      sequenceNumber,
+      title: `Seguimiento ${sequenceNumber}`,
+      date: '—',
+      completed: false,
+      occurredAt: null,
+    };
   });
-  const sortedEvents = events.sort((left, right) => toTimestamp(left.occurredAt) - toTimestamp(right.occurredAt));
-  return [{ id: 'initial', title: 'Inspección inicial', date: formatDate(detail.general.scheduledAt), summary: `${observedCount} observaciones detectadas`, completed: true, occurredAt: detail.general.scheduledAt }, ...sortedEvents];
+
+  return [{
+    id: 'initial',
+    title: 'Inspección inicial',
+    date: formatDate(detail.general.scheduledAt),
+    summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`,
+    completed: true,
+    occurredAt: detail.general.scheduledAt,
+  }, ...followupSteps];
 }
 
 function FollowupTimelineItem({ step, isLast }: { step: FollowupStep; isLast: boolean }) {
-  return <div className={`relative flex w-full gap-[12px] ${isLast ? '' : 'pb-[16px]'}`}><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="absolute left-[11px] top-[24px] h-[23px] w-[2px] bg-[#e3e3e3]" /> : null}<div className="min-w-0 flex-1 pt-[2px]"><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-[15px] text-[#646464]">{step.summary}</p> : null}</div></div>;
+  return <div className="flex w-full gap-[12px]"><div className="flex w-[24px] shrink-0 flex-col items-center self-stretch"><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div><div className={`min-w-0 flex-1 pt-[2px] ${isLast ? '' : 'pb-[16px]'}`}><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-none text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div></div>;
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
@@ -340,13 +419,13 @@ function ResponsibleRow({ responsible, isLast, index }: { responsible: Inspectio
   return <div className={`flex items-center gap-[10px] px-[12px] py-[10px] ${isLast ? '' : 'border-b border-[#e3e3e3]'}`}>{initialsAvatar(responsible.fullName, index)}<div className="min-w-0 flex-1"><p className="truncate text-[12px] font-bold leading-none text-[#131313]">{responsible.fullName}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{responsible.position ?? 'Sin cargo'}</p></div>{responsible.currentUser ? <span className="inline-flex h-[16px] items-center rounded-[5px] bg-[#c5fff6] px-[7px] text-[10px] font-bold leading-none text-[#00b398]">Tú</span> : null}</div>;
 }
 
-function GeneralResponsiblesSection({ detail, onReassignClick }: { detail: InspectionDetailResponse; onReassignClick: () => void }) {
+function GeneralResponsiblesSection({ detail, onReassignClick, canReassign }: { detail: InspectionDetailResponse; onReassignClick: () => void; canReassign: boolean }) {
   const companyName = primaryResponsibleCompany(detail);
   const responsibles = detail.general.responsibles;
-  return <GeneralSection icon={<InspectionDetailPersonIcon />} title="Responsables"><GeneralInfoRows rows={[{ label: 'EECC', value: companyName }]} /><div className="border-t border-[#e3e3e3]">{responsibles.map((responsible, index) => <ResponsibleRow key={responsible.userId} responsible={responsible} index={index} isLast={index === responsibles.length - 1} />)}</div><div className="border-t border-[#e3e3e3] px-[12px] py-[9px]"><button type="button" onClick={onReassignClick} className="flex h-[42px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] bg-[#f7f7f7] px-[2px] text-[12px] font-semibold leading-none text-[#24588b]"><InspectionDetailAssignIcon />Reasignar a otro compañero {companyName}</button></div></GeneralSection>;
+  return <GeneralSection icon={<InspectionDetailPersonIcon />} title="Responsables"><GeneralInfoRows rows={[{ label: 'EECC', value: companyName }]} /><div className="border-t border-[#e3e3e3]">{responsibles.map((responsible, index) => <ResponsibleRow key={responsible.userId} responsible={responsible} index={index} isLast={index === responsibles.length - 1} />)}</div>{canReassign ? <div className="border-t border-[#e3e3e3] px-[12px] py-[9px]"><button type="button" onClick={onReassignClick} className="flex h-[42px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] bg-[#f7f7f7] px-[2px] text-[12px] font-semibold leading-none text-[#24588b]"><InspectionDetailAssignIcon />Reasignar a otro compañero {companyName}</button></div> : null}</GeneralSection>;
 }
 
-function GeneralPanel({ detail, onOpenReassign }: { detail: InspectionDetailResponse; onOpenReassign: () => void }) {
+function GeneralPanel({ detail, onOpenReassign, canReassign }: { detail: InspectionDetailResponse; onOpenReassign: () => void; canReassign: boolean }) {
   const general = detail.general;
   const items = allFindings(detail);
   const locationRows: GeneralInfoRow[] = [
@@ -355,7 +434,7 @@ function GeneralPanel({ detail, onOpenReassign }: { detail: InspectionDetailResp
     { label: 'Tipo', value: detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo' },
     { label: 'Ubicación UTM', value: general.latitude && general.longitude ? `${general.latitude} · ${general.longitude}` : general.locationLabel ?? '—', mono: true },
   ];
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-[14px] pt-[14px] pb-[20px]"><div className="flex flex-col gap-[12px]"><GeneralSection icon={<InspectionDetailPersonIcon />} title="Quién realizó la inspección"><GeneralInfoRows rows={[{ label: 'Nombre', value: general.inspectorName ?? '—' }, { label: 'Empresa', value: general.inspectorCompanyName ?? general.companyName ?? '—' }]} /></GeneralSection><GeneralSection icon={<InspectionDetailLocationIcon />} title="Donde y cuándo"><GeneralInfoRows rows={locationRows} /></GeneralSection><GeneralSection icon={<InspectionDetailCameraIcon />} title="Fotografía general de la inspección"><div className="px-[12px] py-[9px]"><EvidenceGallery evidences={general.generalEvidence} /></div></GeneralSection><GeneralObservationSummary items={items} /><GeneralResponsiblesSection detail={detail} onReassignClick={onOpenReassign} /></div></div>;
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-[14px] pt-[14px] pb-[20px]"><div className="flex flex-col gap-[12px]"><GeneralSection icon={<InspectionDetailPersonIcon />} title="Quién realizó la inspección"><GeneralInfoRows rows={[{ label: 'Nombre', value: general.inspectorName ?? '—' }, { label: 'Empresa', value: general.inspectorCompanyName ?? general.companyName ?? '—' }]} /></GeneralSection><GeneralSection icon={<InspectionDetailLocationIcon />} title="Donde y cuándo"><GeneralInfoRows rows={locationRows} /></GeneralSection><GeneralSection icon={<InspectionDetailCameraIcon />} title="Fotografía general de la inspección"><div className="px-[12px] py-[9px]"><EvidenceGallery evidences={general.generalEvidence} /></div></GeneralSection><GeneralObservationSummary items={items} /><GeneralResponsiblesSection detail={detail} onReassignClick={onOpenReassign} canReassign={canReassign} /></div></div>;
 }
 
 function ReassignSelectionControl({ selected }: { selected: boolean }) {
@@ -378,8 +457,8 @@ function EmptyDetailPanel() {
 
 function DetailContent({ activeTab, detail, actions, onOpenReassign, onRequestExecutionMode, onRequestReject }: { activeTab: DetailTab; detail: InspectionDetailResponse; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void }) {
   if (activeTab === 'followups') return <FollowupsPanel detail={detail} />;
-  if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} />;
-  if (activeTab === 'result' && detail.header.kind === 'checklist') return <ChecklistResultPanel />;
+  if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} canReassign={actions.canReassign} />;
+  if (activeTab === 'result' && detail.header.kind === 'checklist') return <InspectionChecklistResultPanel result={detail.checklistResult} />;
   if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} />;
   return <EmptyDetailPanel />;
 }
@@ -422,6 +501,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
   if (!open) return null;
   const toggleReassignOption = (id: string) => setSelectedReassignIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const openReassignPrompt = () => {
+    if (!actions.canReassign) return;
     setSelectedReassignIds(currentResponsibleIds);
     setReassignOpen(true);
   };
@@ -431,7 +511,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     setReassignOpen(false);
   };
   const closeExecutionMode = () => setExecutionTarget(null);
-  const openExecutionMode = (item: InspectionDetailFindingItemResponse, index: number) => setExecutionTarget({ item, index });
+  const openExecutionMode = (item: InspectionDetailFindingItemResponse, index: number) => { if (actions.canExecute) setExecutionTarget({ item, index }); };
   const executeSelectedFinding = () => {
     if (!executionTarget) return;
     const value = window.prompt('Describe la acción ejecutada', executionTarget.item.proposedCorrectiveAction ?? '')?.trim();
@@ -451,7 +531,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     });
     setExecutionTarget(null);
   };
-  const openRejectPrompt = (item: InspectionDetailFindingItemResponse) => setRejectTarget(item);
+  const openRejectPrompt = (item: InspectionDetailFindingItemResponse) => { if (actions.canReview) setRejectTarget(item); };
   const closeRejectPrompt = () => setRejectTarget(null);
   const confirmRejectPrompt = async (reason: string) => {
     if (!rejectTarget) return;
@@ -460,5 +540,5 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     setRejectedToastVisible(true);
   };
 
-  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget)} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} />{executionTarget ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
+  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen && actions.canReassign} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget) && actions.canReview} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} />{executionTarget && actions.canExecute ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} inspectionLabel={`${record.id} · ${record.title} · ${executionLocationLabel(detail)}`} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
 }

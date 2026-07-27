@@ -10,3 +10,4 @@ export * from './inspection.response';
 export * from './inspection-detail.response';
 export * from './inspection-finding-classification.response';
 export * from './inspection-assignment-scope.response';
+export * from './inspection-process-hardening';

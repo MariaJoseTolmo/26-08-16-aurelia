@@ -1,3 +1,3 @@
-import { InspectionModeScreen } from '../../src/modules/inspection/InspectionModeScreen';
+import { InspectionCreateCapabilityGuard } from '../../src/modules/inspection/InspectionCreateCapabilityGuard';
 
-export default InspectionModeScreen;
+export default InspectionCreateCapabilityGuard;

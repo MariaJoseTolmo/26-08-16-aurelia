@@ -156,6 +156,8 @@ export interface InspectionManagementTableRowResponse {
   type: string;
   urgencyLabel: string;
   urgencySeverity: InspectionFindingSeverity | null;
+  rejectedUrgencyLabel?: string;
+  hasOverdueFindings?: boolean;
   observationsCount: number;
   observations: InspectionManagementTableObservationSummaryResponse;
   daysOpen: number;

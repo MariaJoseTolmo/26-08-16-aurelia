@@ -30,7 +30,7 @@ function buildTypeOptions(templateCount: number | null, templatesLoading: boolea
     {
       type: InspectionType.ENVIRONMENTAL,
       title: 'Hallazgo',
-      description: 'Condición subestándar detectada · registro libre con foto',
+      description: 'Condición subestándar detectada · cada observación se registra individualmente con foto',
       icon: 'search',
     },
     {
@@ -46,7 +46,7 @@ function TypeOptionCard({ option, selected, onPress }: { option: ManualTypeOptio
   return (
     <TouchableOpacity style={[styles.optionCard, selected ? styles.optionCardSelected : styles.optionCardIdle]} activeOpacity={0.82} onPress={onPress}>
       <View style={[styles.optionIcon, selected ? styles.optionIconSelected : styles.optionIconIdle]}>
-        <FontAwesome5 name={option.icon} size={16} color={selected ? colors.white : '#AAAAAA'} />
+        <FontAwesome5 name={option.icon} size={16} color={selected ? colors.gold : '#646464'} />
       </View>
       <View style={styles.optionCopy}>
         <Text style={[styles.optionTitle, selected ? styles.optionTitleSelected : styles.optionTitleIdle]}>{option.title}</Text>
@@ -67,7 +67,7 @@ export function ManualInspectionTypeScreen() {
   const templatesQuery = useInspectionChecklistTemplates();
   const templateCount = templatesQuery.data?.length ?? null;
   const typeOptions = React.useMemo(() => buildTypeOptions(templateCount, templatesQuery.isLoading), [templateCount, templatesQuery.isLoading]);
-  const canContinue = Boolean(draft.inspectionType);
+  const canContinue = draft.inspectionTypeSelected;
 
   React.useEffect(() => {
     goToType();
@@ -98,11 +98,16 @@ export function ManualInspectionTypeScreen() {
           <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
             <View style={styles.copyBlock}>
               <Text style={styles.title}>Tipo de inspección</Text>
-              <Text style={styles.subtitle}>Para esta inspección se ha seleccionado {draft.inspectionTypeLabel}</Text>
+              <Text style={styles.subtitle}>Define la naturaleza del registro que realizarás en esta visita</Text>
             </View>
             <View style={styles.options}>
               {typeOptions.map((option) => (
-                <TypeOptionCard key={option.type} option={option} selected={draft.inspectionType === option.type} onPress={() => selectType(option)} />
+                <TypeOptionCard
+                  key={option.type}
+                  option={option}
+                  selected={draft.inspectionTypeSelected && draft.inspectionType === option.type}
+                  onPress={() => selectType(option)}
+                />
               ))}
             </View>
           </ScrollView>
@@ -123,7 +128,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, lineHeight: 16.8, color: colors.muted },
   options: { marginTop: 12, gap: 12 },
   optionCard: { minHeight: 68, borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15.5, paddingVertical: 15.5, gap: 12, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 1.5, shadowOffset: { width: 0, height: 1 } },
-  optionCardIdle: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: '#E3E3E3', opacity: 0.5 },
+  optionCardIdle: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: '#E3E3E3' },
   optionCardSelected: { backgroundColor: '#FDF8F1', borderWidth: 1.5, borderColor: colors.gold },
   optionIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   optionIconIdle: { backgroundColor: '#F7F7F7' },

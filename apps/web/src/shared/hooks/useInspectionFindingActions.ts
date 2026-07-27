@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { InspectionEvidenceRelationType, InspectionFindingStatus, type UpdateInspectionFindingRequest } from '@aurelia/contracts';
-import { updateInspectionFinding } from '../services/inspection-detail.service';
+import { useInspectionCapabilities } from '../auth/inspection-capabilities';
+import {
+  resubmitInspectionFindingEvidence,
+  updateInspectionFinding,
+} from '../services/inspection-detail.service';
 import { createEvidence, linkEvidence, uploadFile } from '../services/inspections.service';
 
 type FindingActionInput = {
@@ -18,6 +22,10 @@ type ExecuteFindingWithAfterEvidenceInput = {
   longitude?: number | string | null;
 };
 
+type ResubmitRejectedFindingWithAfterEvidenceInput = ExecuteFindingWithAfterEvidenceInput & {
+  reason: string;
+};
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -29,8 +37,26 @@ function normalizeCoordinate(value: number | string | null | undefined) {
   return Number.isFinite(coordinate) ? coordinate : undefined;
 }
 
+function deniedCapability(capability: string): Error {
+  return new Error(`No tienes la capacidad requerida para ${capability}`);
+}
+
+async function createAfterEvidence(input: ExecuteFindingWithAfterEvidenceInput) {
+  const fileResponse = await uploadFile(input.file, null);
+  return createEvidence({
+    fileId: fileResponse.id,
+    title: 'Evidencia posterior del hallazgo',
+    description: input.executedActionDescription,
+    evidenceType: 'photo',
+    capturedAt: nowIso(),
+    latitude: normalizeCoordinate(input.latitude),
+    longitude: normalizeCoordinate(input.longitude),
+  });
+}
+
 export function useInspectionFindingActions() {
   const queryClient = useQueryClient();
+  const capabilities = useInspectionCapabilities();
   const invalidateInspectionQueries = async (inspectionId: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['inspections', 'detail', inspectionId] }),
@@ -45,27 +71,30 @@ export function useInspectionFindingActions() {
     },
   });
   const executionMutation = useMutation({
-    mutationFn: async ({ inspectionId, findingId, executedActionDescription, file, latitude, longitude }: ExecuteFindingWithAfterEvidenceInput) => {
-      void inspectionId;
-      const fileResponse = await uploadFile(file, null);
-      const evidence = await createEvidence({
-        fileId: fileResponse.id,
-        title: 'Evidencia posterior del hallazgo',
-        description: executedActionDescription,
-        evidenceType: 'photo',
-        capturedAt: nowIso(),
-        latitude: normalizeCoordinate(latitude),
-        longitude: normalizeCoordinate(longitude),
-      });
+    mutationFn: async (input: ExecuteFindingWithAfterEvidenceInput) => {
+      const evidence = await createAfterEvidence(input);
       await linkEvidence(evidence.id, {
         entityType: 'inspection_finding',
-        entityId: findingId,
+        entityId: input.findingId,
         relationType: InspectionEvidenceRelationType.AFTER_PHOTO,
       });
-      return updateInspectionFinding(findingId, {
+      return updateInspectionFinding(input.findingId, {
         status: InspectionFindingStatus.IN_PROGRESS,
         executedAt: nowIso(),
-        executedActionDescription,
+        executedActionDescription: input.executedActionDescription,
+      });
+    },
+    onSuccess: async (_result, variables) => {
+      await invalidateInspectionQueries(variables.inspectionId);
+    },
+  });
+  const resubmissionMutation = useMutation({
+    mutationFn: async (input: ResubmitRejectedFindingWithAfterEvidenceInput) => {
+      const evidence = await createAfterEvidence(input);
+      return resubmitInspectionFindingEvidence(input.findingId, {
+        reason: input.reason,
+        evidenceIds: [evidence.id],
+        executedActionDescription: input.executedActionDescription,
       });
     },
     onSuccess: async (_result, variables) => {
@@ -79,41 +108,59 @@ export function useInspectionFindingActions() {
   });
 
   return {
-    isPending: mutation.isPending || executionMutation.isPending,
-    executeFinding: (inspectionId: string, findingId: string, executedActionDescription: string | null) => mutation.mutate({
-      inspectionId,
-      findingId,
-      payload: {
-        status: InspectionFindingStatus.IN_PROGRESS,
-        executedAt: nowIso(),
-        executedActionDescription,
-      },
-    }),
-    executeFindingWithAfterEvidence: (input: ExecuteFindingWithAfterEvidenceInput) => executionMutation.mutateAsync(input),
-    approveFinding: (inspectionId: string, findingId: string) => mutation.mutate({
-      inspectionId,
-      findingId,
-      payload: {
-        status: InspectionFindingStatus.CLOSED,
-        closedAt: nowIso(),
-      },
-    }),
-    rejectFinding: (inspectionId: string, findingId: string, rejectionReason: string | null) => mutation.mutate({
-      inspectionId,
-      findingId,
-      payload: buildRejectPayload(rejectionReason),
-    }),
-    rejectFindingAsync: (inspectionId: string, findingId: string, rejectionReason: string | null) => mutation.mutateAsync({
-      inspectionId,
-      findingId,
-      payload: buildRejectPayload(rejectionReason),
-    }),
-    rescheduleFinding: (inspectionId: string, findingId: string, dueAt: string) => mutation.mutate({
-      inspectionId,
-      findingId,
-      payload: { dueAt },
-    }),
+    canExecute: capabilities.execute,
+    canReview: capabilities.review,
+    canReassign: capabilities.reassign,
+    isPending: mutation.isPending || executionMutation.isPending || resubmissionMutation.isPending,
+    executeFinding: (inspectionId: string, findingId: string, executedActionDescription: string | null) => {
+      if (!capabilities.execute) return;
+      mutation.mutate({
+        inspectionId,
+        findingId,
+        payload: {
+          status: InspectionFindingStatus.IN_PROGRESS,
+          executedAt: nowIso(),
+          executedActionDescription,
+        },
+      });
+    },
+    executeFindingWithAfterEvidence: (input: ExecuteFindingWithAfterEvidenceInput) => {
+      if (!capabilities.execute) return Promise.reject(deniedCapability('ejecutar hallazgos'));
+      return executionMutation.mutateAsync(input);
+    },
+    resubmitRejectedFindingWithAfterEvidence: (input: ResubmitRejectedFindingWithAfterEvidenceInput) => {
+      if (!capabilities.execute) return Promise.reject(deniedCapability('reenviar evidencia rechazada'));
+      return resubmissionMutation.mutateAsync(input);
+    },
+    approveFinding: (inspectionId: string, findingId: string) => {
+      if (!capabilities.review) return;
+      mutation.mutate({
+        inspectionId,
+        findingId,
+        payload: {
+          status: InspectionFindingStatus.CLOSED,
+          closedAt: nowIso(),
+        },
+      });
+    },
+    rejectFinding: (inspectionId: string, findingId: string, rejectionReason: string | null) => {
+      if (!capabilities.review) return;
+      mutation.mutate({ inspectionId, findingId, payload: buildRejectPayload(rejectionReason) });
+    },
+    rejectFindingAsync: (inspectionId: string, findingId: string, rejectionReason: string | null) => {
+      if (!capabilities.review) return Promise.reject(deniedCapability('revisar hallazgos'));
+      return mutation.mutateAsync({
+        inspectionId,
+        findingId,
+        payload: buildRejectPayload(rejectionReason),
+      });
+    },
+    rescheduleFinding: (inspectionId: string, findingId: string, dueAt: string) => {
+      if (!capabilities.reassign) return;
+      mutation.mutate({ inspectionId, findingId, payload: { dueAt } });
+    },
     reassignResponsibleUsers: async (inspectionId: string, findingIds: string[], responsibleUserIds: string[]) => {
+      if (!capabilities.reassign) throw deniedCapability('reasignar responsables');
       for (const findingId of findingIds) {
         await mutation.mutateAsync({
           inspectionId,

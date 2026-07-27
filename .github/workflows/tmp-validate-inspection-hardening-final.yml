@@ -1,0 +1,98 @@
+name: Temporary final inspection hardening validation
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .github/workflows/tmp-validate-inspection-hardening-final.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run validation matrix
+        shell: bash
+        run: |
+          set +e
+          REPORT="docs/inspections/web-inspections-hardening-final-validation-2026-07-23.md"
+          mkdir -p docs/inspections .validation-logs
+          cat > "$REPORT" <<'EOF'
+          # Validación final automática · Hardening de inspecciones
+
+          Fecha: 2026-07-23  
+          Rama: `feature/inspecciones/carlo`
+
+          Ejecución en GitHub Actions con Node 20 y pnpm 9. Las pruebas que requieren PostgreSQL sembrado se mantienen como gate local/integración.
+
+          ## Resultados
+
+          EOF
+
+          OVERALL=0
+          run_check() {
+            NAME="$1"
+            shift
+            SLUG=$(echo "$NAME" | tr ' /:' '---' | tr -cd '[:alnum:]-_')
+            LOG=".validation-logs/${SLUG}.log"
+            "$@" > "$LOG" 2>&1
+            CODE=$?
+            if [ "$CODE" -eq 0 ]; then STATUS="PASS"; else STATUS="FAIL"; OVERALL=1; fi
+            {
+              echo "### ${NAME}: ${STATUS}"
+              echo
+              echo '```text'
+              tail -n 160 "$LOG"
+              echo '```'
+              echo
+            } >> "$REPORT"
+          }
+
+          run_check "Contracts build" pnpm --filter @aurelia/contracts build
+          run_check "API build" pnpm --filter api build
+          run_check "API lint" pnpm --filter api lint
+          run_check "API unit tests" pnpm --filter api exec jest --runInBand
+          run_check "Web typecheck" pnpm --filter web typecheck
+          run_check "Web lint" pnpm --filter web lint
+          run_check "Mobile typecheck" pnpm --filter mobile-inspecciones typecheck
+          run_check "Mobile lint" pnpm --filter mobile-inspecciones lint
+          run_check "Mobile smoke" pnpm --filter mobile-inspecciones test:smoke
+
+          if [ "$OVERALL" -eq 0 ]; then SUMMARY="PASS"; else SUMMARY="FAIL"; fi
+          {
+            echo "## Resultado global: ${SUMMARY}"
+            echo
+            echo "Pendientes de entorno con PostgreSQL: test:scope, test:roles y migration:run sobre una copia de integración."
+          } >> "$REPORT"
+          exit 0
+      - name: Commit validation report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/inspections/web-inspections-hardening-final-validation-2026-07-23.md
+          git commit -m "Documenta validación final del hardening"
+          git push origin HEAD:feature/inspecciones/carlo
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git pull --ff-only origin feature/inspecciones/carlo
+          git rm .github/workflows/tmp-validate-inspection-hardening-final.yml
+          git commit -m "Retira validación final temporal del hardening"
+          git push origin HEAD:feature/inspecciones/carlo

@@ -25,6 +25,7 @@ import { IncidentTimelineEventEntity } from '../modules/incidents/entities/incid
 import { IncidentTypeEntity } from '../modules/incidents/entities/incident-type.entity';
 import { IncidentValidationEntity } from '../modules/incidents/entities/incident-validation.entity';
 import { IncidentEntity } from '../modules/incidents/entities/incident.entity';
+import { InspectionAiAssessmentEntity } from '../modules/inspections/entities/inspection-ai-assessment.entity';
 import { InspectionFindingEntity } from '../modules/inspections/entities/inspection-finding.entity';
 import { InspectionFindingResponsibleEntity } from '../modules/inspections/entities/inspection-finding-responsible.entity';
 import { InspectionFindingSeverityEntity } from '../modules/inspections/entities/inspection-finding-severity.entity';
@@ -34,8 +35,11 @@ import { InspectionFormItemEntity } from '../modules/inspections/entities/inspec
 import { InspectionFormSectionEntity } from '../modules/inspections/entities/inspection-form-section.entity';
 import { InspectionFormTemplateEntity } from '../modules/inspections/entities/inspection-form-template.entity';
 import { InspectionItemResponseEntity } from '../modules/inspections/entities/inspection-item-response.entity';
+import { InspectionProcessRequestEntity } from '../modules/inspections/entities/inspection-process-request.entity';
 import { InspectionRiskConsequenceEntity } from '../modules/inspections/entities/inspection-risk-consequence.entity';
 import { InspectionRiskProbabilityEntity } from '../modules/inspections/entities/inspection-risk-probability.entity';
+import { InspectionSlaEventEntity } from '../modules/inspections/entities/inspection-sla-event.entity';
+import { InspectionSlaPolicyEntity } from '../modules/inspections/entities/inspection-sla-policy.entity';
 import { InspectionStateEntity } from '../modules/inspections/entities/inspection-state.entity';
 import { InspectionTypeEntity } from '../modules/inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../modules/inspections/entities/inspection.entity';
@@ -46,6 +50,7 @@ import { ControlSelfAssessmentEntity } from '../modules/mue/entities/control-sel
 import { ControlVerificationItemEntity } from '../modules/mue/entities/control-verification-item.entity';
 import { CriticalControlEntity } from '../modules/mue/entities/critical-control.entity';
 import { MueEntity } from '../modules/mue/entities/mue.entity';
+import { NotificationDeliveryEntity } from '../modules/notifications/entities/notification-delivery.entity';
 import { NotificationRecipientEntity } from '../modules/notifications/entities/notification-recipient.entity';
 import { NotificationEntity } from '../modules/notifications/entities/notification.entity';
 import { AreaEntity } from '../modules/organization/entities/area.entity';
@@ -108,6 +113,7 @@ export const AppDataSource = new DataSource({
     AuditLogEntity,
     NotificationEntity,
     NotificationRecipientEntity,
+    NotificationDeliveryEntity,
     MueEntity,
     CriticalControlEntity,
     ControlVerificationItemEntity,
@@ -133,6 +139,10 @@ export const AppDataSource = new DataSource({
     InspectionRiskProbabilityEntity,
     InspectionRiskConsequenceEntity,
     InspectionStateEntity,
+    InspectionProcessRequestEntity,
+    InspectionSlaPolicyEntity,
+    InspectionSlaEventEntity,
+    InspectionAiAssessmentEntity,
     IncidentTypeEntity,
     IncidentLevelEntity,
     IncidentEntity,

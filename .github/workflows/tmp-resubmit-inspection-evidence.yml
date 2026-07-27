@@ -1,0 +1,81 @@
+name: Temporary inspection evidence resubmission
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .github/workflows/tmp-resubmit-inspection-evidence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+      - name: Apply rejected evidence flow
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx')
+          text = path.read_text()
+
+          old = '''  const executeSelectedFindingWithEvidence = async (description: string, file: File) => {
+    if (!executionTarget) return;
+    await actions.executeFindingWithAfterEvidence({
+      inspectionId: detail.header.inspectionId,
+      findingId: executionTarget.item.findingId,
+      executedActionDescription: description,
+      file,
+      latitude: detail.general.latitude,
+      longitude: detail.general.longitude,
+    });
+    setExecutionTarget(null);
+  };'''
+          new = '''  const executeSelectedFindingWithEvidence = async (description: string, file: File) => {
+    if (!executionTarget) return;
+    const payload = {
+      inspectionId: detail.header.inspectionId,
+      findingId: executionTarget.item.findingId,
+      executedActionDescription: description,
+      file,
+      latitude: detail.general.latitude,
+      longitude: detail.general.longitude,
+    };
+    if (executionTarget.item.statusGroup === 'rejected') {
+      await actions.resubmitRejectedFindingWithAfterEvidence({
+        ...payload,
+        reason: `Corrección posterior al rechazo: ${executionTarget.item.rejectionReason ?? 'evidencia actualizada por el responsable'}`,
+      });
+    } else {
+      await actions.executeFindingWithAfterEvidence(payload);
+    }
+    setExecutionTarget(null);
+  };'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected one evidence flow match, found {count}')
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              'shadow-[0px_2px_rgba(200,160,100,0.3)]',
+              'shadow-[0px_2px_5px_rgba(200,160,100,0.3)]',
+          )
+          path.write_text(text)
+      - name: Commit rejected evidence flow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx
+          git commit -m "Usa reenvío auditable para evidencia rechazada"
+          git push origin HEAD:feature/inspecciones/carlo
+      - name: Remove temporary workflow
+        run: |
+          git pull --ff-only origin feature/inspecciones/carlo
+          git rm .github/workflows/tmp-resubmit-inspection-evidence.yml
+          git commit -m "Retira workflow temporal de reenvío de evidencia"
+          git push origin HEAD:feature/inspecciones/carlo

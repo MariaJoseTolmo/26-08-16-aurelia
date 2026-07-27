@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  announceInspectionManagementOverlay,
+  nextInspectionManagementOverlaySourceId,
+  subscribeToInspectionManagementOverlay,
+} from './inspection-management-overlay';
 
 type SelectOption = {
   value: string;
@@ -52,7 +57,9 @@ function buildMenuState(select: HTMLSelectElement): SelectMenuState {
   const contentHeight = Math.min(options.length * 40 + 16, maxMenuHeight);
   const left = Math.min(Math.max(viewportMargin, rect.left), window.innerWidth - width - viewportMargin);
   const below = rect.bottom + triggerGap;
-  const top = below + contentHeight > window.innerHeight - viewportMargin ? Math.max(viewportMargin, rect.top - contentHeight - triggerGap) : below;
+  const top = below + contentHeight > window.innerHeight - viewportMargin
+    ? Math.max(viewportMargin, rect.top - contentHeight - triggerGap)
+    : below;
   return { top, left, width, select, options };
 }
 
@@ -71,6 +78,7 @@ function setNativeSelectValue(select: HTMLSelectElement, value: string) {
 export function InspectionManagementSelectMenuBridge(): ReactElement | null {
   const portalRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<SelectMenuState | null>(null);
+  const sourceIdRef = useRef(nextInspectionManagementOverlaySourceId('select'));
   const [menu, setMenu] = useState<SelectMenuState | null>(null);
 
   function updateMenu(next: SelectMenuState | null) {
@@ -87,6 +95,12 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
       updateMenu(null);
       return;
     }
+
+    announceInspectionManagementOverlay({
+      kind: 'select',
+      owner: select,
+      sourceId: sourceIdRef.current,
+    });
     select.focus({ preventScroll: true });
     updateMenu(buildMenuState(select));
   }
@@ -100,6 +114,11 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
   }
 
   useEffect(() => {
+    const unsubscribeOverlay = subscribeToInspectionManagementOverlay((detail) => {
+      if (detail.sourceId === sourceIdRef.current) return;
+      if (menuRef.current) updateMenu(null);
+    });
+
     function handlePointerDown(event: PointerEvent) {
       const target = event.target;
       if (!(target instanceof Node)) return;
@@ -117,7 +136,11 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
 
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target;
-      if (target instanceof HTMLSelectElement && isManagementSelect(target) && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')) {
+      if (
+        target instanceof HTMLSelectElement
+        && isManagementSelect(target)
+        && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')
+      ) {
         event.preventDefault();
         toggleSelect(target);
         return;
@@ -143,6 +166,7 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
     window.addEventListener('scroll', repositionMenu, true);
 
     return () => {
+      unsubscribeOverlay();
       document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('resize', repositionMenu);
@@ -156,7 +180,8 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
   return createPortal(
     <div
       ref={portalRef}
-      className="fixed z-[10000] flex max-h-[280px] flex-col items-start overflow-y-auto rounded-[12px] border border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]"
+      data-inspection-management-select-portal="true"
+      className="fixed z-[11000] flex max-h-[280px] flex-col items-start overflow-y-auto rounded-[12px] border border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]"
       style={{ top: `${menu.top}px`, left: `${menu.left}px`, width: `${menu.width}px` }}
       role="listbox"
       aria-label="Opciones del filtro"
@@ -167,7 +192,7 @@ export function InspectionManagementSelectMenuBridge(): ReactElement | null {
           <button
             key={`${option.value}-${option.label}`}
             type="button"
-            className={`flex h-[40px] min-h-[40px] w-full shrink-0 items-center rounded-[8px] px-[8px] py-[12px] text-left font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[22.7px] text-[#131313] ${selected ? 'bg-[#e3e3e3]' : option.disabled ? 'bg-white opacity-40 cursor-not-allowed' : 'bg-white hover:bg-[#e3e3e3]'}`}
+            className={`flex h-[40px] min-h-[40px] w-full shrink-0 items-center rounded-[8px] px-[8px] py-[12px] text-left font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[22.7px] text-[#131313] transition-colors ${option.disabled ? 'cursor-not-allowed bg-white opacity-40' : selected ? 'bg-[#e3e3e3] hover:bg-[#e3e3e3]' : 'bg-white hover:bg-[#e3e3e3]'}`}
             disabled={option.disabled}
             role="option"
             aria-selected={selected}
