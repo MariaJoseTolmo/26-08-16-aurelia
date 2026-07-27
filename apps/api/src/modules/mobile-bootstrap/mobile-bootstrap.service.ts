@@ -79,17 +79,17 @@ export class MobileBootstrapService {
     if (!user) return catalogs;
 
     const areas = await this.filterAsync(catalogs.areas, (area) =>
-      this.resourceScope.canAccess(user, { areaId: area.id }),
+      this.resourceScope.canAccessArea(user, area.id),
     );
     const areaIds = new Set(areas.map((area) => area.id));
 
     const sectors = await this.filterAsync(catalogs.sectors, (sector) => {
       if (sector.areaId && !areaIds.has(sector.areaId)) return Promise.resolve(false);
-      return this.resourceScope.canAccess(user, { areaId: sector.areaId ?? undefined });
+      return this.resourceScope.canAccessArea(user, sector.areaId);
     });
 
     const companies = await this.filterAsync(catalogs.companies, (company) =>
-      this.resourceScope.canAccess(user, { companyId: company.id }),
+      this.resourceScope.canAccessInspection(user, { companyId: company.id }),
     );
     const companyIds = new Set(companies.map((company) => company.id));
 
