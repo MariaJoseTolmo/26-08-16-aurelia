@@ -16,8 +16,16 @@ function isInspectionsRoute() {
   return window.location.pathname.startsWith('/inspections');
 }
 
+function isInspectionManagementRoute() {
+  return window.location.pathname.replace(/\/+$/, '') === '/inspections';
+}
+
 function isInspectionModalOpen() {
   return document.querySelector('.new-inspection-modal-panel') !== null;
+}
+
+function hasPendingResumeRequest() {
+  return window.sessionStorage.getItem(resumeDraftStorageKey) === '1';
 }
 
 function findPageContent() {
@@ -25,6 +33,10 @@ function findPageContent() {
     const className = element.className.toString();
     return className.includes('bg-[#f7f7f7]') && className.includes('h-[calc(100vh-56px)]') && className.includes('flex-col');
   }) as HTMLElement | undefined;
+}
+
+function findNewInspectionButton() {
+  return Array.from(document.querySelectorAll('button')).find((element) => element.textContent?.includes('Nueva inspección')) as HTMLButtonElement | undefined;
 }
 
 function findOrCreateHost() {
@@ -37,7 +49,8 @@ function findOrCreateHost() {
     host.id = hostId;
     host.className = 'w-full pt-[16px]';
   }
-  const filtersBar = pageContent.children[1] ?? null;
+  const pageChildren = Array.from(pageContent.children).filter((element) => element !== host);
+  const filtersBar = pageChildren[1] ?? null;
   if (host.parentElement !== pageContent) pageContent.insertBefore(host, filtersBar);
   else if (filtersBar && host.nextElementSibling !== filtersBar) pageContent.insertBefore(host, filtersBar);
   return host;
@@ -102,11 +115,6 @@ function resolveDraftProgress(snapshot: DraftSnapshot): DraftProgress {
   return { step: 5, percent: 86 };
 }
 
-function clickNewInspectionButton() {
-  const button = Array.from(document.querySelectorAll('button')).find((element) => element.textContent?.includes('Nueva inspección')) as HTMLButtonElement | undefined;
-  button?.click();
-}
-
 function DraftIcon() {
   return <svg className="h-[18px] w-[22.5px] shrink-0" fill="none" viewBox="0 0 23 18" aria-hidden><path d="M3.1 1.5h9.2l3.1 3.1v11.9H3.1z" fill="#463100" /><path d="M12.3 1.5v3.1h3.1" stroke="#FFEAB8" strokeWidth="1.2" strokeLinejoin="round" /><path d="M14.2 11.8 18.4 7.6a1.4 1.4 0 0 1 2 2l-4.2 4.2-2.6.6z" fill="#463100" stroke="#FFEAB8" strokeWidth="0.8" /></svg>;
 }
@@ -137,6 +145,7 @@ export function IncompleteInspectionDraftBridge(): JSX.Element | null {
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<DraftSnapshot | null>(null);
   const snapshotRef = useRef<DraftSnapshot | null>(null);
+  const resumeOpenRequestedRef = useRef(false);
 
   useEffect(() => {
     const sync = () => {
@@ -148,7 +157,24 @@ export function IncompleteInspectionDraftBridge(): JSX.Element | null {
         setSnapshot(nextSnapshot);
       }
       setHost((previous) => previous === nextHost ? previous : nextHost);
-      if (!nextSnapshot) removeHost();
+      if (!nextSnapshot) {
+        resumeOpenRequestedRef.current = false;
+        removeHost();
+        return;
+      }
+      if (isInspectionManagementRoute() && hasPendingResumeRequest() && !isInspectionModalOpen() && !resumeOpenRequestedRef.current) {
+        const button = findNewInspectionButton();
+        if (button) {
+          resumeOpenRequestedRef.current = true;
+          button.click();
+          window.setTimeout(() => {
+            if (!isInspectionModalOpen() && hasPendingResumeRequest()) {
+              resumeOpenRequestedRef.current = false;
+              sync();
+            }
+          }, 300);
+        }
+      }
     };
 
     const unsubscribeDom = subscribeInspectionDom(sync);
@@ -164,14 +190,20 @@ export function IncompleteInspectionDraftBridge(): JSX.Element | null {
 
   function resumeDraft() {
     window.sessionStorage.setItem(resumeDraftStorageKey, '1');
+    resumeOpenRequestedRef.current = false;
+    if (!isInspectionManagementRoute()) {
+      window.location.assign('/inspections');
+      return;
+    }
     window.dispatchEvent(new Event(resumeDraftEventName));
-    window.setTimeout(clickNewInspectionButton, 0);
+    window.setTimeout(() => findNewInspectionButton()?.click(), 0);
   }
 
   function discardDraft() {
     clearNewInspectionDraftSnapshot();
     window.sessionStorage.removeItem(resumeDraftStorageKey);
     snapshotRef.current = null;
+    resumeOpenRequestedRef.current = false;
     setSnapshot(null);
     removeHost();
   }
