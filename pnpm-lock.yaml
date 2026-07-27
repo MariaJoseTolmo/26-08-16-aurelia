@@ -96,9 +96,6 @@ importers:
       '@types/node':
         specifier: ^22.7.0
         version: 22.20.0
-      '@types/pdfkit':
-        specifier: ^0.17.4
-        version: 0.17.6
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@22.20.0)(typescript@5.9.3)
@@ -2714,9 +2711,6 @@ packages:
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
-
-  '@types/pdfkit@0.17.6':
-    resolution: {integrity: sha512-tIwzxk2uWKp0Cq9JIluQXJid77lYhF52EsIOwhsMF4iWLA6YneoBR1xVKYYdAysHuepUB0OX4tdwMiUDdGKmig==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -10232,10 +10226,6 @@ snapshots:
 
   '@types/parse-json@4.0.2':
     optional: true
-
-  '@types/pdfkit@0.17.6':
-    dependencies:
-      '@types/node': 22.20.0
 
   '@types/prop-types@15.7.15': {}
 
