@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "normalization": {
+    "trim": true,
+    "lowercase": true,
+    "removeDiacritics": true,
+    "collapseWhitespace": true,
+    "removeNonAlphanumericForComparison": true
+  },
+  "areas": {
+    "planta procesos": "99396f81-c09a-4194-b3bf-ffaec94e89ba",
+    "planta de procesos": "99396f81-c09a-4194-b3bf-ffaec94e89ba",
+    "planta de proceso": "99396f81-c09a-4194-b3bf-ffaec94e89ba"
+  },
+  "companies": {
+    "copec-csi": "06a0a9ce-fe13-4a0d-869a-e9354909ba6c",
+    "csi-copec": "06a0a9ce-fe13-4a0d-869a-e9354909ba6c",
+    "scaf logistica": "e27c0221-3110-474d-b5ae-58a68937f483",
+    "rs ingenieria": "08529b0d-ab59-4b98-89a1-54d25c4d42be",
+    "develp": "7624fa57-77aa-4606-a656-2d125a5b5bcb",
+    "eco minera": "f90dbeef-cb37-4bff-a328-e9db2c2ff277",
+    "hidromotions": "d7ceccb7-3ad5-48c9-80c6-a46a36d774f7",
+    "geomafe": "7d365092-f2ef-44bb-bd2b-bd90fe2941f9",
+    "treba": "0f7482dc-ce87-4a63-bfb1-4514b3f56876"
+  },
+  "inspectors": {
+    "karen opazo s": "d1e87725-1a0a-4006-8336-f8138ee7f29e"
+  },
+  "manualReview": {
+    "companies": [
+      {
+        "sourceValue": "Hintek",
+        "candidateCompanyId": "35e949a2-397c-4d0c-9ddd-30100ac4c221",
+        "candidateName": "HINTER",
+        "sourceRows": 17,
+        "reason": "Nombre similar, pero equivalencia no confirmada"
+      },
+      {
+        "sourceValue": "Pucará",
+        "candidateCompanyId": "6e7ee506-e878-4825-8449-f295b7d83af3",
+        "candidateName": "PUUCA",
+        "sourceRows": 1,
+        "reason": "Nombre similar, pero equivalencia no confirmada"
+      }
+    ]
+  }
+}
