@@ -31,8 +31,16 @@ function isOtherCompanyButton(button: HTMLButtonElement) {
   return label === 'elegir otra' || label === 'elegir otra empresa';
 }
 
+function blockEvent(event: MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+}
+
 export function AssistantChatStep(props: AssistantChatStepProps) {
   useEffect(() => {
+    const handledSuggestionKeys = new Set<string>();
+
     function guardOtherCompanyAction(event: MouseEvent) {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -43,16 +51,19 @@ export function AssistantChatStep(props: AssistantChatStepProps) {
       const suggestionCard = findCompanySuggestionCard(button);
       if (!suggestionCard) return;
 
-      if (suggestionCard.dataset.assistantOtherCompanyHandled === 'true') {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+      // La tarjeta puede ser reemplazada por React entre dos activaciones.
+      // Mantener además una clave en memoria evita que un nodo nuevo vuelva a
+      // disparar el mismo paso antes de que se renderice el selector.
+      const suggestionKey = cleanText(suggestionCard.textContent);
+      if (
+        suggestionCard.dataset.assistantOtherCompanyHandled === 'true'
+        || handledSuggestionKeys.has(suggestionKey)
+      ) {
+        blockEvent(event);
         return;
       }
 
-      // Se marca antes de que el evento llegue al onClick de React. Así una
-      // segunda activación manual o programática no puede crear otro mensaje
-      // `companies` mientras React procesa el primer cambio de estado.
+      handledSuggestionKeys.add(suggestionKey);
       suggestionCard.dataset.assistantOtherCompanyHandled = 'true';
       button.dataset.assistantOtherCompanyHandled = 'true';
 
