@@ -1,15 +1,28 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileResponse, FileStorageProvider } from '@aurelia/contracts';
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
-import { access, readFile } from 'fs/promises';
+import { access, mkdir, readFile, unlink, writeFile } from 'fs/promises';
+import * as path from 'path';
 import { FileEntity } from './entities/file.entity';
 
 export interface FileContentResponse {
   path: string;
   filename: string;
   mimeType: string | null;
+}
+
+export interface FileStorageHealthResponse {
+  status: 'ok';
+  provider: FileStorageProvider.LOCAL;
+  uploadPath: string;
+  checkedAt: string;
 }
 
 @Injectable()
@@ -56,6 +69,33 @@ export class FilesService {
       filename: entity.originalFilename,
       mimeType: entity.mimeType,
     };
+  }
+
+  async healthCheck(): Promise<FileStorageHealthResponse> {
+    const uploadPath = path.join(process.cwd(), 'uploads');
+    const probeFile = path.join(uploadPath, `.health-${Date.now()}-${Math.round(Math.random() * 1e9)}.tmp`);
+    const content = `aurelia-storage-health:${new Date().toISOString()}`;
+
+    try {
+      await mkdir(uploadPath, { recursive: true });
+      await writeFile(probeFile, content, { encoding: 'utf8' });
+      const readBack = await readFile(probeFile, { encoding: 'utf8' });
+      if (readBack !== content) {
+        throw new ServiceUnavailableException('Storage probe mismatch after write/read roundtrip');
+      }
+      await unlink(probeFile);
+
+      return {
+        status: 'ok',
+        provider: FileStorageProvider.LOCAL,
+        uploadPath,
+        checkedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        `Storage health check failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
   }
 
   private async findEntityOrThrow(id: string): Promise<FileEntity> {
