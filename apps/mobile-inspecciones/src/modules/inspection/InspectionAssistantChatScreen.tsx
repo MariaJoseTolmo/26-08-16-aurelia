@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getLocalMobileBootstrap } from '../../shared/offline/local-catalogs';
+import { getMobileBootstrapLocalFirst } from '../../shared/offline/local-catalogs';
 import { localStorageDriver } from '../../shared/storage/local-storage';
 import { useMobileInspectionAssignmentScope } from '../../shared/stores/mobileInspectionAssignmentScope.store';
 import { useMobileSession } from '../auth/mobileSession.store';
@@ -95,36 +95,34 @@ export function InspectionAssistantChatScreen() {
     }
 
     let active = true;
+    setChatReady(false);
     setInspectorIdentity(user.fullName, inspectorCompanyName ?? user.companyName ?? 'Sin empresa');
 
     async function prepareChat() {
-      // React Query usa estas mismas claves dentro de InspectionChatScreenV2.
-      // Precargar el bootstrap local evita que la primera pregunta quede sin
-      // controles cuando el endpoint tarda o la aplicación vuelve desde caché.
-      const bootstrap = await getLocalMobileBootstrap();
-      if (bootstrap) {
-        queryClient.setQueryData(['areas'], bootstrap.catalogs.areas);
-        queryClient.setQueryData(['inspection-types'], bootstrap.catalogs.inspectionTypes);
-        queryClient.setQueryData(['finding-types'], bootstrap.catalogs.findingTypes);
-        queryClient.setQueryData(['finding-severities'], bootstrap.catalogs.findingSeverities);
-        queryClient.setQueryData(['responsible-companies-checklist'], bootstrap.catalogs.companies);
-        queryClient.setQueryData(['responsible-companies-finding'], bootstrap.catalogs.companies);
+      // Online refresca el bootstrap; offline utiliza el último catálogo local.
+      // Así la primera pregunta nunca depende de una llamada separada a áreas.
+      const bootstrap = await getMobileBootstrapLocalFirst();
+      queryClient.setQueryData(['areas'], bootstrap.catalogs.areas);
+      queryClient.setQueryData(['inspection-types'], bootstrap.catalogs.inspectionTypes);
+      queryClient.setQueryData(['finding-types'], bootstrap.catalogs.findingTypes);
+      queryClient.setQueryData(['finding-severities'], bootstrap.catalogs.findingSeverities);
+      queryClient.setQueryData(['responsible-companies-checklist'], bootstrap.catalogs.companies);
+      queryClient.setQueryData(['responsible-companies-finding'], bootstrap.catalogs.companies);
 
-        bootstrap.catalogs.areas.forEach((area) => {
-          const sectors = bootstrap.catalogs.sectors.filter((sector) => (
-            (sector as { areaId?: string | null }).areaId === area.id
-          ));
-          if (sectors.length > 0) queryClient.setQueryData(['sectors', area.id], sectors);
-        });
-      }
+      bootstrap.catalogs.areas.forEach((area) => {
+        const sectors = bootstrap.catalogs.sectors.filter((sector) => (
+          (sector as { areaId?: string | null }).areaId === area.id
+        ));
+        if (sectors.length > 0) queryClient.setQueryData(['sectors', area.id], sectors);
+      });
 
       await repairBrokenInitialAreaSession();
       if (active) setChatReady(true);
     }
 
     void prepareChat().catch(() => {
-      // El chat mantiene su carga online y sus mensajes de reintento. La
-      // preparación local nunca debe bloquear la pantalla por sí sola.
+      // InspectionChatScreenV2 mantiene su carga online y el botón Reintentar.
+      // Si el bootstrap completo falla, no dejamos bloqueada la navegación.
       if (active) setChatReady(true);
     });
 
