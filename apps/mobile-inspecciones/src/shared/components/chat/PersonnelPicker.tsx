@@ -1,14 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
-import { SparklesMark } from '../icons/SparklesMark';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors, fontWeight } from '../../theme/tokens';
 import type { UserResponse } from '../../services/api/users.api';
 
 interface Props {
@@ -18,181 +10,178 @@ interface Props {
   suggestedUserId?: string | null;
 }
 
-function userSubtitle(user: UserResponse): string {
-  const companyName = user.companies?.[0]?.name ?? null;
-  if (companyName && user.position) return `${companyName} · ${user.position}`;
-  if (companyName) return companyName;
-  if (user.position) return user.position;
-  return 'Responsable';
+function initials(value: string): string {
+  return value
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 export function PersonnelPicker({ users, onConfirm, confirmed = false, suggestedUserId = null }: Props) {
-  const effectiveSuggestedUserId = useMemo(() => suggestedUserId ?? users[0]?.id ?? null, [suggestedUserId, users]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(effectiveSuggestedUserId ? [effectiveSuggestedUserId] : []),
+  const effectiveSuggestedUserId = useMemo(
+    () => suggestedUserId ?? users[0]?.id ?? null,
+    [suggestedUserId, users],
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    () => effectiveSuggestedUserId ? [effectiveSuggestedUserId] : [],
   );
 
   useEffect(() => {
-    setSelectedIds(new Set(effectiveSuggestedUserId ? [effectiveSuggestedUserId] : []));
+    setSelectedIds(effectiveSuggestedUserId ? [effectiveSuggestedUserId] : []);
   }, [effectiveSuggestedUserId]);
+
+  const selectedUsers = users.filter((user) => selectedIds.includes(user.id));
 
   function toggle(id: string) {
     if (confirmed) return;
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelectedIds((current) => current.includes(id)
+      ? current.filter((item) => item !== id)
+      : [...current, id]);
   }
-
-  function handleConfirm() {
-    const selected = users.filter((u) => selectedIds.has(u.id));
-    onConfirm(selected);
-  }
-
-  const count = selectedIds.size;
 
   return (
-    <View style={styles.marginLeft}>
-      <View style={styles.listShell}>
-        <ScrollView style={styles.list} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <View style={styles.list}>
         {users.map((user) => {
-          const isSelected = selectedIds.has(user.id);
-          const isSuggested = user.id === effectiveSuggestedUserId;
+          const active = selectedIds.includes(user.id);
+          const suggested = user.id === effectiveSuggestedUserId;
+
           return (
             <TouchableOpacity
               key={user.id}
-              onPress={() => toggle(user.id)}
-              disabled={confirmed}
-              style={[styles.row, isSelected && styles.rowSelected, isSuggested && styles.rowSuggested]}
               activeOpacity={0.7}
+              disabled={confirmed}
+              onPress={() => toggle(user.id)}
+              style={[styles.personButton, active && styles.personButtonActive, confirmed && styles.disabled]}
             >
-              <View style={[styles.avatar, isSuggested && styles.avatarSuggested]}>
-                <Text style={[styles.avatarText, isSuggested && styles.avatarTextSuggested]}>
-                  {user.firstName[0]}{user.lastName[0]}
-                </Text>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials(user.fullName)}</Text>
               </View>
-              <View style={styles.info}>
-                <Text style={styles.name}>{user.fullName}</Text>
-                <Text style={styles.position}>{userSubtitle(user)}</Text>
+              <View style={styles.personCopy}>
+                <Text numberOfLines={1} style={styles.name}>{user.fullName}</Text>
+                <Text numberOfLines={1} style={styles.position}>{user.position ?? 'Responsable'}</Text>
               </View>
-              {isSuggested ? (
-                <View style={styles.suggestedTag}>
-                  <SparklesMark size={10} color={colors.goldDark} />
-                  <Text style={styles.suggestedTagText}>Sugerido</Text>
-                </View>
-              ) : (
-                <View style={styles.spacer} />
-              )}
-              <View style={[styles.check, isSelected && styles.checkSelected]}>
-                {isSelected && <FontAwesome5 name="check" size={9} color={colors.white} solid />}
+              {suggested ? <Text style={styles.suggestedBadge}>✦ Sugerido</Text> : null}
+              <View style={[styles.check, active && styles.checkActive]}>
+                {active ? <Text style={styles.checkText}>✓</Text> : null}
               </View>
             </TouchableOpacity>
           );
         })}
-        </ScrollView>
       </View>
-      {!confirmed && (
-        <TouchableOpacity
-          onPress={handleConfirm}
-          disabled={count === 0}
-          style={[styles.confirmBtn, count === 0 && styles.confirmBtnDisabled]}
-          activeOpacity={0.8}
-        >
-          <FontAwesome5 name="arrow-right" size={12} color={colors.white} solid />
-          <Text style={styles.confirmBtnText}>Confirmar y ver resumen</Text>
-        </TouchableOpacity>
-      )}
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={confirmed || selectedUsers.length === 0}
+        onPress={() => onConfirm(selectedUsers)}
+        style={[styles.confirmButton, (confirmed || selectedUsers.length === 0) && styles.disabled]}
+      >
+        <Text style={styles.confirmText}>→ Confirmar y ver resumen</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  marginLeft: { marginLeft: 33 },
-  listShell: {
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.borderMid,
-    borderRadius: radius.md + 2,
-    overflow: 'hidden',
-    maxHeight: 280,
+  container: {
+    marginBottom: 10,
+    marginLeft: 33,
+    marginRight: 12,
   },
-  list: { maxHeight: 220 },
-  row: {
+  list: {
+    gap: 6,
+  },
+  personButton: {
+    width: '100%',
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  rowSelected: { backgroundColor: colors.tealSurf },
-  rowSuggested: {
-    borderColor: colors.teal,
+    gap: 10,
+    backgroundColor: colors.white,
+    borderColor: '#D1D1D1',
+    borderRadius: 10,
     borderWidth: 1.5,
-    marginHorizontal: 1,
-    marginVertical: 1,
-    borderRadius: radius.md,
+  },
+  personButtonActive: {
+    backgroundColor: '#C5FFF6',
+    borderColor: '#00B398',
   },
   avatar: {
     width: 30,
     height: 30,
-    borderRadius: radius.full,
-    backgroundColor: colors.blueSurf,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    backgroundColor: '#C8A064',
+    borderRadius: 999,
   },
-  avatarSuggested: {
-    backgroundColor: colors.gold,
-  },
-  avatarText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.blueTxt },
-  avatarTextSuggested: { color: colors.navy },
-  info: { flex: 1 },
-  name: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.primary },
-  position: { fontSize: fontSize.xs, color: colors.muted, marginTop: 1 },
-  suggestedTag: {
-    borderRadius: 3,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#FDF3E3',
-    marginRight: 2,
-  },
-  suggestedTagText: {
-    color: colors.goldDark,
-    fontSize: 9,
+  avatarText: {
+    color: '#001E39',
+    fontSize: 11,
     fontWeight: fontWeight.bold,
   },
-  spacer: {
-    width: 54,
+  personCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  name: {
+    color: '#131313',
+    fontSize: 12,
+    fontWeight: fontWeight.bold,
+  },
+  position: {
+    marginTop: 1,
+    color: '#646464',
+    fontSize: 10,
+  },
+  suggestedBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    color: '#8E6E3E',
+    fontSize: 9,
+    fontWeight: fontWeight.bold,
+    backgroundColor: '#FDF3E3',
+    borderRadius: 3,
   },
   check: {
     width: 20,
     height: 20,
-    borderRadius: radius.full,
-    borderWidth: 2,
-    borderColor: colors.borderMid,
-    alignItems: 'center',
-    justifyContent: 'center',
     flexShrink: 0,
-  },
-  checkSelected: { borderColor: colors.teal, backgroundColor: colors.teal },
-  confirmBtn: {
-    margin: spacing.sm + 2,
-    height: 36,
-    borderRadius: radius.sm + 2,
-    backgroundColor: colors.teal,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 10,
+    borderColor: '#D1D1D1',
+    borderRadius: 999,
+    borderWidth: 2,
   },
-  confirmBtnDisabled: { opacity: 0.45 },
-  confirmBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.white },
+  checkActive: {
+    backgroundColor: '#00B398',
+    borderColor: '#00B398',
+  },
+  checkText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: fontWeight.bold,
+  },
+  confirmButton: {
+    height: 36,
+    marginTop: 4,
+    paddingHorizontal: 18,
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00B398',
+    borderRadius: 999,
+  },
+  confirmText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: fontWeight.bold,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
 });

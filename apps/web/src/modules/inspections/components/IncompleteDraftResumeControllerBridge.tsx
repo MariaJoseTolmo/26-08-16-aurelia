@@ -1,16 +1,14 @@
 import { useEffect } from 'react';
 import { InspectionType } from '@aurelia/contracts';
 import { loadNewInspectionDraftSnapshot } from '../new-inspection/state/newInspectionDraft.store';
+import { subscribeInspectionDom } from './inspection-dom-subscription';
 
 const hostId = 'aurelia-incomplete-inspection-draft-host';
 export const openAssistantDraftEventName = 'aurelia:open-assistant-inspection-draft';
+const draftChangedEventName = 'aurelia:new-inspection-drafts-changed';
 
 type DraftSnapshot = NonNullable<ReturnType<typeof loadNewInspectionDraftSnapshot>>;
-
-type DraftProgress = {
-  step: number;
-  percent: number;
-};
+type DraftProgress = { step: number; percent: number };
 
 function resolveAssistantProgress(snapshot: DraftSnapshot): DraftProgress {
   const draft = snapshot.draft;
@@ -49,25 +47,24 @@ function syncBannerProgress() {
   const spans = Array.from(host.querySelectorAll('span')) as HTMLElement[];
   const percentSpan = spans.find((item) => /^\d+%$/.test(item.textContent?.trim() ?? ''));
   const stepSpan = spans.find((item) => /^Paso \d+\/5$/.test(item.textContent?.trim() ?? ''));
-  const bars = Array.from(host.querySelectorAll('div')).map((item) => item as HTMLElement);
-  const progressBar = bars.find((item) => item.style.width.endsWith('%'));
-  if (percentSpan) percentSpan.textContent = `${progress.percent}%`;
-  if (stepSpan) stepSpan.textContent = `Paso ${progress.step}/5`;
-  if (progressBar) progressBar.style.width = `${progress.percent}%`;
+  const progressBar = Array.from(host.querySelectorAll('div')).find((item) => (item as HTMLElement).style.width.endsWith('%')) as HTMLElement | undefined;
+  const percentText = `${progress.percent}%`;
+  const stepText = `Paso ${progress.step}/5`;
+  if (percentSpan && percentSpan.textContent !== percentText) percentSpan.textContent = percentText;
+  if (stepSpan && stepSpan.textContent !== stepText) stepSpan.textContent = stepText;
+  if (progressBar && progressBar.style.width !== percentText) progressBar.style.width = percentText;
 }
 
 export function IncompleteDraftResumeControllerBridge() {
   useEffect(() => {
-    syncBannerProgress();
-    const interval = window.setInterval(syncBannerProgress, 500);
+    const unsubscribeDom = subscribeInspectionDom(syncBannerProgress);
     window.addEventListener('storage', syncBannerProgress);
-    window.addEventListener('focus', syncBannerProgress);
+    window.addEventListener(draftChangedEventName, syncBannerProgress);
     return () => {
-      window.clearInterval(interval);
+      unsubscribeDom();
       window.removeEventListener('storage', syncBannerProgress);
-      window.removeEventListener('focus', syncBannerProgress);
+      window.removeEventListener(draftChangedEventName, syncBannerProgress);
     };
   }, []);
-
   return null;
 }

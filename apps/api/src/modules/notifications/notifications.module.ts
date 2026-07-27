@@ -9,8 +9,11 @@ import { AreaEntity } from '../organization/entities/area.entity';
 import { CompanyEntity } from '../organization/entities/company.entity';
 import { SectorEntity } from '../organization/entities/sector.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { NotificationDeliveryEntity } from './entities/notification-delivery.entity';
 import { NotificationRecipientEntity } from './entities/notification-recipient.entity';
 import { NotificationEntity } from './entities/notification.entity';
+import { NotificationDeliveryService } from './notification-delivery.service';
+import { NotificationDeliverySubscriber } from './notification-delivery.subscriber';
 import { NotificationRecipientStateService } from './notification-recipient-state.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
@@ -20,6 +23,7 @@ import { NotificationsService } from './notifications.service';
     TypeOrmModule.forFeature([
       NotificationEntity,
       NotificationRecipientEntity,
+      NotificationDeliveryEntity,
       InspectionEntity,
       InspectionFindingEntity,
       InspectionFindingResponsibleEntity,
@@ -32,7 +36,12 @@ import { NotificationsService } from './notifications.service';
     ]),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationRecipientStateService],
-  exports: [NotificationsService],
+  providers: [
+    NotificationsService,
+    NotificationRecipientStateService,
+    NotificationDeliveryService,
+    NotificationDeliverySubscriber,
+  ],
+  exports: [NotificationsService, NotificationDeliveryService],
 })
 export class NotificationsModule {}

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { colors, fontWeight } from '../../shared/theme/tokens';
 import { login } from '../../shared/services/api/auth.api';
+import { consumePendingMobileNotificationRoute } from '../../shared/services/mobileNotificationDeepLink';
 import { useMobileSession } from './mobileSession.store';
 import LogoMobile from '../../../assets/icons/logo_mobile_white.svg';
 
@@ -24,7 +25,8 @@ export function AureliaAccessScreen() {
     try {
       const response = await login(email, credential);
       setMobileSession(response.token, response.user);
-      router.replace('/inspection/dashboard');
+      const pendingRoute = await consumePendingMobileNotificationRoute();
+      router.replace((pendingRoute ?? '/inspection/dashboard') as never);
     } catch {
       setError('No se pudo iniciar sesión. Revisa los datos o la conexión con la API.');
     } finally {

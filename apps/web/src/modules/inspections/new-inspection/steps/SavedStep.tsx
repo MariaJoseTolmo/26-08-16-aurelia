@@ -43,7 +43,7 @@ function PlusIcon() {
   return <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true"><path d="M9 2v10M4 7h10" stroke="#001E39" strokeWidth="2" strokeLinecap="round" /></svg>;
 }
 
-export function SavedStep({ onCreateAnother }: SavedStepProps) {
+export function SavedStep({ onClose, onCreateAnother }: SavedStepProps) {
   const user = useSessionStore((state) => state.user);
   const online = useOnlineStatus();
   const draft = useNewInspectionDraftStore();
@@ -78,6 +78,13 @@ export function SavedStep({ onCreateAnother }: SavedStepProps) {
           <p className="text-[18px] font-bold leading-none text-[#3A9B3A]">Inspección guardada</p>
           <p className="max-w-[260px] text-center text-[13px] leading-[19.5px] text-[#646464]">Guardada con {countLabel}. La EECC asignada será notificada.</p>
           <button type="button" onClick={onCreateAnother} className="mt-[8px] flex h-[50px] w-[280px] items-center justify-center gap-[8px] rounded-[14px] bg-[#C8A064] text-[14px] font-bold text-[#001E39]"><PlusIcon />Nueva inspección</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-[40px] w-[280px] items-center justify-center rounded-[8px] border border-[#C8A064] bg-white px-[16px] py-[8px] text-[14px] font-bold leading-[22.7px] tracking-[0.28px] text-[#C8A064]"
+          >
+            Salir
+          </button>
         </div>
       </div>
 

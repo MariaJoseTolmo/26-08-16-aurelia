@@ -1,10 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { CreateInspectionFindingRequest, CreateInspectionRequest, MobileSyncBatchRequest, MobileSyncBatchResponse, MobileSyncOperationRequest, MobileSyncOperationResult, MobileSyncStatus, UpsertInspectionAnswerRequest } from '@aurelia/contracts';
+import type {
+  CreateInspectionFindingRequest,
+  CreateInspectionRequest,
+  MobileSyncBatchRequest,
+  MobileSyncBatchResponse,
+  MobileSyncOperationRequest,
+  MobileSyncOperationResult,
+  MobileSyncStatus,
+  UpsertInspectionAnswerRequest,
+} from '@aurelia/contracts';
 import { InspectionStatus } from '@aurelia/contracts';
 import { Repository } from 'typeorm';
 import { InMemoryMobileSyncBroker } from '../../shared/messaging/in-memory-mobile-sync-broker';
 import { EvidencesService } from '../evidences/evidences.service';
+import { InspectionAssignmentEmailService } from '../inspections/inspection-assignment-email.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { MobileSyncOperationEntity } from './entities/mobile-sync-operation.entity';
 
@@ -21,6 +31,14 @@ type UploadAttachmentPayload = {
   title?: string | null;
   evidenceType?: string | null;
   capturedAt?: string | null;
+};
+
+type SyncedInspectionCandidate = {
+  deviceId: string;
+  localInspectionId: string;
+  actorId: string | null;
+  hasSyncedFinding: boolean;
+  hasFailedFinding: boolean;
 };
 
 function getPayloadId(payload: unknown, key: keyof LocalPayload): string | null {
@@ -46,6 +64,7 @@ function getBatchStatus(results: MobileSyncOperationResult[]): MobileSyncStatus 
 
 @Injectable()
 export class MobileSyncService {
+  private readonly logger = new Logger(MobileSyncService.name);
   private readonly broker = new InMemoryMobileSyncBroker();
   private readonly batches = new Map<string, MobileSyncBatchResponse>();
   private readonly localToRemote = new Map<string, string>();
@@ -54,6 +73,7 @@ export class MobileSyncService {
   constructor(
     private readonly inspectionsService: InspectionsService,
     private readonly evidencesService: EvidencesService,
+    private readonly assignmentEmails: InspectionAssignmentEmailService,
     @InjectRepository(MobileSyncOperationEntity) private readonly operations: Repository<MobileSyncOperationEntity>,
   ) {}
 
@@ -64,6 +84,7 @@ export class MobileSyncService {
     await this.broker.publish({ messageId: batch.batchId, sessionId: batch.deviceSessionId, batch, enqueuedAt: acceptedAt });
     const results: MobileSyncOperationResult[] = [];
     for (const operation of batch.operations) results.push(await this.runOperation(batch.batchId, operation));
+    await this.activateAndNotifySyncedInspections(batch.operations, results);
     const response = { batchId: batch.batchId, acceptedAt, status: getBatchStatus(results), results, nextRecommendedSyncAt: null };
     this.batches.set(batch.batchId, response);
     this.broker.drain();
@@ -121,6 +142,51 @@ export class MobileSyncService {
     }
     if (type === 'UPLOAD_ATTACHMENT') return this.materializeAttachment(operation);
     return { localId: operation.localId, remoteId: null, status: PROCESSING, syncedAt: null };
+  }
+
+  private async activateAndNotifySyncedInspections(
+    operations: MobileSyncOperationRequest[],
+    results: MobileSyncOperationResult[],
+  ): Promise<void> {
+    const candidates = new Map<string, SyncedInspectionCandidate>();
+
+    operations.forEach((operation, index) => {
+      if (String(operation.operationType) !== 'CREATE_INSPECTION_FINDING') return;
+      const localInspectionId = getPayloadId(operation.payload, 'inspectionLocalId');
+      if (!localInspectionId) return;
+      const key = this.key(operation.deviceId, localInspectionId);
+      const candidate = candidates.get(key) ?? {
+        deviceId: operation.deviceId,
+        localInspectionId,
+        actorId: toActor(operation.createdBy),
+        hasSyncedFinding: false,
+        hasFailedFinding: false,
+      };
+      if (results[index]?.status === SYNCED) candidate.hasSyncedFinding = true;
+      else candidate.hasFailedFinding = true;
+      candidates.set(key, candidate);
+    });
+
+    for (const candidate of candidates.values()) {
+      if (!candidate.hasSyncedFinding || candidate.hasFailedFinding) continue;
+      const inspectionId = await this.resolveLocalReference(candidate.deviceId, candidate.localInspectionId);
+      if (!inspectionId) continue;
+
+      const inspection = await this.inspectionsService.findOne(inspectionId);
+      if (inspection.status === InspectionStatus.CLOSED || inspection.status === InspectionStatus.CANCELLED) continue;
+      if (inspection.status === InspectionStatus.DRAFT) {
+        await this.inspectionsService.updateStatus(
+          inspectionId,
+          { status: InspectionStatus.IN_PROGRESS, comment: 'Activated after mobile inspection sync' },
+          candidate.actorId,
+        );
+      }
+
+      await this.assignmentEmails.notifyInspectionAssigned(inspectionId).catch((error) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Unable to dispatch mobile inspection assignment email inspection=${inspectionId}: ${detail}`);
+      });
+    }
   }
 
   private async materializeAttachment(operation: MobileSyncOperationRequest): Promise<MobileSyncOperationResult> {

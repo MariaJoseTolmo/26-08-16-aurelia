@@ -61,7 +61,7 @@ export function ManualIdentificationConnected() {
   const areaOptions = useMemo<SelectSheetOption[]>(() => areas.map((area) => ({ id: area.id, label: area.name, description: area.code })), [areas]);
   const sectorOptions = useMemo<SelectSheetOption[]>(() => sectors.map((sector) => ({ id: sector.id, label: sector.name, description: sector.code })), [sectors]);
   const dateOptions = useMemo<SelectSheetOption[]>(buildDateOptions, []);
-  const canContinue = Boolean(draft.areaId && draft.sectorId && draft.inspectionDate && draft.locationCaptured);
+  const canContinue = Boolean(draft.areaId && draft.sectorId && draft.inspectionDateSelected && draft.locationCaptured);
   const catalogEmptyText = catalogErrorMessage ?? 'No hay catálogos disponibles para operar offline';
 
   React.useEffect(() => {
@@ -140,7 +140,7 @@ export function ManualIdentificationConnected() {
                 <View style={styles.column}><LabeledField label="Área *"><SelectBox value={draft.areaName ?? '-Seleccionar-'} loading={loadingAreas} onPress={() => openPicker('area')} /></LabeledField></View>
                 <View style={styles.column}><LabeledField label="Sector *"><SelectBox value={draft.sectorName ?? '-Seleccionar-'} loading={loadingSectors} disabled={!draft.areaId} onPress={() => openPicker('sector')} /></LabeledField></View>
               </View>
-              <LabeledField label="Fecha de inspección *"><FieldBox value={draft.inspectionDate} variant="input" onPress={() => openPicker('date')} right={<FontAwesome5 name="calendar-alt" size={16} color={colors.primary} />} /></LabeledField>
+              <LabeledField label="Fecha de inspección *"><FieldBox value={draft.inspectionDateSelected ? draft.inspectionDate : '-Seleccionar-'} variant="input" onPress={() => openPicker('date')} right={<FontAwesome5 name="calendar-alt" size={16} color={colors.primary} />} /></LabeledField>
               <View style={styles.locationHeader}><FieldLabel>Ubicación *</FieldLabel><TouchableOpacity style={styles.infoButton} activeOpacity={0.7}><FontAwesome5 name="info" size={13} color={colors.blueLink} /></TouchableOpacity></View>
               <TouchableOpacity style={[styles.locationButton, !draft.locationCaptured && styles.locationButtonPending]} activeOpacity={0.8} onPress={capture} disabled={capturing}>
                 <FontAwesome5 name={draft.locationCaptured ? 'check-circle' : 'crosshairs'} size={14} color={colors.white} />
@@ -155,7 +155,7 @@ export function ManualIdentificationConnected() {
           <ManualFlowFooter secondaryLabel="Cancelar" onSecondary={cancel} onPrimary={next} primaryDisabled={!canContinue} />
           <SelectSheet visible={activePicker === 'area'} title="Seleccionar área" subtitle="Catálogo online/cache local" options={areaOptions} selectedId={draft.areaId} loading={loadingAreas} emptyText={catalogEmptyText} onClose={closePicker} onSelect={selectArea} />
           <SelectSheet visible={activePicker === 'sector'} title="Seleccionar sector" subtitle={draft.areaName ?? 'Selecciona un área primero'} options={sectorOptions} selectedId={draft.sectorId} loading={loadingSectors} emptyText={catalogEmptyText} onClose={closePicker} onSelect={selectSector} />
-          <SelectSheet visible={activePicker === 'date'} title="Fecha de inspección" subtitle="Selecciona la fecha del registro" options={dateOptions} selectedId={draft.inspectionDate} onClose={closePicker} onSelect={selectDate} />
+          <SelectSheet visible={activePicker === 'date'} title="Fecha de inspección" subtitle="Selecciona la fecha del registro" options={dateOptions} selectedId={draft.inspectionDateSelected ? draft.inspectionDate : null} onClose={closePicker} onSelect={selectDate} />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>

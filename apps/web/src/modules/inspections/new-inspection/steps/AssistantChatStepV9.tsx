@@ -33,6 +33,13 @@ function findCompanyChipRows(panel: HTMLElement) {
     const root = directScrollChild(scroll, anchor);
     let next = root?.nextElementSibling as HTMLElement | null | undefined;
     for (let index = 0; next && index < 4; index += 1) {
+      const isNativeCompanySheet = next.className.toString().includes('fixed')
+        && cleanText(next.textContent).includes('Seleccione la empresa');
+      if (isNativeCompanySheet) {
+        next = next.nextElementSibling as HTMLElement | null;
+        continue;
+      }
+
       const buttons = Array.from(next.querySelectorAll('button')).filter((button) => cleanText(button.textContent));
       const isCompanyRow = buttons.length >= 2 && buttons.every((button) => !cleanText(button.textContent).toLowerCase().includes('confirmar'));
       if (isCompanyRow) {
@@ -96,6 +103,22 @@ function enhanceCompanyRows(panel: HTMLElement) {
     button.addEventListener('click', () => openCompanySheet(companies, row, null));
     row.parentElement?.insertBefore(host, row);
   });
+}
+
+function cleanupNativeCompanyPickerArtifacts(panel: HTMLElement) {
+  const hasNativePicker = Array.from(panel.querySelectorAll('button')).some((button) => (
+    cleanText(button.textContent) === 'Seleccione la empresa'
+    && !button.closest('[data-assistant-company-selector-host="true"]')
+  ));
+  if (!hasNativePicker) return;
+
+  panel.querySelectorAll('[data-assistant-company-selector-host="true"]').forEach((element) => element.remove());
+  panel.querySelectorAll('[data-assistant-company-selector="true"]').forEach((element) => {
+    const row = element as HTMLElement;
+    row.style.display = '';
+    delete row.dataset.assistantCompanySelector;
+  });
+  document.querySelector('[data-assistant-company-sheet="true"]')?.remove();
 }
 
 function enhancePersonnel(panel: HTMLElement) {
@@ -246,6 +269,7 @@ function enhanceChecklistUi() {
   const panel = getPanel();
   if (!panel) return;
   installStyles();
+  cleanupNativeCompanyPickerArtifacts(panel);
   enhanceCompanyRows(panel);
   enhancePersonnel(panel);
   enhanceSuggestionCards(panel);

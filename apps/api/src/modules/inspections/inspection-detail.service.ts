@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  InspectionAnswerValue,
   InspectionEvidenceRelationType,
   InspectionFindingSeverity,
   InspectionFindingStatus,
   InspectionType,
   type EvidenceResponse,
   type ID,
+  type InspectionDetailChecklistAnswerResponse,
+  type InspectionDetailChecklistResultResponse,
+  type InspectionDetailChecklistSummaryResponse,
   type InspectionDetailEvidenceResponse,
   type InspectionDetailFindingGroupKey,
   type InspectionDetailFindingItemResponse,
@@ -24,7 +28,10 @@ import { UserEntity } from '../users/entities/user.entity';
 import { InspectionFindingResponsibleEntity } from './entities/inspection-finding-responsible.entity';
 import { InspectionFindingEntity } from './entities/inspection-finding.entity';
 import { InspectionFollowupEntity } from './entities/inspection-followup.entity';
+import { InspectionFormItemEntity } from './entities/inspection-form-item.entity';
+import { InspectionFormSectionEntity } from './entities/inspection-form-section.entity';
 import { InspectionFormTemplateEntity } from './entities/inspection-form-template.entity';
+import { InspectionItemResponseEntity } from './entities/inspection-item-response.entity';
 import { InspectionTypeEntity } from './entities/inspection-type.entity';
 import { InspectionEntity } from './entities/inspection.entity';
 
@@ -44,6 +51,12 @@ export class InspectionDetailService {
     private readonly inspectionTypes: Repository<InspectionTypeEntity>,
     @InjectRepository(InspectionFormTemplateEntity)
     private readonly templates: Repository<InspectionFormTemplateEntity>,
+    @InjectRepository(InspectionFormSectionEntity)
+    private readonly checklistSections: Repository<InspectionFormSectionEntity>,
+    @InjectRepository(InspectionFormItemEntity)
+    private readonly checklistItems: Repository<InspectionFormItemEntity>,
+    @InjectRepository(InspectionItemResponseEntity)
+    private readonly checklistAnswers: Repository<InspectionItemResponseEntity>,
     @InjectRepository(InspectionFindingEntity)
     private readonly findings: Repository<InspectionFindingEntity>,
     @InjectRepository(InspectionFindingResponsibleEntity)
@@ -70,20 +83,37 @@ export class InspectionDetailService {
       this.loadNameMaps(),
       this.evidencesService.findAll('inspection', inspection.id),
     ]);
+
     const activeFindings = findings.filter((finding) => finding.status !== InspectionFindingStatus.CANCELLED);
     const findingIds = activeFindings.map((finding) => finding.id);
     const [responsibles, followups, evidenceByFinding] = await Promise.all([
-      findingIds.length ? this.findingResponsibles.find({ where: { findingId: In(findingIds) } }) : Promise.resolve([]),
-      findingIds.length ? this.followups.find({ where: { findingId: In(findingIds) }, order: { sequenceNumber: 'ASC' } }) : Promise.resolve([]),
+      findingIds.length
+        ? this.findingResponsibles.find({ where: { findingId: In(findingIds) } })
+        : Promise.resolve([]),
+      findingIds.length
+        ? this.followups.find({ where: { findingId: In(findingIds) }, order: { sequenceNumber: 'ASC' } })
+        : Promise.resolve([]),
       this.loadEvidenceByFinding(findingIds),
     ]);
+
     const responsibleIdsByFinding = this.groupResponsibleIds(responsibles);
-    const findingItems = activeFindings.map((finding, index) => this.toFindingItem(finding, index, responsibleIdsByFinding.get(finding.id) ?? [], maps, evidenceByFinding.get(finding.id) ?? [], currentUserId));
+    const findingItems = activeFindings.map((finding, index) => this.toFindingItem(
+      finding,
+      index,
+      responsibleIdsByFinding.get(finding.id) ?? [],
+      maps,
+      evidenceByFinding.get(finding.id) ?? [],
+      currentUserId,
+    ));
     const groups = this.groupFindings(findingItems);
     const counts = this.countFindingGroups(findingItems);
-    const closedCount = counts.closed;
-    const progressPercent = findingItems.length === 0 ? 100 : Math.round((closedCount / findingItems.length) * 100);
+    const progressPercent = findingItems.length === 0
+      ? 100
+      : Math.round((counts.closed / findingItems.length) * 100);
     const kind = this.resolveKind(inspectionType, template);
+    const checklistResult = kind === 'checklist'
+      ? await this.loadChecklistResult(inspection.id, inspection.templateId, maps)
+      : null;
     const scheduledDate = this.formatDate(inspection.scheduledAt);
     const metadataLine1 = kind === 'checklist'
       ? `Checklist · ${template?.name ?? inspectionType?.name ?? 'Checklist normativo'}${template?.code ? ` - ${template.code}` : ''}`
@@ -107,6 +137,7 @@ export class InspectionDetailService {
       findings: groups,
       followups: followups.map((followup) => this.toFollowupResponse(followup, maps)),
       general: this.toGeneralResponse(inspection, template, maps, generalEvidence, findingItems),
+      checklistResult,
     };
   }
 
@@ -114,6 +145,111 @@ export class InspectionDetailService {
     const inspection = await this.inspections.findOneBy({ id });
     if (!inspection) throw new NotFoundException(`Inspection ${id} not found`);
     return inspection;
+  }
+
+  private async loadChecklistResult(
+    inspectionId: string,
+    templateId: string | null,
+    maps: EntityNameMaps,
+  ): Promise<InspectionDetailChecklistResultResponse> {
+    const answers = await this.checklistAnswers.find({
+      where: { inspectionId },
+      order: { createdAt: 'ASC' },
+    });
+    const answerByItem = new Map(answers.map((answer) => [answer.checklistItemId, answer]));
+
+    let sections: InspectionFormSectionEntity[] = [];
+    let items: InspectionFormItemEntity[] = [];
+    if (templateId) {
+      sections = await this.checklistSections.find({
+        where: { templateId },
+        order: { sortOrder: 'ASC' },
+      });
+      const sectionIds = sections.map((section) => section.id);
+      items = sectionIds.length
+        ? await this.checklistItems.find({
+            where: { sectionId: In(sectionIds) },
+            order: { sortOrder: 'ASC' },
+          })
+        : [];
+    } else if (answers.length) {
+      const itemIds = answers.map((answer) => answer.checklistItemId);
+      items = await this.checklistItems.find({ where: { id: In(itemIds) }, order: { sortOrder: 'ASC' } });
+      const sectionIds = Array.from(new Set(items.map((item) => item.sectionId)));
+      sections = sectionIds.length
+        ? await this.checklistSections.find({ where: { id: In(sectionIds) }, order: { sortOrder: 'ASC' } })
+        : [];
+    }
+
+    const sectionPayload = sections.map((section) => ({
+      sectionId: section.id,
+      code: section.code,
+      title: section.title,
+      description: section.description,
+      sortOrder: section.sortOrder,
+      items: items
+        .filter((item) => item.sectionId === section.id)
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((item) => {
+          const answer = answerByItem.get(item.id);
+          return {
+            checklistItemId: item.id,
+            code: item.code,
+            question: item.question,
+            guidance: item.guidance,
+            responseType: item.responseType,
+            isRequired: item.isRequired,
+            sortOrder: item.sortOrder,
+            weight: item.weight,
+            answer: answer ? this.toChecklistAnswer(answer, maps) : null,
+          };
+        }),
+    }));
+
+    const summary = sectionPayload
+      .flatMap((section) => section.items)
+      .reduce<InspectionDetailChecklistSummaryResponse>((result, item) => {
+        result.total += 1;
+        const value = item.answer?.value ?? null;
+        if (value === null) {
+          result.unanswered += 1;
+          return result;
+        }
+        result.answered += 1;
+        if (value === InspectionAnswerValue.COMPLIANT) result.compliant += 1;
+        else if (value === InspectionAnswerValue.NOT_COMPLIANT) result.notCompliant += 1;
+        else if (value === InspectionAnswerValue.NOT_APPLICABLE) result.notApplicable += 1;
+        else if (value === InspectionAnswerValue.PARTIAL) result.partial += 1;
+        else if (value === InspectionAnswerValue.NOT_OBSERVED) result.notObserved += 1;
+        return result;
+      }, {
+        total: 0,
+        answered: 0,
+        compliant: 0,
+        notCompliant: 0,
+        notApplicable: 0,
+        partial: 0,
+        notObserved: 0,
+        unanswered: 0,
+      });
+
+    return { summary, sections: sectionPayload };
+  }
+
+  private toChecklistAnswer(
+    answer: InspectionItemResponseEntity,
+    maps: EntityNameMaps,
+  ): InspectionDetailChecklistAnswerResponse {
+    const answeredBy = answer.answeredByUserId ? maps.users.get(answer.answeredByUserId) : null;
+    return {
+      value: answer.answerValue,
+      text: answer.answerText,
+      numericValue: answer.numericValue,
+      notes: answer.notes,
+      answeredAt: this.toNullableIsoString(answer.answeredAt),
+      answeredByUserId: answer.answeredByUserId,
+      answeredByName: answeredBy ? this.userFullName(answeredBy) : null,
+    };
   }
 
   private async loadNameMaps(): Promise<EntityNameMaps> {
@@ -133,7 +269,10 @@ export class InspectionDetailService {
 
   private async loadEvidenceByFinding(findingIds: string[]): Promise<Map<string, EvidenceResponse[]>> {
     const entries = await Promise.all(
-      findingIds.map(async (findingId) => [findingId, await this.evidencesService.findAll('inspection_finding', findingId)] as const),
+      findingIds.map(async (findingId) => [
+        findingId,
+        await this.evidencesService.findAll('inspection_finding', findingId),
+      ] as const),
     );
     return new Map(entries);
   }
@@ -170,8 +309,12 @@ export class InspectionDetailService {
       status: finding.status,
       statusGroup,
       responsibleCompanyId: finding.responsibleCompanyId,
-      responsibleCompanyName: finding.responsibleCompanyId ? maps.companies.get(finding.responsibleCompanyId) ?? null : null,
-      responsibleUsers: responsibleIds.map((userId) => this.toResponsibleResponse(userId, maps, currentUserId)).filter((user): user is InspectionDetailResponsibleResponse => Boolean(user)),
+      responsibleCompanyName: finding.responsibleCompanyId
+        ? maps.companies.get(finding.responsibleCompanyId) ?? null
+        : null,
+      responsibleUsers: responsibleIds
+        .map((userId) => this.toResponsibleResponse(userId, maps, currentUserId))
+        .filter((user): user is InspectionDetailResponsibleResponse => Boolean(user)),
       dueAt: this.toNullableIsoString(finding.dueAt),
       executedAt: this.toNullableIsoString(finding.executedAt),
       closedAt: this.toNullableIsoString(finding.closedAt),
@@ -181,7 +324,10 @@ export class InspectionDetailService {
     };
   }
 
-  private toFollowupResponse(followup: InspectionFollowupEntity, maps: EntityNameMaps): InspectionDetailFollowupResponse {
+  private toFollowupResponse(
+    followup: InspectionFollowupEntity,
+    maps: EntityNameMaps,
+  ): InspectionDetailFollowupResponse {
     const user = followup.performedByUserId ? maps.users.get(followup.performedByUserId) : null;
     return {
       followupId: followup.id,
@@ -204,9 +350,13 @@ export class InspectionDetailService {
     findings: InspectionDetailFindingItemResponse[],
   ): InspectionDetailGeneralResponse {
     const inspector = inspection.inspectorId ? maps.users.get(inspection.inspectorId) : null;
-    const inspectorCompanyName = inspector?.companyId ? maps.companies.get(inspector.companyId) ?? null : null;
+    const inspectorCompanyName = inspector?.companyId
+      ? maps.companies.get(inspector.companyId) ?? null
+      : null;
     const responsibles = new Map<ID, InspectionDetailResponsibleResponse>();
-    findings.forEach((finding) => finding.responsibleUsers.forEach((responsible) => responsibles.set(responsible.userId, responsible)));
+    findings.forEach((finding) => finding.responsibleUsers.forEach((responsible) => {
+      responsibles.set(responsible.userId, responsible);
+    }));
     return {
       inspectorName: inspector ? this.userFullName(inspector) : null,
       inspectorCompanyName,
@@ -224,18 +374,28 @@ export class InspectionDetailService {
     };
   }
 
-  private groupFindings(items: InspectionDetailFindingItemResponse[]): Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]> {
-    return items.reduce<Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>>((groups, item) => {
-      groups[item.statusGroup].push(item);
-      return groups;
-    }, { executed: [], open: [], closed: [], rejected: [] });
+  private groupFindings(
+    items: InspectionDetailFindingItemResponse[],
+  ): Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]> {
+    return items.reduce<Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>>(
+      (groups, item) => {
+        groups[item.statusGroup].push(item);
+        return groups;
+      },
+      { executed: [], open: [], closed: [], rejected: [] },
+    );
   }
 
-  private countFindingGroups(items: InspectionDetailFindingItemResponse[]): Record<InspectionDetailFindingGroupKey, number> {
-    return items.reduce<Record<InspectionDetailFindingGroupKey, number>>((counts, item) => {
-      counts[item.statusGroup] += 1;
-      return counts;
-    }, { executed: 0, open: 0, closed: 0, rejected: 0 });
+  private countFindingGroups(
+    items: InspectionDetailFindingItemResponse[],
+  ): Record<InspectionDetailFindingGroupKey, number> {
+    return items.reduce<Record<InspectionDetailFindingGroupKey, number>>(
+      (counts, item) => {
+        counts[item.statusGroup] += 1;
+        return counts;
+      },
+      { executed: 0, open: 0, closed: 0, rejected: 0 },
+    );
   }
 
   private resolveStatusGroup(status: InspectionFindingStatus): InspectionDetailFindingGroupKey {
@@ -245,7 +405,10 @@ export class InspectionDetailService {
     return 'open';
   }
 
-  private resolveKind(type: InspectionTypeEntity | null, template: InspectionFormTemplateEntity | null): 'finding' | 'checklist' {
+  private resolveKind(
+    type: InspectionTypeEntity | null,
+    template: InspectionFormTemplateEntity | null,
+  ): 'finding' | 'checklist' {
     if (template) return 'checklist';
     if (type?.code === InspectionType.REGULATORY) return 'checklist';
     return 'finding';
@@ -263,7 +426,11 @@ export class InspectionDetailService {
     return area ?? sector ?? 'Sin ubicación';
   }
 
-  private toResponsibleResponse(userId: string, maps: EntityNameMaps, currentUserId: string | null): InspectionDetailResponsibleResponse | null {
+  private toResponsibleResponse(
+    userId: string,
+    maps: EntityNameMaps,
+    currentUserId: string | null,
+  ): InspectionDetailResponsibleResponse | null {
     const user = maps.users.get(userId);
     if (!user) return null;
     return {
@@ -276,12 +443,22 @@ export class InspectionDetailService {
     };
   }
 
-  private filterEvidence(evidences: EvidenceResponse[], relationType: InspectionEvidenceRelationType): InspectionDetailEvidenceResponse[] {
-    return evidences.filter((evidence) => evidence.links.some((link) => link.relationType === relationType)).map((evidence) => this.toDetailEvidence(evidence, relationType));
+  private filterEvidence(
+    evidences: EvidenceResponse[],
+    relationType: InspectionEvidenceRelationType,
+  ): InspectionDetailEvidenceResponse[] {
+    return evidences
+      .filter((evidence) => evidence.links.some((link) => link.relationType === relationType))
+      .map((evidence) => this.toDetailEvidence(evidence, relationType));
   }
 
-  private toDetailEvidence(evidence: EvidenceResponse, relationType?: InspectionEvidenceRelationType): InspectionDetailEvidenceResponse {
-    const link = relationType ? evidence.links.find((item) => item.relationType === relationType) : evidence.links[0];
+  private toDetailEvidence(
+    evidence: EvidenceResponse,
+    relationType?: InspectionEvidenceRelationType,
+  ): InspectionDetailEvidenceResponse {
+    const link = relationType
+      ? evidence.links.find((item) => item.relationType === relationType)
+      : evidence.links[0];
     return {
       evidenceId: evidence.id,
       fileId: evidence.fileId,

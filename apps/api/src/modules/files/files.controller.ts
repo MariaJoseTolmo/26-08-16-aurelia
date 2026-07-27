@@ -14,11 +14,16 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { FileResponse } from '@aurelia/contracts';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
-import { FilesService } from './files.service';
+import { FileStorageHealthResponse, FilesService } from './files.service';
 
 @Controller('files')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
+
+  @Get('health')
+  health(): Promise<FileStorageHealthResponse> {
+    return this.filesService.healthCheck();
+  }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
