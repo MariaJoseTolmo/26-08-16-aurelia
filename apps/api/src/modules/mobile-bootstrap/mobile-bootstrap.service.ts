@@ -89,7 +89,7 @@ export class MobileBootstrapService {
     });
 
     const companies = await this.filterAsync(catalogs.companies, (company) =>
-      this.resourceScope.canAccessInspection(user, { companyId: company.id }),
+      this.resourceScope.canAccessCompany(user, company.id),
     );
     const companyIds = new Set(companies.map((company) => company.id));
 
