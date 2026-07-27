@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "source": {
+    "file": "Planilla de inspecciones Medio Ambiente.xlsx",
+    "sheet": "CONSOLIDADO",
+    "totalRows": 2308
+  },
+  "areas": {
+    "createArchived": [
+      {
+        "sourceValue": "Construcción",
+        "code": "HIST-AREA-CONSTRUCCION",
+        "name": "Construcción",
+        "sourceRows": 647
+      },
+      {
+        "sourceValue": "Gestión activos",
+        "code": "HIST-AREA-GESTION-ACTIVOS",
+        "name": "Gestión activos",
+        "sourceRows": 18
+      },
+      {
+        "sourceValue": "Seguridad Patrimonial",
+        "code": "HIST-AREA-SEGURIDAD-PATRIMONIAL",
+        "name": "Seguridad Patrimonial",
+        "sourceRows": 16
+      },
+      {
+        "sourceValue": "Gerencia de Operaciones",
+        "code": "HIST-AREA-GERENCIA-OPERACIONES",
+        "name": "Gerencia de Operaciones",
+        "sourceRows": 11
+      },
+      {
+        "sourceValue": "HS",
+        "code": "HIST-AREA-HS",
+        "name": "HS",
+        "sourceRows": 11
+      },
+      {
+        "sourceValue": "IT",
+        "code": "HIST-AREA-IT",
+        "name": "IT",
+        "sourceRows": 9
+      },
+      {
+        "sourceValue": "Finanzas",
+        "code": "HIST-AREA-FINANZAS",
+        "name": "Finanzas",
+        "sourceRows": 1
+      }
+    ],
+    "defaults": {
+      "status": "archived",
+      "gerenciaId": null,
+      "description": "Área creada exclusivamente para restauración y consulta histórica de inspecciones"
+    }
+  },
+  "companies": {
+    "createArchived": [
+      { "sourceValue": "Servitram", "code": "HIST_SERVITRAM", "name": "Servitram", "sourceRows": 93 },
+      { "sourceValue": "RENTAMAQ", "code": "HIST_RENTAMAQ", "name": "RENTAMAQ", "sourceRows": 83, "variants": ["Rentamaq"] },
+      { "sourceValue": "Almar Water", "code": "HIST_ALMAR_WATER", "name": "Almar Water", "sourceRows": 76 },
+      { "sourceValue": "WESTFIRE", "code": "HIST_WESTFIRE", "name": "WESTFIRE", "sourceRows": 61 },
+      { "sourceValue": "ACP", "code": "HIST_ACP", "name": "ACP", "sourceRows": 61 },
+      { "sourceValue": "ALS", "code": "HIST_ALS", "name": "ALS", "sourceRows": 59 },
+      { "sourceValue": "EVH", "code": "HIST_EVH", "name": "EVH", "sourceRows": 44 },
+      { "sourceValue": "Hualpen", "code": "HIST_HUALPEN", "name": "Hualpen", "sourceRows": 26 },
+      { "sourceValue": "MyP", "code": "HIST_MYP", "name": "MyP", "sourceRows": 26, "variants": ["MYP"] },
+      { "sourceValue": "MKL", "code": "HIST_MKL", "name": "MKL", "sourceRows": 26 },
+      { "sourceValue": "TERRACORP", "code": "HIST_TERRACORP", "name": "TERRACORP", "sourceRows": 20 },
+      { "sourceValue": "Sodexo", "code": "HIST_SODEXO", "name": "Sodexo", "sourceRows": 17 },
+      { "sourceValue": "Mineral Drilling", "code": "HIST_MINERAL_DRILLING", "name": "Mineral Drilling", "sourceRows": 16 },
+      { "sourceValue": "Celsius Clima", "code": "HIST_CELSIUS_CLIMA", "name": "Celsius Clima", "sourceRows": 13, "variants": ["Celsius clima"] },
+      { "sourceValue": "KDM", "code": "HIST_KDM", "name": "KDM", "sourceRows": 13 },
+      { "sourceValue": "Rentaclima", "code": "HIST_RENTACLIMA", "name": "Rentaclima", "sourceRows": 12 },
+      { "sourceValue": "Wenco", "code": "HIST_WENCO", "name": "Wenco", "sourceRows": 11 },
+      { "sourceValue": "Andinor", "code": "HIST_ANDINOR", "name": "Andinor", "sourceRows": 7 },
+      { "sourceValue": "CEI Atacama", "code": "HIST_CEI_ATACAMA", "name": "CEI Atacama", "sourceRows": 7, "variants": ["CEI atacama"] },
+      { "sourceValue": "OMT", "code": "HIST_OMT", "name": "OMT", "sourceRows": 7 },
+      { "sourceValue": "Nortenergy", "code": "HIST_NORTENERGY", "name": "Nortenergy", "sourceRows": 7 },
+      { "sourceValue": "SQ Templo", "code": "HIST_SQ_TEMPLO", "name": "SQ Templo", "sourceRows": 7 },
+      { "sourceValue": "ADEXUS", "code": "HIST_ADEXUS", "name": "ADEXUS", "sourceRows": 2 },
+      { "sourceValue": "Andes Domo", "code": "HIST_ANDES_DOMO", "name": "Andes Domo", "sourceRows": 2 },
+      { "sourceValue": "SKF", "code": "HIST_SKF", "name": "SKF", "sourceRows": 2 },
+      { "sourceValue": "Protab", "code": "HIST_PROTAB", "name": "Protab", "sourceRows": 2 },
+      { "sourceValue": "PROCOMIT", "code": "HIST_PROCOMIT", "name": "PROCOMIT", "sourceRows": 2 },
+      { "sourceValue": "SRG", "code": "HIST_SRG", "name": "SRG", "sourceRows": 1 },
+      { "sourceValue": "EMP", "code": "HIST_EMP", "name": "EMP", "sourceRows": 1 },
+      { "sourceValue": "Johnson Controls", "code": "HIST_JOHNSON_CONTROLS", "name": "Johnson Controls", "sourceRows": 1 },
+      { "sourceValue": "Thermo Energía", "code": "HIST_THERMO_ENERGIA", "name": "Thermo Energía", "sourceRows": 1 },
+      { "sourceValue": "Brysa", "code": "HIST_BRYSA", "name": "Brysa", "sourceRows": 1 },
+      { "sourceValue": "Ceibo", "code": "HIST_CEIBO", "name": "Ceibo", "sourceRows": 1 },
+      { "sourceValue": "MER", "code": "HIST_MER", "name": "MER", "sourceRows": 1 }
+    ],
+    "manualReview": [
+      {
+        "sourceValue": "Hintek",
+        "sourceRows": 17,
+        "candidate": "HINTER",
+        "decisionRequired": "ALIAS_MATCH or CREATE_ARCHIVED"
+      },
+      {
+        "sourceValue": "Pucará",
+        "sourceRows": 1,
+        "candidate": "PUUCA",
+        "decisionRequired": "ALIAS_MATCH or CREATE_ARCHIVED"
+      }
+    ],
+    "defaults": {
+      "status": "archived",
+      "isContractor": true,
+      "companyType": null
+    }
+  },
+  "inspectors": {
+    "directMatches": [
+      {
+        "sourceValue": "Karen Opazo S.",
+        "userId": "d1e87725-1a0a-4006-8336-f8138ee7f29e",
+        "sourceRows": 848
+      }
+    ],
+    "keepTextOnly": [
+      { "sourceValue": "Janina Santander T.", "sourceRows": 664 },
+      { "sourceValue": "Francisco Báez A.", "sourceRows": 527 },
+      { "sourceValue": "Camila Zapata", "sourceRows": 62 },
+      { "sourceValue": "Javier Guzmán B.", "sourceRows": 52 },
+      { "sourceValue": "Patricio Acuña G.", "sourceRows": 43 },
+      { "sourceValue": "Marjorie Yañez P.", "sourceRows": 32 },
+      { "sourceValue": "Catalina Cortés M.", "sourceRows": 27 },
+      { "sourceValue": "Daniel Martínez Y.", "sourceRows": 25 },
+      { "sourceValue": "Aurora Hidalgo M.", "sourceRows": 19 },
+      { "sourceValue": "Daniel Martinez; Camila Zapata", "sourceRows": 6 },
+      { "sourceValue": "Marjorie Yañez/Catalina Cortés", "sourceRows": 2 },
+      { "sourceValue": "Diego Aguilera S.", "sourceRows": 1 }
+    ]
+  }
+}
