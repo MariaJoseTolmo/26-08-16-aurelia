@@ -1,0 +1,78 @@
+name: Fix mobile filter width
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .github/workflows/fix-mobile-filter-width.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Expand filter controls
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileInspectionFilterControls.tsx')
+          text = path.read_text()
+          text = text.replace("const CONTROL_MAX_WIDTH = 323;\n", "")
+          text = text.replace("    maxWidth: CONTROL_MAX_WIDTH,\n", "")
+          text = text.replace("    alignSelf: 'flex-start',\n", "    alignSelf: 'stretch',\n")
+          path.write_text(text)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileInspectionFilterControls.tsx
+          git commit -m "Corrige ancho de controles del modal de filtros mobile"
+
+      - name: Expand filter sheet content
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/mobile-inspecciones/src/modules/inspection/MobileInspectionFiltersSheet.tsx')
+          text = path.read_text()
+          text = text.replace("const CONTROL_MAX_WIDTH = 323;\n", "")
+          text = text.replace("    alignItems: 'center',\n    paddingHorizontal: 14,\n    paddingVertical: 16,", "    alignItems: 'stretch',\n    paddingHorizontal: 14,\n    paddingVertical: 16,")
+          text = text.replace("    maxWidth: CONTROL_MAX_WIDTH,\n", "")
+          path.write_text(text)
+          PY
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileInspectionFiltersSheet.tsx
+          git commit -m "Ajusta contenido del modal de filtros al ancho Figma"
+
+      - name: Validate mobile
+        run: |
+          pnpm --filter @aurelia/contracts build
+          pnpm --filter mobile-inspecciones typecheck
+          pnpm --filter mobile-inspecciones lint
+          pnpm --filter mobile-inspecciones test:smoke
+
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/fix-mobile-filter-width.yml
+          git commit -m "Retira workflow temporal de ancho de filtros"
+
+      - name: Push commits
+        run: git push origin HEAD:feature/inspecciones/carlo
