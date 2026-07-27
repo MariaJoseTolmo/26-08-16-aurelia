@@ -52,6 +52,18 @@ export class ResourceScopeService {
     return this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser });
   }
 
+  async canAccessArea(user: AccessTokenPayload, areaId: string | null | undefined): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.areaIds.size === 0) return true;
+    return Boolean(areaId && scope.areaIds.has(areaId));
+  }
+
+  async canAccessCompany(user: AccessTokenPayload, companyId: string | null | undefined): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.isPrincipalCompanyUser) return true;
+    return Boolean(companyId && scope.companyIds.has(companyId));
+  }
+
   async canReviewInspectionFindings(user: AccessTokenPayload): Promise<boolean> {
     const scope = await this.getUserScope(user);
     const hasReviewPermission = user.roles.includes('ADMIN') || user.permissions.includes('inspections:review');
