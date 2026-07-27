@@ -99,15 +99,31 @@ export function InspectionAssistantChatScreen() {
     setInspectorIdentity(user.fullName, inspectorCompanyName ?? user.companyName ?? 'Sin empresa');
 
     async function prepareChat() {
+      // La reparación no depende del backend: se ejecuta incluso cuando el
+      // dispositivo está offline o el endpoint de bootstrap no responde.
+      await repairBrokenInitialAreaSession();
+
       // Online refresca el bootstrap; offline utiliza el último catálogo local.
-      // Así la primera pregunta nunca depende de una llamada separada a áreas.
       const bootstrap = await getMobileBootstrapLocalFirst();
-      queryClient.setQueryData(['areas'], bootstrap.catalogs.areas);
-      queryClient.setQueryData(['inspection-types'], bootstrap.catalogs.inspectionTypes);
-      queryClient.setQueryData(['finding-types'], bootstrap.catalogs.findingTypes);
-      queryClient.setQueryData(['finding-severities'], bootstrap.catalogs.findingSeverities);
-      queryClient.setQueryData(['responsible-companies-checklist'], bootstrap.catalogs.companies);
-      queryClient.setQueryData(['responsible-companies-finding'], bootstrap.catalogs.companies);
+
+      // No se siembran listas vacías: en ese caso InspectionChatScreenV2 puede
+      // intentar su endpoint específico y mostrar su control de reintento.
+      if (bootstrap.catalogs.areas.length > 0) {
+        queryClient.setQueryData(['areas'], bootstrap.catalogs.areas);
+      }
+      if (bootstrap.catalogs.inspectionTypes.length > 0) {
+        queryClient.setQueryData(['inspection-types'], bootstrap.catalogs.inspectionTypes);
+      }
+      if (bootstrap.catalogs.findingTypes.length > 0) {
+        queryClient.setQueryData(['finding-types'], bootstrap.catalogs.findingTypes);
+      }
+      if (bootstrap.catalogs.findingSeverities.length > 0) {
+        queryClient.setQueryData(['finding-severities'], bootstrap.catalogs.findingSeverities);
+      }
+      if (bootstrap.catalogs.companies.length > 0) {
+        queryClient.setQueryData(['responsible-companies-checklist'], bootstrap.catalogs.companies);
+        queryClient.setQueryData(['responsible-companies-finding'], bootstrap.catalogs.companies);
+      }
 
       bootstrap.catalogs.areas.forEach((area) => {
         const sectors = bootstrap.catalogs.sectors.filter((sector) => (
@@ -116,7 +132,6 @@ export function InspectionAssistantChatScreen() {
         if (sectors.length > 0) queryClient.setQueryData(['sectors', area.id], sectors);
       });
 
-      await repairBrokenInitialAreaSession();
       if (active) setChatReady(true);
     }
 
