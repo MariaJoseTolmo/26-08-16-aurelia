@@ -6,8 +6,10 @@ import { UserEntity } from '../users/entities/user.entity';
 import { InspectionLegacyImportEntity } from './entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from './entities/inspection-legacy-milestone.entity';
 import { InspectionLegacyNormalizerService } from './inspection-legacy-normalizer.service';
+import { InspectionLegacyReconciliationService } from './inspection-legacy-reconciliation.service';
 import { InspectionLegacyResolverService } from './inspection-legacy-resolver.service';
 import { InspectionLegacySourceManifestService } from './inspection-legacy-source-manifest.service';
+import { InspectionLegacyValidatorService } from './inspection-legacy-validator.service';
 
 @Module({
   imports: [
@@ -21,14 +23,18 @@ import { InspectionLegacySourceManifestService } from './inspection-legacy-sourc
   ],
   providers: [
     InspectionLegacyNormalizerService,
+    InspectionLegacyReconciliationService,
     InspectionLegacyResolverService,
     InspectionLegacySourceManifestService,
+    InspectionLegacyValidatorService,
   ],
   exports: [
     TypeOrmModule,
     InspectionLegacyNormalizerService,
+    InspectionLegacyReconciliationService,
     InspectionLegacyResolverService,
     InspectionLegacySourceManifestService,
+    InspectionLegacyValidatorService,
   ],
 })
 export class InspectionLegacyImportModule {}
