@@ -14,7 +14,12 @@ export class InspectionLegacyValidatorService {
 
   validate(row: ResolvedLegacyInspection): ValidatedLegacyInspection {
     const validationMessages: string[] = [];
-    const resolutions = [row.area, row.company, row.inspector];
+    const resolutions = this.uniqueResolutions([
+      row.area,
+      row.company,
+      ...row.sectors,
+      ...row.inspectors,
+    ]);
 
     if (row.alreadyImportedInspectionId) {
       validationMessages.push(`Registro ya importado en inspección ${row.alreadyImportedInspectionId}`);
@@ -54,10 +59,10 @@ export class InspectionLegacyValidatorService {
       };
     }
 
-    const catalogActions = resolutions.filter((resolution) => resolution.status === 'CREATE_ARCHIVED');
+    const catalogActions = resolutions.filter((resolution) => resolution.status === 'CREATE_ACTIVE');
     if (catalogActions.length > 0) {
       validationMessages.push(...catalogActions.map((resolution) => (
-        `${resolution.sourceValue ?? 'Valor vacío'} requiere crear catálogo archivado ${resolution.proposedCode ?? ''}`.trim()
+        `${resolution.sourceValue ?? 'Valor vacío'} requiere crear catálogo activo ${resolution.proposedCode ?? resolution.proposedEmail ?? ''}`.trim()
       )));
     }
 
@@ -74,6 +79,22 @@ export class InspectionLegacyValidatorService {
       finalDisposition,
       validationMessages,
     };
+  }
+
+  private uniqueResolutions(resolutions: LegacyCatalogResolution[]): LegacyCatalogResolution[] {
+    const seen = new Set<string>();
+    return resolutions.filter((resolution) => {
+      const key = [
+        resolution.status,
+        resolution.sourceValue ?? '',
+        resolution.entityId ?? '',
+        resolution.proposedCode ?? '',
+        resolution.proposedEmail ?? '',
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   private messageFor(resolution: LegacyCatalogResolution): string {
