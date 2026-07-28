@@ -1,170 +1,266 @@
-# Roadmap de restauración histórica de inspecciones
+# Roadmap de restauración de inspecciones históricas — versión 2
 
-**Fecha:** 2026-07-27  
-**Estado:** diagnóstico cerrado; pendiente implementación por fases  
+**Fecha inicial:** 2026-07-27  
+**Última decisión funcional:** 2026-07-28  
+**Estado:** implementación en curso  
 **Fuente:** `Planilla de inspecciones Medio Ambiente.xlsx`, hoja `CONSOLIDADO`  
-**Volumen identificado:** 2.308 inspecciones históricas  
-**Periodo:** 2023 al 19-02-2026
+**Volumen:** 2.308 inspecciones, periodo 2023 al 19-02-2026
 
-## 1. Objetivo
+## 1. Decisión funcional autoritativa
 
-Restaurar en Aurelia las inspecciones de Medio Ambiente realizadas antes de la existencia del módulo actual, de modo que queden disponibles como información histórica consultable, filtrable y auditable.
+La marca **legacy** aplica únicamente a las inspecciones provenientes del Excel.
 
-La restauración debe conservar la información real disponible en el Excel sin inventar entidades operacionales que nunca existieron en Aurelia.
+Los valores organizacionales y de identidad presentes en la fuente se incorporarán como **datos maestros actuales, activos y utilizables**:
 
-## 2. Decisión arquitectónica principal
+- áreas;
+- sectores;
+- empresas;
+- inspectores/usuarios;
+- relaciones entre esas entidades.
 
-La importación se realizará como **histórico resumido**.
+No se asumirá que un valor es obsoleto por no existir en los seeds anteriores. Los seeds iniciales fueron construidos para desarrollo y pruebas y no constituyen un maestro empresarial completo.
+
+## 2. Objetivo
+
+Restaurar en Aurelia las inspecciones ambientales realizadas antes de la existencia del módulo actual, manteniendo:
+
+- consulta y filtros históricos;
+- estado final abierto/cerrado;
+- total de observaciones;
+- avance agregado de cierre;
+- autoría;
+- área, empresa y sectores;
+- trazabilidad hasta archivo, hoja y fila;
+- idempotencia y capacidad de conciliación.
+
+La restauración no debe inventar información que el Excel no contiene.
+
+## 3. Modelo de restauración
 
 Cada fila válida de `CONSOLIDADO` producirá:
 
-1. Una fila en `inspections`.
-2. Una fila de trazabilidad en `inspection_legacy_imports`.
-3. Cero a tres hitos agregados en `inspection_legacy_milestones`.
-4. Una entrada inicial en `inspection_status_history`.
+1. una fila en `inspections`;
+2. una fila en `inspection_legacy_imports`;
+3. cero a tres hitos agregados en `inspection_legacy_milestones`;
+4. una o más relaciones en `inspection_legacy_participants`;
+5. cero o más relaciones en `inspection_legacy_sector_links`;
+6. una entrada inicial en `inspection_status_history`.
 
-No se crearán artificialmente:
+No se reconstruirán artificialmente:
 
-- hallazgos en `inspection_findings`;
-- respuestas de checklist en `inspection_checklist_answers`;
-- seguimientos por observación en `inspection_followups`;
-- evidencias fotográficas;
-- usuarios ficticios con capacidad de autenticación;
-- respuestas a templates actuales.
+- hallazgos individuales en `inspection_findings`;
+- respuestas de checklist;
+- seguimientos asociados a una observación específica;
+- comentarios;
+- fotografías;
+- archivos o evidencias;
+- responsables por hallazgo;
+- aprobaciones, rechazos o disputas no documentadas;
+- contenido por ítem de checklist.
 
-Esta decisión está respaldada por el modelo real:
+## 4. Catálogo maestro actual
 
-- `inspection_followups` exige `finding_id` y una secuencia entre 1 y 3;
-- `inspection_checklist_answers` exige `checklist_item_id`;
-- no existen triggers que recalculen los contadores de `inspections`;
-- ya existen inspecciones actuales cuyos contadores declarados no coinciden con la cantidad física de hallazgos;
-- `findings_count` y `open_findings_count` pueden representar información histórica agregada.
+La fuente maestra versionada es:
 
-## 3. Alcance
+```text
+apps/api/src/modules/inspection-legacy-import/config/inspection-master-data.json
+```
 
-### 3.1 Incluido
+Contiene:
 
-- Inspecciones de la hoja `CONSOLIDADO`.
-- Áreas, empresas e inspectores históricos.
-- Estado final abierto o cerrado.
-- Total de observaciones.
-- Observaciones pendientes al último hito válido.
-- Seguimientos S1, S2 y S3 como hitos agregados.
-- Texto original de área, sector, empresa, inspector y detalle.
-- Trazabilidad completa hasta archivo, hoja y fila fuente.
-- Importación idempotente.
-- Dry-run y conciliación antes de insertar.
-- Visualización de registros históricos en Gestión/Historial en modo de solo lectura.
+- 14 áreas activas;
+- 78 sectores activos relacionados con su área;
+- 76 empresas activas;
+- 11 inspectores activos y seleccionables;
+- 2 grupos explícitos de autoría múltiple.
 
-### 3.2 Fuera de alcance
+### 4.1 Áreas
 
-- Reconstrucción de hallazgos individuales.
-- Reconstrucción de respuestas por ítem de checklist.
-- Carga de fotografías o archivos no contenidos en la fuente.
-- Generación de responsables por hallazgo.
-- Reapertura, reasignación, aprobación, rechazo o ejecución de registros históricos.
-- Prórrogas, disputas y vencimientos escalonados.
-- Conversión de inspectores históricos en usuarios autenticables.
-- Asignación artificial de sectores operacionales actuales a macrozonas históricas.
+Las áreas de la fuente se consideran actuales:
 
-## 4. Evidencia confirmada en la base de datos
+- Construcción;
+- Servicios Generales;
+- Planta Procesos;
+- Sustaining;
+- Mina;
+- Exploraciones;
+- Medio Ambiente;
+- Mantención;
+- Gestión activos;
+- Seguridad Patrimonial;
+- Gerencia de Operaciones;
+- HS;
+- IT;
+- Finanzas.
 
-### 4.1 Catálogos organizacionales
+Variantes como `Planta procesos`, `Planta de procesos` y `Planta de proceso` se normalizan a `Planta Procesos`.
 
-Existen:
+Todas se cargan con:
 
-- `business_units`;
-- `gerencias`;
-- `areas`;
-- `sectors`;
-- `locations`.
+```text
+status = active
+```
 
-`areas.gerencia_id` admite `NULL`. Las áreas actuales informadas no tienen gerencia asociada, por lo que las áreas históricas pueden crearse inicialmente sin gerencia.
+No se utiliza prefijo `HIST-` ni estado `archived`.
 
-No existen sectores sin área y `locations` no contiene registros útiles para esta restauración.
+### 4.2 Sectores
 
-### 4.2 Estados
+Los sectores se crean como maestros actuales dentro de su área.
 
-Estados de inspección disponibles:
+Una misma denominación puede existir en áreas diferentes, por ejemplo:
 
-- `draft`;
-- `scheduled`;
-- `in_progress`;
-- `submitted`;
-- `under_review`;
-- `returned`;
-- `closed`;
-- `cancelled`.
+- Campamento;
+- Planta Procesos;
+- Plataformas EECC;
+- Planta Filtro;
+- Suministro Hídrico.
 
-Mapeo histórico recomendado:
+Cada relación Área + Sector recibe un código estable independiente.
+
+Cuando una inspección contiene más de un sector separado por coma:
+
+- el primero se registra como `inspections.sector_id` para compatibilidad;
+- todos se registran en `inspection_legacy_sector_links` respetando el orden fuente;
+- el texto original completo se conserva en `legacy_sector_name`.
+
+El campo `Detalle` no se convertirá automáticamente en `locations`, porque contiene una mezcla de equipos, instalaciones, puntos y descripciones libres. Se conservará como texto original hasta realizar un levantamiento específico de ubicaciones.
+
+### 4.3 Empresas
+
+Las empresas de la fuente se consideran actuales y activas.
+
+Reglas:
+
+- `Gold Fields` usa código `CORP` y `is_contractor = false`;
+- las demás empresas del Excel se cargan con `is_contractor = true`;
+- sólo se agrupan variantes explícitas de escritura de una misma empresa;
+- no se ejecutan merges difusos por similitud.
+
+Por lo tanto, nombres como los siguientes se conservan como empresas distintas mientras no exista una decisión empresarial que indique lo contrario:
+
+- Hintek / HINTER;
+- Pucará / PUUCA;
+- Develp / DEVLE;
+- Eco Minera / ECO MINING;
+- Hidromotions / HIDROMOTORES;
+- Geomafe / GEOMAV;
+- TREBA / TREBIA.
+
+Esto evita perder trazabilidad o fusionar proveedores diferentes basándose sólo en similitud ortográfica.
+
+### 4.4 Usuarios e inspectores
+
+Los inspectores del Excel se crean como usuarios actuales, activos y seleccionables.
+
+Inspectores individuales:
+
+- Karen Opazo;
+- Janina Santander;
+- Francisco Báez;
+- Camila Zapata;
+- Javier Guzmán;
+- Patricio Acuña;
+- Marjorie Yañez;
+- Catalina Cortés;
+- Daniel Martínez;
+- Aurora Hidalgo;
+- Diego Aguilera.
+
+Todos se vinculan inicialmente a:
+
+```text
+company = CORP
+role = INSPECTOR
+is_active = true
+```
+
+Karen conserva su correo confirmado existente.
+
+Para personas cuyo correo corporativo no está contenido en el Excel se usa temporalmente un identificador técnico:
+
+```text
+<nombre>@pending-directory.aurelia.local
+```
+
+Estos usuarios:
+
+- tienen registro activo y pueden ser seleccionados/asignados;
+- no reciben contraseña;
+- no pueden autenticarse hasta confirmar el correo corporativo real;
+- deben ser actualizados posteriormente contra el directorio corporativo sin crear una segunda identidad.
+
+Autorías múltiples confirmadas:
+
+```text
+Daniel Martinez; Camila Zapata
+Marjorie Yañez/Catalina Cortés
+```
+
+En estos casos:
+
+- el primer usuario se conserva como `inspector_user_id` principal;
+- todos se registran en `inspection_legacy_participants`;
+- el texto original se mantiene en `legacy_inspector_name`.
+
+## 5. Inspecciones legacy
+
+### 5.1 Identificación
+
+Cada inspección se identifica idempotentemente mediante:
+
+```text
+source_system + legacy_year + legacy_number
+```
+
+La fuente declarada es:
+
+```text
+legacy_environmental_inspections_spreadsheet
+```
+
+### 5.2 Tipo y modo
+
+Todas las inspecciones usan el tipo activo:
+
+```text
+environmental
+```
+
+La fuente contiene:
+
+- 1.997 Hallazgos;
+- 311 Checklist.
+
+Los registros históricos no se vinculan al template actual `TPL-ENV-GENERAL-001`, porque no existen respuestas por ítem y el Excel agrupa múltiples checklists distintos.
+
+Regla:
+
+```text
+inspection_type_id = environmental
+template_id = NULL
+legacy_mode = finding | checklist
+```
+
+La API y los frontends deben dar precedencia a `legacy_mode` para el badge histórico.
+
+### 5.3 Estado
+
+Mapeo:
 
 | Excel | Aurelia |
 |---|---|
 | Abierto | `in_progress` |
 | Cerrado | `closed` |
 
-### 4.3 Tipos y templates
+No se reconstruyen estados intermedios inexistentes.
 
-Todos los registros actuales de Hallazgo y Checklist usan:
-
-- `inspection_type_id`: `environmental`;
-- nombre: `Inspección ambiental`.
-
-La distinción operacional actual es:
-
-- Hallazgo: `template_id IS NULL`;
-- Checklist: `template_id IS NOT NULL`.
-
-Sólo existe el template:
-
-- `TPL-ENV-GENERAL-001`;
-- `Checklist ambiental general`;
-- versión 1;
-- tres ítems.
-
-Los checklist históricos no deben vincularse automáticamente a este template porque el Excel no contiene respuestas a sus ítems y los checklist históricos corresponden a múltiples materias distintas.
-
-Por lo tanto:
-
-- todos los históricos usarán `inspection_type_id = environmental`;
-- todos usarán `template_id = NULL`;
-- `legacy_mode` indicará `finding` o `checklist`;
-- frontend y API usarán `legacy_mode` para mostrar el badge histórico correcto.
-
-## 5. Volumen y consistencia de la fuente
-
-La hoja `CONSOLIDADO` contiene 2.308 claves únicas por:
-
-```text
-AÑO + Nº
-```
-
-Totales conciliados:
-
-- 18.214 observaciones totales;
-- 18.051 observaciones cerradas;
-- 163 observaciones pendientes.
-
-La base no contiene inspecciones entre 2023-01-01 y 2026-02-19, por lo que no existe solapamiento temporal conocido con los registros a restaurar.
-
-## 6. Interpretación de seguimientos
-
-Las columnas de observaciones cerradas de S1, S2 y S3 son **incrementales**, no acumuladas.
-
-Ejemplo:
-
-```text
-Inspección inicial: 1 cerrada
-S1:                 3 cerradas adicionales
-S2:                 2 cerradas adicionales
-Total cerrado:      6
-```
-
-Reglas:
+### 5.4 Contadores
 
 ```text
 findings_count = Nº Observaciones
 ```
+
+Las observaciones cerradas de S1, S2 y S3 son incrementales:
 
 ```text
 closed_final =
@@ -176,372 +272,186 @@ closed_final =
 
 ```text
 open_findings_count =
-  pendientes del último seguimiento con fecha real;
-  si no existe seguimiento con fecha, pendientes de la inspección inicial
+  pendientes del último seguimiento con fecha válida;
+  si no existe seguimiento, pendientes de la inspección inicial
 ```
 
-No se considerará válido un valor calculado en S1/S2/S3 cuando:
+Totales esperados:
 
-- la fecha del seguimiento esté vacía;
-- la fecha sea una fórmula residual sin hito real;
-- la fecha sea anterior a la inspección sin justificación;
-- la fecha no respete la secuencia cronológica.
+- 18.214 observaciones;
+- 18.051 cerradas;
+- 163 pendientes.
 
-Los valores descartados se conservarán en `raw_payload` y generarán una advertencia.
+### 5.5 Seguimientos
 
-## 7. Modelo de datos propuesto
+Los hitos S1–S3 representan progreso agregado, no la identidad de las observaciones cerradas.
 
-### 7.1 Tabla `inspection_legacy_imports`
+Se guardan en `inspection_legacy_milestones`:
 
-```sql
-CREATE TABLE inspection_legacy_imports (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+- secuencia;
+- fecha;
+- cantidad cerrada adicional;
+- cantidad pendiente posterior;
+- porcentajes;
+- payload fuente.
 
-  inspection_id uuid NOT NULL UNIQUE
-    REFERENCES inspections(id) ON DELETE CASCADE,
+En la interfaz se mostrarán como:
 
-  source_system varchar(100) NOT NULL,
-  source_file_name varchar(255) NOT NULL,
-  source_sheet varchar(100) NOT NULL,
-  source_row integer NOT NULL,
+- Inspección inicial;
+- Seguimiento 1;
+- Seguimiento 2;
+- Seguimiento 3;
+- observaciones cerradas y pendientes con porcentaje.
 
-  legacy_year integer NOT NULL,
-  legacy_number integer NOT NULL,
+No se afirmará cuál observación específica fue cerrada.
 
-  legacy_mode varchar(30) NOT NULL,
-  legacy_inspector_name varchar(255),
-  legacy_area_name varchar(255),
-  legacy_company_name varchar(255),
-  legacy_sector_name text,
-  legacy_detail text,
+## 6. Tablas de trazabilidad
 
-  raw_payload jsonb NOT NULL,
-  import_warnings jsonb,
+### 6.1 `inspection_legacy_imports`
 
-  imported_at timestamptz NOT NULL DEFAULT now(),
+Conserva:
 
-  CONSTRAINT chk_inspection_legacy_mode
-    CHECK (legacy_mode IN ('finding', 'checklist')),
+- inspección destino;
+- archivo, hoja y fila;
+- año y número históricos;
+- modo Hallazgo/Checklist;
+- textos originales;
+- payload completo;
+- advertencias de importación;
+- fecha de importación.
 
-  CONSTRAINT uq_inspection_legacy_source
-    UNIQUE (source_system, legacy_year, legacy_number)
-);
-```
+### 6.2 `inspection_legacy_milestones`
 
-Índices recomendados:
+Conserva S1–S3 agregados sin falsear `inspection_followups`, que exige un hallazgo individual.
 
-```sql
-CREATE INDEX idx_inspection_legacy_year_number
-  ON inspection_legacy_imports (legacy_year, legacy_number);
+### 6.3 `inspection_legacy_participants`
 
-CREATE INDEX idx_inspection_legacy_mode
-  ON inspection_legacy_imports (legacy_mode);
+Conserva todos los inspectores de la fuente:
 
-CREATE INDEX idx_inspection_legacy_inspector_name
-  ON inspection_legacy_imports (lower(legacy_inspector_name));
+- UUID de usuario;
+- nombre fuente;
+- orden;
+- indicador principal.
 
-CREATE INDEX idx_inspection_legacy_company_name
-  ON inspection_legacy_imports (lower(legacy_company_name));
+### 6.4 `inspection_legacy_sector_links`
 
-CREATE INDEX idx_inspection_legacy_area_name
-  ON inspection_legacy_imports (lower(legacy_area_name));
-```
+Conserva todos los sectores de una inspección:
 
-### 7.2 Tabla `inspection_legacy_milestones`
+- UUID del sector;
+- nombre fuente;
+- orden;
+- indicador principal.
 
-```sql
-CREATE TABLE inspection_legacy_milestones (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+## 7. Seed de maestros
 
-  legacy_import_id uuid NOT NULL
-    REFERENCES inspection_legacy_imports(id) ON DELETE CASCADE,
-
-  sequence_number integer NOT NULL,
-  occurred_at date NOT NULL,
-
-  closed_increment integer NOT NULL DEFAULT 0,
-  pending_after integer NOT NULL DEFAULT 0,
-
-  closed_percentage numeric(5,2),
-  pending_percentage numeric(5,2),
-
-  raw_payload jsonb,
-
-  CONSTRAINT chk_legacy_milestone_sequence
-    CHECK (sequence_number BETWEEN 1 AND 3),
-
-  CONSTRAINT chk_legacy_milestone_counts
-    CHECK (closed_increment >= 0 AND pending_after >= 0),
-
-  CONSTRAINT uq_legacy_milestone_sequence
-    UNIQUE (legacy_import_id, sequence_number)
-);
-```
-
-### 7.3 No modificar `inspection_followups`
-
-Los hitos históricos no deben insertarse en `inspection_followups` porque:
-
-- esa tabla representa seguimiento de un hallazgo individual;
-- exige `finding_id`;
-- crear un hallazgo por contador falsearía la semántica del dato.
-
-## 8. Mapeo a `inspections`
-
-| Campo destino | Regla |
-|---|---|
-| `inspection_type_id` | UUID de `environmental`: `fb8d8d6c-7e7c-4eba-9e12-2fe809e6ef5f` |
-| `template_id` | `NULL` para todos los históricos |
-| `company_id` | Coincidencia directa, alias aprobado o empresa histórica archivada |
-| `area_id` | Coincidencia directa, alias aprobado o área histórica archivada |
-| `sector_id` | `NULL` |
-| `location_id` | `NULL` |
-| `inspector_user_id` | Karen Opazo cuando corresponda; resto `NULL` |
-| `title` | Descripción/tipo histórico + área + fecha |
-| `description` | Resumen breve del origen histórico |
-| `status` | `closed` o `in_progress` |
-| `started_at` | Fecha de inspección del Excel |
-| `completed_at` | Fecha de inspección para registros válidos |
-| `closed_at` | Primer hito real en que pendientes llega a cero; si no existe hito, fecha de inspección cuando ya figura cerrado |
-| `findings_count` | Nº Observaciones |
-| `open_findings_count` | Pendientes del último hito válido |
-| `score` | `NULL` |
-| `notes` | Marcador legible de restauración histórica |
-| `created_at` | Fecha de importación, no fecha histórica |
-| `updated_at` | Fecha de importación |
-
-`raw_payload` conservará todos los valores originales, incluidas celdas no mapeadas.
-
-## 9. Historial de estado
-
-Cada inspección importada tendrá una fila en `inspection_status_history`:
+Seed principal:
 
 ```text
-from_status = NULL
-to_status   = closed | in_progress
-reason      = historical inspection restoration
-metadata    = {
-  sourceSystem,
-  sourceFile,
-  sourceSheet,
-  sourceRow,
-  legacyYear,
-  legacyNumber
-}
+apps/api/src/database/seeds/009-seed-inspections-master-data.ts
 ```
 
-La implementación debe respetar el patrón actual de la tabla, donde la creación usa `from_status = NULL`.
-
-No se reconstruirán transiciones intermedias inexistentes.
-
-## 10. Homologación de áreas
-
-### 10.1 Coincidencias directas o normalizadas
-
-| Excel | Base |
-|---|---|
-| Exploraciones | Exploraciones |
-| Mantención | Mantención |
-| Medio Ambiente | Medio Ambiente |
-| Mina | Mina |
-| Planta Procesos | Planta Procesos |
-| Planta procesos | Planta Procesos |
-| Planta de procesos | Planta Procesos |
-| Planta de proceso | Planta Procesos |
-| Servicios Generales | Servicios Generales |
-| Sustaining | Sustaining |
-
-Cobertura estimada: 1.595 inspecciones.
-
-### 10.2 Áreas históricas faltantes
-
-| Área histórica | Registros |
-|---|---:|
-| Construcción | 647 |
-| Gestión activos | 18 |
-| Seguridad Patrimonial | 16 |
-| Gerencia de Operaciones | 11 |
-| HS | 11 |
-| IT | 9 |
-| Finanzas | 1 |
-
-Total: 713 inspecciones.
-
-Decisión:
-
-- crear estas áreas como `archived`;
-- `gerencia_id = NULL`;
-- código determinístico prefijado, por ejemplo `HIST-AREA-CONSTRUCCION`;
-- no mostrarlas en creación de nuevas inspecciones;
-- sí permitirlas en filtros e informes históricos.
-
-## 11. Homologación de empresas
-
-### 11.1 Cobertura
-
-- 1.425 filas con coincidencia directa o por mayúsculas;
-- 156 filas con alias altamente probable;
-- 727 filas asociadas a empresas ausentes o pendientes de revisión.
-
-### 11.2 Alias aprobables técnicamente
-
-| Valor Excel | Empresa existente |
-|---|---|
-| Copec-CSI | COPEC |
-| CSI-Copec | COPEC |
-| Scaf logística | SCAF |
-| RS Ingeniería | RS ING |
-| Develp | DEVLE |
-| Eco Minera | ECO MINING |
-| Hidromotions | HIDROMOTORES |
-| Geomafe | GEOMAV |
-| TREBA | TREBIA |
-
-Estos alias deben declararse en un archivo de configuración versionado, no resolverse por similitud durante la importación.
-
-### 11.3 Equivalencias que requieren aprobación del cliente
+Comando:
 
 ```text
-Hintek  → HINTER
-Pucará  → PUUCA
+pnpm --filter api seed:inspections-master
 ```
 
-### 11.4 Empresas históricas faltantes
+El seed es idempotente y:
 
-Las empresas sin equivalencia segura deben crearse como catálogo histórico:
+- activa/actualiza las 14 áreas;
+- activa/actualiza los 78 sectores;
+- activa/actualiza las 76 empresas;
+- corrige Gold Fields como empresa no contratista;
+- crea/actualiza los 11 inspectores;
+- asigna rol INSPECTOR y empresa CORP;
+- conserva contraseñas existentes;
+- no asigna contraseña a identidades pendientes de directorio.
+
+Separación de comandos:
 
 ```text
-status = archived
-is_contractor = true
+pnpm --filter api seed
 ```
 
-El esquema actual no expuso un `company_type` obligatorio. Si existe en la entidad, debe usarse un valor soportado; no introducir `'historical'` sin verificar el contrato real.
-
-Código recomendado:
+Carga infraestructura, clasificaciones y maestros reales.
 
 ```text
-HIST_SERVITRAM
-HIST_RENTAMAQ
-HIST_ALMAR_WATER
+pnpm --filter api seed:demo
 ```
 
-La matriz final debe incluir las 36 empresas históricas detectadas, entre ellas:
+Agrega escenarios demo opcionales para desarrollo.
 
-- Servitram;
-- RENTAMAQ;
-- Almar Water;
-- WESTFIRE;
-- ACP;
-- ALS;
-- EVH;
-- Hualpen;
-- MKL;
-- MyP;
-- TERRACORP;
-- Sodexo;
-- Mineral Drilling;
-- KDM;
-- Rentaclima;
-- Wenco;
-- Andinor;
-- CEI Atacama;
-- OMT;
-- Nortenergy;
-- SQ Templo.
+El seed antiguo de responsables queda como alias de compatibilidad hacia el seed maestro real.
 
-### 11.5 Corrección de Gold Fields
+## 8. Dry-run
 
-El registro actual de Gold Fields aparece con `is_contractor = true`.
+El dry-run debe ejecutarse después de migraciones y seed maestro.
 
-Debe corregirse mediante migración revisada:
-
-```sql
-UPDATE companies
-SET is_contractor = false
-WHERE id = '3252bece-a2df-4471-a270-da9ca8decd9d';
-```
-
-No ejecutar manualmente fuera de la migración.
-
-## 12. Inspectores históricos
-
-Coincidencia directa confirmada:
+Clasificaciones permitidas:
 
 ```text
-Karen Opazo S. → Karen Opazo
-user_id: d1e87725-1a0a-4006-8336-f8138ee7f29e
-848 inspecciones
+READY
+WARNING
+QUARANTINE
+BLOCKED
+ALREADY_IMPORTED
 ```
 
-El resto de los nombres no existe como usuario actual y se conservará en `legacy_inspector_name` con `inspector_user_id = NULL`.
-
-No crear cuentas ficticias.
-
-Inspectores principales pendientes de usuario:
-
-| Nombre histórico | Registros |
-|---|---:|
-| Janina Santander T. | 664 |
-| Francisco Báez A. | 527 |
-| Camila Zapata | 62 |
-| Javier Guzmán B. | 52 |
-| Patricio Acuña G. | 43 |
-| Marjorie Yañez P. | 32 |
-| Catalina Cortés M. | 27 |
-| Daniel Martínez Y. | 25 |
-| Aurora Hidalgo M. | 19 |
-| Diego Aguilera S. | 1 |
-
-La autoría múltiple se conservará literalmente:
+Resoluciones de catálogo:
 
 ```text
-Daniel Martinez; Camila Zapata
-Marjorie Yañez/Catalina Cortés
+DIRECT_MATCH
+ALIAS_MATCH
+CREATE_ACTIVE
+KEEP_TEXT_ONLY
+MANUAL_REVIEW
+BLOCKED
 ```
 
-## 13. Sectores y ubicaciones
+Después de ejecutar el seed maestro, una segunda resolución debe convertir todos los `CREATE_ACTIVE` válidos en `DIRECT_MATCH` o `ALIAS_MATCH` con UUID real.
 
-No se realizará mapeo automático a `sectors` ni `locations`.
-
-Razones:
-
-- el Excel contiene macrozonas y agrupaciones físicas;
-- una misma denominación aparece asociada a varias áreas;
-- algunos registros contienen múltiples sectores separados por comas;
-- los sectores actuales son entidades operacionales específicas;
-- `locations` no contiene catálogo que permita homologación segura.
-
-Regla:
+Artefactos:
 
 ```text
-sector_id = NULL
-location_id = NULL
-legacy_sector_name = valor original
-legacy_detail = valor original
+legacy-inspections-dry-run-summary.json
+legacy-inspections-ready.csv
+legacy-inspections-warnings.csv
+legacy-inspections-quarantine.csv
+legacy-inspections-blocked.csv
+legacy-inspections-already-imported.csv
+legacy-inspections-catalog-actions.csv
+legacy-inspections-reconciliation.json
 ```
 
-Los filtros históricos deberán considerar `legacy_sector_name`.
+## 9. Apply
 
-## 14. Hallazgo versus Checklist histórico
+El servicio `InspectionLegacyApplyService` aplica el lote en una única transacción.
 
-Distribución:
+Precondiciones:
 
-- 1.997 Hallazgo;
-- 311 Checklist.
+- archivo validado contra SHA-256 congelado;
+- maestros cargados;
+- área y empresa con UUID;
+- todos los sectores informados con UUID;
+- todos los inspectores informados con UUID;
+- ninguna fila `BLOCKED` o `QUARANTINE`;
+- conciliación aprobada.
 
-Regla:
+Por fila:
 
-```text
-legacy_mode = finding | checklist
-inspection_type_id = environmental
-template_id = NULL
-```
+1. verifica idempotencia;
+2. crea `inspections`;
+3. crea `inspection_legacy_imports`;
+4. crea hitos S1–S3;
+5. crea participantes;
+6. crea relaciones de sector;
+7. crea historial de estado.
 
-El frontend no debe inferir que un histórico con `template_id = NULL` siempre es Hallazgo. Cuando exista `inspection_legacy_imports`, `legacy_mode` tiene precedencia para el badge.
+Si una operación falla, se revierte todo el lote.
 
-## 15. Cuarentena y excepciones
+## 10. Cuarentena conocida
 
-### 15.1 Registro sin total de observaciones
+Registro con total ausente:
 
 ```text
 Año: 2026
@@ -552,11 +462,9 @@ Estado: Abierto
 Nº Observaciones: vacío
 ```
 
-Decisión inicial: cuarentena. No importar hasta confirmar el total o aprobar explícitamente `0`.
+Debe permanecer en cuarentena hasta confirmar el total o aprobar explícitamente cero.
 
-### 15.2 Anomalías cronológicas
-
-Casos identificados:
+Anomalías cronológicas conocidas:
 
 ```text
 2023 Nº 234
@@ -567,460 +475,112 @@ Casos identificados:
 2025 Nº 516
 ```
 
-Caso evidente:
+La fecha `19-01-1900` se descarta como fecha inválida, conservando el valor original en `raw_payload`.
+
+## 11. Fuente congelada
+
+Manifest:
 
 ```text
-Inspección: 18-07-2025
-S1:         19-01-1900
-S2:         24-07-2025
+apps/api/src/modules/inspection-legacy-import/config/source-manifest.json
 ```
 
-Regla:
-
-- descartar el hito con fecha 1900;
-- conservar sus valores en `raw_payload`;
-- agregar advertencia `INVALID_MILESTONE_DATE`;
-- utilizar el siguiente hito cronológicamente válido;
-- no corregir silenciosamente fechas ambiguas.
-
-## 16. Archivo de homologación versionado
-
-Crear un archivo legible por el importador, por ejemplo:
+Valores críticos:
 
 ```text
-apps/api/src/modules/inspection-legacy-import/config/catalog-aliases.json
+SHA-256: 11f094771d95c36ed777c82197ac76fd4a6abc55ac784eee0b19783d760174b4
+Tamaño: 1.081.162 bytes
+Hoja: CONSOLIDADO
+Rango: A5:AK2312
+Filas: 2.308
 ```
 
-Estructura mínima:
+El apply debe rechazar un archivo que no coincida exactamente con el manifest aprobado.
 
-```json
-{
-  "areas": {
-    "planta procesos": "99396f81-c09a-4194-b3bf-ffaec94e89ba",
-    "planta de procesos": "99396f81-c09a-4194-b3bf-ffaec94e89ba"
-  },
-  "companies": {
-    "copec-csi": "06a0a9ce-fe13-4a0d-869a-e9354909ba6c",
-    "csi-copec": "06a0a9ce-fe13-4a0d-869a-e9354909ba6c"
-  },
-  "inspectors": {
-    "karen opazo s.": "d1e87725-1a0a-4006-8336-f8138ee7f29e"
-  }
-}
-```
+## 12. Estado de implementación
 
-No almacenar decisiones de homologación sólo en código imperativo.
+### Completado
 
-## 17. Arquitectura del importador
+- diagnóstico de fuente y base;
+- roadmap v2;
+- manifest de fuente;
+- catálogo maestro versionado;
+- normalizador de fechas, estados y contadores;
+- resolución de maestros actuales;
+- validación y conciliación;
+- reporter JSON/CSV;
+- migración de imports e hitos;
+- entidades TypeORM;
+- migración de participantes y sectores múltiples;
+- seed maestro real;
+- separación entre seed normal y seed demo;
+- apply transaccional e idempotente;
+- smoke tests de normalización, dry-run y reporter.
 
-Módulo propuesto:
+### Pendiente inmediato
+
+- lector físico XLSX;
+- CLI `import:legacy-inspections`;
+- prueba completa de 2.308 filas contra una base local;
+- resolver la fila 2026 Nº 120;
+- ejecutar conciliación final;
+- realizar apply en ambiente de ensayo;
+- contratos y endpoints read-only para exponer campos legacy;
+- adaptación Web/Mobile de detalle histórico;
+- validación funcional y técnica de cierre.
+
+## 13. Secuencia operativa
+
+En una base local limpia o respaldada:
 
 ```text
-apps/api/src/modules/inspection-legacy-import/
-  inspection-legacy-import.module.ts
-  inspection-legacy-import.service.ts
-  inspection-legacy-normalizer.service.ts
-  inspection-legacy-resolver.service.ts
-  inspection-legacy-validator.service.ts
-  inspection-legacy-reconciliation.service.ts
-  config/catalog-aliases.json
-  dto/
-  entities/
-```
-
-Comando propuesto:
-
-```text
-pnpm --filter api import:legacy-inspections -- --file <ruta> --dry-run
-```
-
-Modo de escritura:
-
-```text
-pnpm --filter api import:legacy-inspections -- --file <ruta> --apply --batch-id <id-dry-run-aprobado>
-```
-
-No exponer inicialmente un endpoint público de carga.
-
-## 18. Fases de implementación
-
-### Fase 0 — Congelamiento de fuente
-
-Objetivo: fijar la entrada que será importada.
-
-Acciones:
-
-- calcular SHA-256 del Excel;
-- registrar nombre, tamaño, fecha y hash;
-- declarar `CONSOLIDADO` como única hoja fuente;
-- rechazar el proceso si el hash cambia entre dry-run y apply.
-
-Salida:
-
-```text
-source-manifest.json
-```
-
-### Fase 1 — Migración de esquema
-
-Acciones:
-
-- crear `inspection_legacy_imports`;
-- crear `inspection_legacy_milestones`;
-- agregar índices;
-- corregir `Gold fields.is_contractor` mediante migración;
-- crear entidades TypeORM;
-- registrar relaciones de sólo lectura en inspecciones.
-
-Criterio de salida:
-
-- migración up/down funcional;
-- build y lint de API verdes;
-- no alterar registros actuales.
-
-### Fase 2 — Matriz de catálogos
-
-Acciones:
-
-- normalizar texto sin perder valor original;
-- generar matrices para áreas, empresas e inspectores;
-- aplicar sólo aliases explícitos;
-- generar catálogo de faltantes;
-- preparar migración de áreas y empresas históricas archivadas.
-
-Estados de resolución:
-
-```text
-DIRECT_MATCH
-ALIAS_MATCH
-CREATE_ARCHIVED
-KEEP_TEXT_ONLY
-MANUAL_REVIEW
-BLOCKED
-```
-
-Criterio de salida:
-
-- 100% de las filas con decisión de área;
-- 100% con decisión de empresa;
-- 100% con decisión de inspector;
-- equivalencias Hintek/HINTER y Pucará/PUUCA resueltas o en cuarentena.
-
-### Fase 3 — Extractor y normalizador
-
-Acciones:
-
-- leer únicamente `CONSOLIDADO`;
-- validar cabeceras esperadas;
-- normalizar fechas y números;
-- conservar número de fila original;
-- derivar `legacy_mode`;
-- calcular contadores finales;
-- construir hitos válidos;
-- registrar advertencias.
-
-El normalizador no debe consultar ni escribir la base.
-
-Criterio de salida:
-
-- 2.308 filas leídas;
-- 2.308 claves únicas;
-- totales conciliados con la fuente;
-- pruebas unitarias sobre fechas, fórmulas residuales y secuencias.
-
-### Fase 4 — Dry-run contra base real
-
-Acciones:
-
-- resolver UUIDs;
-- detectar duplicados por clave histórica;
-- verificar ausencia temporal;
-- validar FKs;
-- clasificar cada fila;
-- no ejecutar inserts.
-
-Salidas obligatorias:
-
-```text
-legacy-inspections-dry-run-summary.json
-legacy-inspections-ready.csv
-legacy-inspections-warnings.csv
-legacy-inspections-quarantine.csv
-legacy-inspections-catalog-actions.csv
-legacy-inspections-reconciliation.json
-```
-
-Resumen mínimo:
-
-- total leído;
-- listo para importar;
-- con advertencia;
-- en cuarentena;
-- bloqueado;
-- duplicado existente;
-- áreas por crear;
-- empresas por crear;
-- aliases utilizados;
-- totales de observaciones y pendientes.
-
-### Fase 5 — Aprobación humana
-
-No se ejecuta `--apply` sin aprobación de:
-
-- responsable funcional de Medio Ambiente;
-- responsable técnico de Aurelia;
-- dueño de la base o encargado de despliegue.
-
-Aprobaciones pendientes explícitas:
-
-- Hintek ↔ HINTER;
-- Pucará ↔ PUUCA;
-- tratamiento de 2026 Nº 120;
-- seis anomalías cronológicas;
-- creación de 36 empresas históricas;
-- creación de siete áreas históricas.
-
-### Fase 6 — Importación transaccional
-
-Estrategia:
-
-- ejecutar en transacción por lotes;
-- tamaño configurable, recomendado 100;
-- insertar primero catálogos archivados aprobados;
-- insertar `inspections`;
-- insertar `inspection_legacy_imports`;
-- insertar milestones;
-- insertar status history;
-- confirmar lote sólo si todas las filas del lote pasan.
-
-Idempotencia:
-
-```text
-UNIQUE (source_system, legacy_year, legacy_number)
-```
-
-La reejecución debe producir:
-
-- cero duplicados;
-- registros existentes clasificados como `ALREADY_IMPORTED`;
-- ninguna actualización implícita.
-
-### Fase 7 — Conciliación post-importación
-
-Queries y reportes deben verificar:
-
-- cantidad de filas importadas;
-- cantidad en cuarentena;
-- distribución por año;
-- distribución por estado;
-- distribución por modo;
-- distribución por área y empresa;
-- suma de observaciones;
-- suma de pendientes;
-- cantidad de hitos S1/S2/S3;
-- ausencia de hallazgos sintéticos;
-- ausencia de respuestas sintéticas;
-- integridad de claves y FKs;
-- cero duplicados por clave histórica.
-
-Criterio central:
-
-```text
-importados + cuarentena + bloqueados = 2.308
-```
-
-### Fase 8 — API de consulta histórica
-
-Extender respuestas de detalle e historial con:
-
-```ts
-isHistorical: boolean;
-legacy?: {
-  year: number;
-  number: number;
-  mode: 'finding' | 'checklist';
-  inspectorName: string | null;
-  areaName: string | null;
-  companyName: string | null;
-  sectorName: string | null;
-  detail: string | null;
-  warnings: string[];
-};
-legacyMilestones?: Array<{
-  sequenceNumber: 1 | 2 | 3;
-  occurredAt: string;
-  closedIncrement: number;
-  pendingAfter: number;
-  closedPercentage: number | null;
-  pendingPercentage: number | null;
-}>;
-```
-
-Filtros históricos:
-
-- año y número;
-- inspector histórico;
-- área histórica;
-- empresa histórica;
-- sector/macrozone histórica;
-- modo Hallazgo/Checklist;
-- estado;
-- fecha.
-
-La autoridad de acceso continúa backend-first.
-
-### Fase 9 — Web y Mobile
-
-Los históricos deben aparecer principalmente en Historial.
-
-Comportamiento:
-
-- badge `Histórica`;
-- badge Hallazgo/Checklist según `legacy_mode`;
-- detalle en modo de solo lectura;
-- sin acciones de ejecutar, aprobar, rechazar, reasignar o editar;
-- seguimiento renderizado desde `inspection_legacy_milestones`;
-- datos generales mostrando texto histórico cuando no exista FK actual;
-- aviso de procedencia: `Registro restaurado desde planilla histórica`;
-- mostrar advertencias sólo a perfiles autorizados o en vista técnica.
-
-No mezclar milestones históricos con `inspection_followups`.
-
-### Fase 10 — Cierre y respaldo
-
-Acciones:
-
-- respaldo previo y posterior;
-- conservar Excel fuente y hash en repositorio documental seguro;
-- guardar reportes dry-run y conciliación como artefactos;
-- documentar batch importado;
-- documentar rollback probado;
-- congelar matriz de aliases utilizada.
-
-## 19. Rollback
-
-Cada ejecución tendrá un `batch_id` en metadata o una tabla de batches si se implementa.
-
-Rollback recomendado:
-
-1. Identificar imports del batch.
-2. Eliminar `inspection_legacy_imports`; el cascade elimina milestones.
-3. Eliminar `inspection_status_history` asociado al batch.
-4. Eliminar inspecciones importadas.
-5. Mantener o retirar catálogos históricos sólo si no tienen otras referencias.
-
-No usar truncates ni deletes por rango de fecha.
-
-Antes de aplicar:
-
-- snapshot de base;
-- export de tablas afectadas;
-- prueba de rollback en ambiente no productivo.
-
-## 20. Validaciones técnicas
-
-Comandos mínimos:
-
-```powershell
 pnpm --filter @aurelia/contracts build
 pnpm --filter api build
 pnpm --filter api lint
-pnpm --filter api test
-pnpm --filter api test:scope
-pnpm --filter api test:roles
-pnpm --filter web typecheck
-pnpm --filter web lint
-pnpm --filter mobile-inspecciones typecheck
-pnpm --filter mobile-inspecciones lint
-pnpm --filter mobile-inspecciones test:smoke
+pnpm --filter api test:legacy-import
+pnpm --filter api migration:run
+pnpm --filter api seed
 ```
 
-Pruebas específicas:
+Después:
 
-- normalización de nombres;
-- aliases explícitos;
-- áreas archivadas;
-- empresas archivadas;
-- inspector actual versus texto histórico;
-- checklist histórico sin template;
-- estado abierto/cerrado;
-- acumulación incremental de cerradas;
-- pendientes del último hito con fecha;
-- fechas de 1900;
-- seguimiento fuera de secuencia;
-- fila sin total de observaciones;
-- idempotencia;
-- rollback;
-- acceso read-only.
+```text
+import --dry-run
+revisión de artefactos
+aprobación
+import --apply
+conciliación SQL
+```
 
-## 21. Criterios de aceptación
+## 14. Criterios de aceptación
 
-La restauración se considera lista para producción cuando:
+La restauración estará lista cuando:
 
-1. El archivo fuente está congelado por hash.
-2. El dry-run procesa las 2.308 filas.
-3. Cada fila queda en `READY`, `WARNING`, `QUARANTINE`, `BLOCKED` o `ALREADY_IMPORTED`.
-4. Ninguna fila queda sin explicación.
-5. Las decisiones de catálogo están aprobadas.
-6. El apply usa exactamente el manifest aprobado.
-7. La reejecución no crea duplicados.
-8. La conciliación reproduce los totales aprobados.
-9. No se crean hallazgos ni respuestas ficticias.
-10. Los registros históricos son sólo lectura.
-11. Web y Mobile muestran correctamente Hallazgo/Checklist histórico.
-12. Los filtros pueden encontrar inspector, área, empresa y sector históricos.
-13. El rollback fue probado.
-14. Todos los gates técnicos aplicables están verdes.
+- las 2.308 filas estén clasificadas exactamente una vez;
+- la fila sin total esté corregida o explícitamente excluida;
+- no existan `BLOCKED`;
+- todas las áreas, empresas, sectores e inspectores tengan UUID maestro;
+- el total de observaciones sea 18.214;
+- cerradas y pendientes concilien en 18.051 y 163;
+- los hitos válidos coincidan con la fuente;
+- no se creen hallazgos, respuestas, imágenes o comentarios ficticios;
+- las autorías y sectores múltiples se conserven;
+- una segunda ejecución no duplique inspecciones;
+- rollback y restauración desde respaldo estén ensayados;
+- Web y Mobile muestren las inspecciones legacy en modo de sólo lectura.
 
-## 22. Entregables
+## 15. Regla de seguridad
 
-- Migración de esquema.
-- Entidades y contratos.
-- Configuración versionada de aliases.
-- Migración de catálogos históricos.
-- Importador CLI.
-- Dry-run.
-- Reportes CSV/JSON.
-- Pruebas unitarias e integración.
-- Endpoints de consulta histórica.
-- Visualización read-only Web/Mobile.
-- Runbook de ejecución y rollback.
-- Informe final de conciliación.
+No ejecutar `--apply` directamente en una base compartida.
 
-## 23. Secuencia recomendada de commits
+Orden obligatorio:
 
-Mantener un commit por archivo cuando sea viable y evitar commits monolíticos.
-
-Orden sugerido:
-
-1. Roadmap.
-2. Migración `inspection_legacy_imports`.
-3. Migración `inspection_legacy_milestones`.
-4. Entidad legacy import.
-5. Entidad milestone.
-6. Contratos.
-7. Alias config.
-8. Normalizador.
-9. Resolver de catálogos.
-10. Validador.
-11. Dry-run reporter.
-12. Importador transaccional.
-13. Tests por servicio.
-14. API de historial.
-15. Web read-only.
-16. Mobile read-only.
-17. Runbook.
-18. Release note y conciliación.
-
-## 24. Decisión final de viabilidad
-
-**Viable.**
-
-La restauración puede implementarse sin degradar el modelo operacional actual siempre que:
-
-- se mantenga resumida;
-- se preserve el dato original;
-- se diferencie explícitamente del dato nativo;
-- se usen tablas de trazabilidad separadas;
-- se evite inventar hallazgos, respuestas y seguimientos individuales;
-- la carga pase primero por dry-run, aprobación y conciliación.
+1. respaldo;
+2. migraciones;
+3. seed maestro;
+4. dry-run;
+5. revisión de cuarentena y advertencias;
+6. apply en ensayo;
+7. conciliación;
+8. aprobación;
+9. apply definitivo.
