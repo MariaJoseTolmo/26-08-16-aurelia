@@ -73,6 +73,8 @@ export class InspectionLegacyDryRunReporterService {
   ): Record<string, unknown> {
     return {
       generatedAt: new Date().toISOString(),
+      catalogPolicy: 'ACTIVE_MASTER_DATA',
+      onlyInspectionsAreLegacy: true,
       ...reconciliation,
       warningCodes: this.countWarningCodes(rows),
       validationMessages: this.countValidationMessages(rows),
@@ -117,7 +119,8 @@ export class InspectionLegacyDryRunReporterService {
       'disposition',
       'inspector_source',
       'inspector_resolution',
-      'inspector_id',
+      'inspector_ids',
+      'inspector_emails',
       'area_source',
       'area_resolution',
       'area_id',
@@ -127,6 +130,9 @@ export class InspectionLegacyDryRunReporterService {
       'company_id',
       'company_proposed_code',
       'sector_source',
+      'sector_resolution',
+      'sector_ids',
+      'sector_proposed_codes',
       'detail',
       'findings_count',
       'closed_findings_count',
@@ -148,7 +154,8 @@ export class InspectionLegacyDryRunReporterService {
       row.finalDisposition,
       row.inspector.sourceValue,
       row.inspector.status,
-      row.inspector.entityId,
+      row.inspectors.map((resolution) => resolution.entityId).filter(Boolean).join('|'),
+      row.inspectors.map((resolution) => resolution.proposedEmail).filter(Boolean).join('|'),
       row.area.sourceValue,
       row.area.status,
       row.area.entityId,
@@ -157,7 +164,10 @@ export class InspectionLegacyDryRunReporterService {
       row.company.status,
       row.company.entityId,
       row.company.proposedCode,
-      row.normalized.sectorName,
+      row.sector.sourceValue,
+      row.sector.status,
+      row.sectors.map((resolution) => resolution.entityId).filter(Boolean).join('|'),
+      row.sectors.map((resolution) => resolution.proposedCode).filter(Boolean).join('|'),
       row.normalized.detail,
       row.normalized.findingsCount,
       row.normalized.closedFindingsCount,
@@ -184,6 +194,9 @@ export class InspectionLegacyDryRunReporterService {
       'entity_id',
       'entity_name',
       'proposed_code',
+      'proposed_email',
+      'proposed_company_code',
+      'proposed_role_code',
       'message',
       'affected_rows',
     ];
@@ -196,7 +209,8 @@ export class InspectionLegacyDryRunReporterService {
     rows.forEach((row) => {
       this.collectCatalogAction(grouped, 'area', row.area);
       this.collectCatalogAction(grouped, 'company', row.company);
-      this.collectCatalogAction(grouped, 'inspector', row.inspector);
+      row.sectors.forEach((resolution) => this.collectCatalogAction(grouped, 'sector', resolution));
+      row.inspectors.forEach((resolution) => this.collectCatalogAction(grouped, 'inspector', resolution));
     });
 
     const body = [...grouped.values()]
@@ -211,6 +225,9 @@ export class InspectionLegacyDryRunReporterService {
         entry.resolution.entityId,
         entry.resolution.entityName,
         entry.resolution.proposedCode,
+        entry.resolution.proposedEmail,
+        entry.resolution.proposedCompanyCode,
+        entry.resolution.proposedRoleCode,
         entry.resolution.message,
         entry.affectedRows,
       ]))
@@ -235,6 +252,7 @@ export class InspectionLegacyDryRunReporterService {
       resolution.sourceValue ?? '',
       resolution.entityId ?? '',
       resolution.proposedCode ?? '',
+      resolution.proposedEmail ?? '',
     ].join(':');
     const current = grouped.get(key);
     if (current) {
