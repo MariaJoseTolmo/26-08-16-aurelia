@@ -140,10 +140,56 @@ export interface InspectionDetailChecklistResultResponse {
   sections: InspectionDetailChecklistSectionResponse[];
 }
 
+export interface InspectionDetailLegacyMilestoneResponse {
+  sequenceNumber: number;
+  occurredAt: ISODateString;
+  closedIncrement: number;
+  pendingAfter: number;
+  closedPercentage: number | null;
+  pendingPercentage: number | null;
+}
+
+export interface InspectionDetailLegacyParticipantResponse {
+  userId: ID | null;
+  fullName: string;
+  isPrimary: boolean;
+}
+
+export interface InspectionDetailLegacySectorResponse {
+  sectorId: ID | null;
+  name: string;
+  isPrimary: boolean;
+}
+
+export interface InspectionDetailLegacySummaryResponse {
+  sourceSystem: string;
+  legacyYear: number;
+  legacyNumber: number;
+  mode: InspectionDetailKind;
+  originalInspectorName: string | null;
+  originalAreaName: string | null;
+  originalCompanyName: string | null;
+  originalSectorName: string | null;
+  originalDetail: string | null;
+  totalObservations: number;
+  closedObservations: number;
+  openObservations: number;
+  milestones: InspectionDetailLegacyMilestoneResponse[];
+  participants: InspectionDetailLegacyParticipantResponse[];
+  sectors: InspectionDetailLegacySectorResponse[];
+  dataAvailability: {
+    findingDetails: false;
+    checklistAnswers: false;
+    comments: false;
+    images: false;
+  };
+}
+
 export interface InspectionDetailResponse {
   header: InspectionDetailHeaderResponse;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
   followups: InspectionDetailFollowupResponse[];
   general: InspectionDetailGeneralResponse;
   checklistResult: InspectionDetailChecklistResultResponse | null;
+  legacy?: InspectionDetailLegacySummaryResponse | null;
 }
