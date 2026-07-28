@@ -27,6 +27,8 @@ import { IncidentValidationEntity } from '../modules/incidents/entities/incident
 import { IncidentEntity } from '../modules/incidents/entities/incident.entity';
 import { InspectionLegacyImportEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
 import { InspectionAiAssessmentEntity } from '../modules/inspections/entities/inspection-ai-assessment.entity';
 import { InspectionFindingEntity } from '../modules/inspections/entities/inspection-finding.entity';
 import { InspectionFindingResponsibleEntity } from '../modules/inspections/entities/inspection-finding-responsible.entity';
@@ -134,6 +136,8 @@ export const AppDataSource = new DataSource({
     InspectionEntity,
     InspectionLegacyImportEntity,
     InspectionLegacyMilestoneEntity,
+    InspectionLegacyParticipantEntity,
+    InspectionLegacySectorLinkEntity,
     InspectionItemResponseEntity,
     InspectionFindingEntity,
     InspectionFindingTypeEntity,
