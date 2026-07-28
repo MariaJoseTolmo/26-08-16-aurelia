@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AreaEntity } from '../organization/entities/area.entity';
 import { CompanyEntity } from '../organization/entities/company.entity';
+import { SectorEntity } from '../organization/entities/sector.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { InspectionLegacyImportEntity } from './entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from './entities/inspection-legacy-milestone.entity';
@@ -19,6 +20,7 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
       InspectionLegacyMilestoneEntity,
       AreaEntity,
       CompanyEntity,
+      SectorEntity,
       UserEntity,
     ]),
   ],
