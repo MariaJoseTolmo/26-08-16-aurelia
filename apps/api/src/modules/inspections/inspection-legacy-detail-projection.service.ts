@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { InspectionDetailLegacySummaryResponse } from '@aurelia/contracts';
 import { Repository } from 'typeorm';
-import { InspectionLegacyImportEntity } from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
+import {
+  InspectionLegacyImportEntity,
+  InspectionLegacyMode,
+} from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from '../inspection-legacy-import/entities/inspection-legacy-milestone.entity';
 import { InspectionLegacyParticipantEntity } from '../inspection-legacy-import/entities/inspection-legacy-participant.entity';
 import { InspectionLegacySectorLinkEntity } from '../inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
@@ -49,7 +52,7 @@ export class InspectionLegacyDetailProjectionService {
       sourceSystem: legacyImport.sourceSystem,
       legacyYear: legacyImport.legacyYear,
       legacyNumber: legacyImport.legacyNumber,
-      mode: legacyImport.legacyMode,
+      mode: legacyImport.legacyMode === InspectionLegacyMode.CHECKLIST ? 'checklist' : 'finding',
       originalInspectorName: legacyImport.legacyInspectorName,
       originalAreaName: legacyImport.legacyAreaName,
       originalCompanyName: legacyImport.legacyCompanyName,
