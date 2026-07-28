@@ -15,6 +15,7 @@ import { InspectionLegacyReconciliationService } from './inspection-legacy-recon
 import { InspectionLegacyResolverService } from './inspection-legacy-resolver.service';
 import { InspectionLegacySourceManifestService } from './inspection-legacy-source-manifest.service';
 import { InspectionLegacyValidatorService } from './inspection-legacy-validator.service';
+import { InspectionLegacyXlsxReaderService } from './inspection-legacy-xlsx-reader.service';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
     InspectionLegacyResolverService,
     InspectionLegacySourceManifestService,
     InspectionLegacyValidatorService,
+    InspectionLegacyXlsxReaderService,
   ],
   exports: [
     TypeOrmModule,
@@ -47,6 +49,7 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
     InspectionLegacyResolverService,
     InspectionLegacySourceManifestService,
     InspectionLegacyValidatorService,
+    InspectionLegacyXlsxReaderService,
   ],
 })
 export class InspectionLegacyImportModule {}
