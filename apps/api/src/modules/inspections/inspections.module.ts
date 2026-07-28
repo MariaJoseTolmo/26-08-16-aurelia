@@ -45,6 +45,8 @@ import { InspectionHistoryService } from './inspection-history.service';
 import { InspectionLegacyDetailController } from './inspection-legacy-detail.controller';
 import { InspectionLegacyDetailProjectionService } from './inspection-legacy-detail-projection.service';
 import { InspectionLegacyDetailResponseInterceptor } from './inspection-legacy-detail-response.interceptor';
+import { InspectionLegacyTableProjectionService } from './inspection-legacy-table-projection.service';
+import { InspectionLegacyTableResponseInterceptor } from './inspection-legacy-table-response.interceptor';
 import { InspectionProcessController } from './inspection-process.controller';
 import { InspectionProcessService } from './inspection-process.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
@@ -109,12 +111,18 @@ import { InspectionsService } from './inspections.service';
     InspectionDetailService,
     InspectionLegacyDetailProjectionService,
     InspectionLegacyDetailResponseInterceptor,
+    InspectionLegacyTableProjectionService,
+    InspectionLegacyTableResponseInterceptor,
     InspectionTransversalService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
     {
       provide: APP_INTERCEPTOR,
       useExisting: InspectionLegacyDetailResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: InspectionLegacyTableResponseInterceptor,
     },
   ],
   exports: [
@@ -126,6 +134,7 @@ import { InspectionsService } from './inspections.service';
     InspectionHistoryService,
     InspectionDetailService,
     InspectionLegacyDetailProjectionService,
+    InspectionLegacyTableProjectionService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
   ],
