@@ -23,9 +23,10 @@
     "findingsCount": 18214,
     "closedFindingsCount": 18051,
     "openFindingsCount": 163,
-    "followupS1Rows": 1616,
-    "followupS2Rows": 136,
-    "followupS3Rows": 15
+    "followupS1SourceRows": 1617,
+    "followupS1RowsAfterDiscarding1900Date": 1616,
+    "followupS2SourceRows": 136,
+    "followupS3SourceRows": 15
   },
   "requiredHeaders": [
     "Nº",
