@@ -41,6 +41,8 @@ import { InspectionFindingCatalogController } from './inspection-finding-catalog
 import { InspectionFindingCatalogService } from './inspection-finding-catalog.service';
 import { InspectionHistoryController } from './inspection-history.controller';
 import { InspectionHistoryService } from './inspection-history.service';
+import { InspectionLegacyDetailController } from './inspection-legacy-detail.controller';
+import { InspectionLegacyDetailProjectionService } from './inspection-legacy-detail-projection.service';
 import { InspectionProcessController } from './inspection-process.controller';
 import { InspectionProcessService } from './inspection-process.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
@@ -90,6 +92,7 @@ import { InspectionsService } from './inspections.service';
     InspectionProcessController,
     InspectionDashboardController,
     InspectionHistoryController,
+    InspectionLegacyDetailController,
     InspectionTransversalController,
     InspectionFindingCatalogController,
     InspectionCriticalityCatalogController,
@@ -102,6 +105,7 @@ import { InspectionsService } from './inspections.service';
     InspectionDashboardService,
     InspectionHistoryService,
     InspectionDetailService,
+    InspectionLegacyDetailProjectionService,
     InspectionTransversalService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
@@ -114,6 +118,7 @@ import { InspectionsService } from './inspections.service';
     InspectionDashboardService,
     InspectionHistoryService,
     InspectionDetailService,
+    InspectionLegacyDetailProjectionService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
   ],
