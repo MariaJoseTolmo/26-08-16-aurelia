@@ -29,6 +29,8 @@ export interface ResolvedLegacyInspection {
   alreadyImportedInspectionId: string | null;
   area: LegacyCatalogResolution;
   company: LegacyCatalogResolution;
+  sector: LegacyCatalogResolution;
+  sectors: LegacyCatalogResolution[];
   inspector: LegacyCatalogResolution;
   inspectors: LegacyCatalogResolution[];
 }
