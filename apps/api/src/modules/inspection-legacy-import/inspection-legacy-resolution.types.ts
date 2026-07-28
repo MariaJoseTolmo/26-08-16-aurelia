@@ -6,7 +6,7 @@ import {
 export type LegacyCatalogResolutionStatus =
   | 'DIRECT_MATCH'
   | 'ALIAS_MATCH'
-  | 'CREATE_ARCHIVED'
+  | 'CREATE_ACTIVE'
   | 'KEEP_TEXT_ONLY'
   | 'MANUAL_REVIEW'
   | 'BLOCKED';
@@ -17,6 +17,9 @@ export interface LegacyCatalogResolution {
   entityId: string | null;
   entityName: string | null;
   proposedCode?: string;
+  proposedEmail?: string;
+  proposedCompanyCode?: string;
+  proposedRoleCode?: string;
   message?: string;
 }
 
@@ -27,6 +30,7 @@ export interface ResolvedLegacyInspection {
   area: LegacyCatalogResolution;
   company: LegacyCatalogResolution;
   inspector: LegacyCatalogResolution;
+  inspectors: LegacyCatalogResolution[];
 }
 
 export interface ValidatedLegacyInspection extends ResolvedLegacyInspection {
