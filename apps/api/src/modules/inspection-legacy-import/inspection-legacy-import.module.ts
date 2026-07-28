@@ -5,6 +5,7 @@ import { CompanyEntity } from '../organization/entities/company.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { InspectionLegacyImportEntity } from './entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from './entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyDryRunReporterService } from './inspection-legacy-dry-run-reporter.service';
 import { InspectionLegacyNormalizerService } from './inspection-legacy-normalizer.service';
 import { InspectionLegacyReconciliationService } from './inspection-legacy-reconciliation.service';
 import { InspectionLegacyResolverService } from './inspection-legacy-resolver.service';
@@ -22,6 +23,7 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
     ]),
   ],
   providers: [
+    InspectionLegacyDryRunReporterService,
     InspectionLegacyNormalizerService,
     InspectionLegacyReconciliationService,
     InspectionLegacyResolverService,
@@ -30,6 +32,7 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
   ],
   exports: [
     TypeOrmModule,
+    InspectionLegacyDryRunReporterService,
     InspectionLegacyNormalizerService,
     InspectionLegacyReconciliationService,
     InspectionLegacyResolverService,
