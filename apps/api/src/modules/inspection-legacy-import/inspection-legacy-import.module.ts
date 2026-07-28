@@ -6,6 +6,8 @@ import { SectorEntity } from '../organization/entities/sector.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { InspectionLegacyImportEntity } from './entities/inspection-legacy-import.entity';
 import { InspectionLegacyMilestoneEntity } from './entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from './entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from './entities/inspection-legacy-sector-link.entity';
 import { InspectionLegacyDryRunReporterService } from './inspection-legacy-dry-run-reporter.service';
 import { InspectionLegacyNormalizerService } from './inspection-legacy-normalizer.service';
 import { InspectionLegacyReconciliationService } from './inspection-legacy-reconciliation.service';
@@ -18,6 +20,8 @@ import { InspectionLegacyValidatorService } from './inspection-legacy-validator.
     TypeOrmModule.forFeature([
       InspectionLegacyImportEntity,
       InspectionLegacyMilestoneEntity,
+      InspectionLegacyParticipantEntity,
+      InspectionLegacySectorLinkEntity,
       AreaEntity,
       CompanyEntity,
       SectorEntity,
