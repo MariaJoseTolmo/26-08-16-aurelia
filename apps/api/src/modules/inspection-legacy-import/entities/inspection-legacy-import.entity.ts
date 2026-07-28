@@ -12,6 +12,8 @@ import {
 } from 'typeorm';
 import { InspectionEntity } from '../../inspections/entities/inspection.entity';
 import { InspectionLegacyMilestoneEntity } from './inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from './inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from './inspection-legacy-sector-link.entity';
 
 export enum InspectionLegacyMode {
   FINDING = 'finding',
@@ -87,4 +89,10 @@ export class InspectionLegacyImportEntity {
 
   @OneToMany(() => InspectionLegacyMilestoneEntity, (milestone) => milestone.legacyImport)
   milestones: InspectionLegacyMilestoneEntity[];
+
+  @OneToMany(() => InspectionLegacyParticipantEntity, (participant) => participant.legacyImport)
+  participants: InspectionLegacyParticipantEntity[];
+
+  @OneToMany(() => InspectionLegacySectorLinkEntity, (sectorLink) => sectorLink.legacyImport)
+  sectorLinks: InspectionLegacySectorLinkEntity[];
 }
