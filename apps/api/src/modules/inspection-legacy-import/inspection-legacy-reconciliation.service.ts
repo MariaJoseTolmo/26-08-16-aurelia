@@ -3,6 +3,7 @@ import { InspectionStatus } from '@aurelia/contracts';
 import { InspectionLegacyMode } from './entities/inspection-legacy-import.entity';
 import { LegacyImportDisposition } from './inspection-legacy-import.types';
 import {
+  LegacyCatalogResolution,
   LegacyCatalogResolutionStatus,
   ValidatedLegacyInspection,
 } from './inspection-legacy-resolution.types';
@@ -56,7 +57,12 @@ export class InspectionLegacyReconciliationService {
 
     rows.forEach((row) => {
       dispositions[row.finalDisposition] += 1;
-      [row.area, row.company, row.inspector].forEach((resolution) => {
+      this.uniqueResolutions([
+        row.area,
+        row.company,
+        ...row.sectors,
+        ...row.inspectors,
+      ]).forEach((resolution) => {
         catalogResolutions[resolution.status] += 1;
       });
 
@@ -82,7 +88,7 @@ export class InspectionLegacyReconciliationService {
     const classifiedRows = Object.values(dispositions).reduce((total, count) => total + count, 0);
 
     return {
-      sourceSystem: rows[0]?.sourceSystem ?? null,
+      sourceSystem: rows.at(0)?.sourceSystem ?? null,
       totalRows: rows.length,
       dispositions,
       modes: {
@@ -111,6 +117,22 @@ export class InspectionLegacyReconciliationService {
     };
   }
 
+  private uniqueResolutions(resolutions: LegacyCatalogResolution[]): LegacyCatalogResolution[] {
+    const seen = new Set<string>();
+    return resolutions.filter((resolution) => {
+      const key = [
+        resolution.status,
+        resolution.sourceValue ?? '',
+        resolution.entityId ?? '',
+        resolution.proposedCode ?? '',
+        resolution.proposedEmail ?? '',
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   private emptyDispositions(): Record<LegacyImportDisposition, number> {
     return {
       READY: 0,
@@ -125,7 +147,7 @@ export class InspectionLegacyReconciliationService {
     return {
       DIRECT_MATCH: 0,
       ALIAS_MATCH: 0,
-      CREATE_ARCHIVED: 0,
+      CREATE_ACTIVE: 0,
       KEEP_TEXT_ONLY: 0,
       MANUAL_REVIEW: 0,
       BLOCKED: 0,
