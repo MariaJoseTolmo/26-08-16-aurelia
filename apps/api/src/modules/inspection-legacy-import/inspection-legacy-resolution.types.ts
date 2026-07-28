@@ -1,4 +1,7 @@
-import { NormalizedLegacyInspection } from './inspection-legacy-import.types';
+import {
+  LegacyImportDisposition,
+  NormalizedLegacyInspection,
+} from './inspection-legacy-import.types';
 
 export type LegacyCatalogResolutionStatus =
   | 'DIRECT_MATCH'
@@ -24,4 +27,9 @@ export interface ResolvedLegacyInspection {
   area: LegacyCatalogResolution;
   company: LegacyCatalogResolution;
   inspector: LegacyCatalogResolution;
+}
+
+export interface ValidatedLegacyInspection extends ResolvedLegacyInspection {
+  finalDisposition: LegacyImportDisposition;
+  validationMessages: string[];
 }
