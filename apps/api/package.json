@@ -13,7 +13,7 @@
     "test:smoke": "ts-node src/test/api-smoke.ts",
     "test:scope": "ts-node src/test/api-scope-smoke.ts",
     "test:roles": "ts-node src/test/api-functional-roles-smoke.ts",
-    "test:legacy-import": "ts-node src/test/api-legacy-inspections-normalizer-smoke.ts && ts-node src/test/api-legacy-inspections-dry-run-smoke.ts",
+    "test:legacy-import": "ts-node src/test/api-legacy-inspections-normalizer-smoke.ts && ts-node src/test/api-legacy-inspections-dry-run-smoke.ts && ts-node src/test/api-legacy-inspections-reporter-smoke.ts",
     "test:mail": "ts-node src/test/api-messaging-template-smoke.ts && ts-node src/test/api-smtp-email-smoke.ts && ts-node src/test/api-mobile-sync-assignment-email-smoke.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "pnpm run typeorm migration:generate ./src/database/migrations/Migration -d ./src/database/data-source.ts",
