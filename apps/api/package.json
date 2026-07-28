@@ -20,6 +20,7 @@
     "migration:create": "pnpm run typeorm migration:create ./src/database/migrations/Migration",
     "migration:run": "pnpm run typeorm migration:run -d ./src/database/data-source.ts",
     "migration:revert": "pnpm run typeorm migration:revert -d ./src/database/data-source.ts",
+    "import:legacy-inspections": "ts-node src/cli/import-legacy-inspections.ts",
     "seed": "ts-node src/database/seeds/001-seed-phase1.ts && ts-node src/database/seeds/003-seed-finding-classifications.ts && ts-node src/database/seeds/009-seed-inspections-master-data.ts",
     "seed:bootstrap": "ts-node src/database/seeds/008-seed-bootstrap.ts",
     "seed:functional-roles": "ts-node src/database/seeds/007-seed-functional-roles.ts",
