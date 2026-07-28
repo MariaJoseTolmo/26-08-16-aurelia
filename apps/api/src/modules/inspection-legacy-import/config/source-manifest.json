@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "sourceSystem": "legacy_environmental_inspections_spreadsheet",
+  "fileName": "Planilla de inspecciones Medio Ambiente.xlsx",
+  "sha256": "11f094771d95c36ed777c82197ac76fd4a6abc55ac784eee0b19783d760174b4",
+  "fileSizeBytes": 1081162,
+  "sheet": "CONSOLIDADO",
+  "dataRange": "A5:AK2312",
+  "headerRow": 4,
+  "firstDataRow": 5,
+  "lastDataRow": 2312,
+  "expectedRows": 2308,
+  "expectedUniqueLegacyKeys": 2308,
+  "period": {
+    "from": "2023-01-01",
+    "to": "2026-02-19"
+  },
+  "expectedTotals": {
+    "findingsModeRows": 1997,
+    "checklistModeRows": 311,
+    "closedRows": 2253,
+    "openRows": 55,
+    "findingsCount": 18214,
+    "closedFindingsCount": 18051,
+    "openFindingsCount": 163,
+    "followupS1Rows": 1616,
+    "followupS2Rows": 136,
+    "followupS3Rows": 15
+  },
+  "requiredHeaders": [
+    "Nº",
+    "Fecha",
+    "Realizada por",
+    "Área",
+    "Empresa",
+    "Tipo",
+    "Sector",
+    "Detalle",
+    "Nº Observaciones",
+    "Nº Obs Cerradas",
+    "Nº Obs Pendientes",
+    "Fecha S1",
+    "Nº Obs Cerradas S1",
+    "Nº Obs Pendientes S1",
+    "Fecha S2",
+    "Nº Obs Cerradas S2",
+    "Nº Obs Pendientes S2",
+    "Fecha S3",
+    "Nº Obs Cerradas S3",
+    "Nº Obs Pendientes S3",
+    "AÑO",
+    "Estado"
+  ],
+  "knownQuarantine": [
+    {
+      "legacyYear": 2026,
+      "legacyNumber": 120,
+      "sourceRow": 2312,
+      "reason": "Nº Observaciones vacío"
+    }
+  ],
+  "knownChronologyWarnings": [
+    { "legacyYear": 2023, "legacyNumber": 234 },
+    { "legacyYear": 2023, "legacyNumber": 242 },
+    { "legacyYear": 2024, "legacyNumber": 119 },
+    { "legacyYear": 2024, "legacyNumber": 227 },
+    { "legacyYear": 2025, "legacyNumber": 15 },
+    { "legacyYear": 2025, "legacyNumber": 516 }
+  ]
+}
