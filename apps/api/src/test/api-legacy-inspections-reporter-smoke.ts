@@ -17,19 +17,43 @@ async function main(): Promise<void> {
     new InspectionLegacyReconciliationService(),
   );
 
+  const activeArea = {
+    status: 'CREATE_ACTIVE' as const,
+    sourceValue: 'Construcción',
+    entityId: null,
+    entityName: 'Construcción',
+    proposedCode: 'AREA-CONSTRUCCION',
+  };
+  const activeSector = {
+    status: 'CREATE_ACTIVE' as const,
+    sourceValue: 'Plataformas EECC',
+    entityId: null,
+    entityName: 'Plataformas EECC',
+    proposedCode: 'SECT-CONST-PLATAFORMAS-EECC',
+  };
+  const activeInspector = {
+    status: 'CREATE_ACTIVE' as const,
+    sourceValue: 'Janina Santander T.',
+    entityId: null,
+    entityName: 'Janina Santander',
+    proposedEmail: 'janina.santander@pending-directory.aurelia.local',
+    proposedCompanyCode: 'CORP',
+    proposedRoleCode: 'INSPECTOR',
+  };
+
   const row: ValidatedLegacyInspection = {
     sourceSystem: 'legacy_environmental_inspections_spreadsheet',
     alreadyImportedInspectionId: null,
     finalDisposition: 'WARNING',
-    validationMessages: ['Área requiere crear catálogo archivado'],
+    validationMessages: ['Área, sector e inspector requieren crear catálogos activos'],
     normalized: {
       sourceRow: 5,
       legacyYear: 2023,
       legacyNumber: 1,
       inspectionDate: '2023-01-01',
-      inspectorName: 'Karen Opazo S.',
+      inspectorName: 'Janina Santander T.',
       areaName: 'Construcción',
-      companyName: 'Gold fields',
+      companyName: 'Gold Fields',
       sectorName: 'Planta Procesos, Plataformas EECC',
       detail: 'Texto con "comillas", coma y salto\nde línea',
       mode: InspectionLegacyMode.FINDING,
@@ -44,25 +68,30 @@ async function main(): Promise<void> {
       disposition: 'READY',
       rawPayload: {},
     },
-    area: {
-      status: 'CREATE_ARCHIVED',
-      sourceValue: 'Construcción',
-      entityId: null,
-      entityName: 'Construcción',
-      proposedCode: 'HIST-AREA-CONSTRUCCION',
-    },
+    area: activeArea,
     company: {
       status: 'DIRECT_MATCH',
-      sourceValue: 'Gold fields',
+      sourceValue: 'Gold Fields',
       entityId: '3252bece-a2df-4471-a270-da9ca8decd9d',
-      entityName: 'Gold fields',
+      entityName: 'Gold Fields',
     },
-    inspector: {
-      status: 'ALIAS_MATCH',
-      sourceValue: 'Karen Opazo S.',
-      entityId: 'd1e87725-1a0a-4006-8336-f8138ee7f29e',
-      entityName: 'Karen Opazo',
+    sector: {
+      status: 'CREATE_ACTIVE',
+      sourceValue: 'Planta Procesos, Plataformas EECC',
+      entityId: null,
+      entityName: 'Planta Procesos | Plataformas EECC',
     },
+    sectors: [
+      {
+        status: 'DIRECT_MATCH',
+        sourceValue: 'Planta Procesos',
+        entityId: '33333333-3333-4333-8333-333333333333',
+        entityName: 'Planta Procesos',
+      },
+      activeSector,
+    ],
+    inspector: activeInspector,
+    inspectors: [activeInspector],
   };
 
   try {
@@ -78,6 +107,8 @@ async function main(): Promise<void> {
     const summaryJson = JSON.parse(summary) as {
       totalRows: number;
       dispositions: { WARNING: number };
+      catalogPolicy: string;
+      onlyInspectionsAreLegacy: boolean;
     };
     const reconciliationJson = JSON.parse(reconciliation) as {
       invariant: { allRowsClassified: boolean };
@@ -85,11 +116,17 @@ async function main(): Promise<void> {
 
     assert(summaryJson.totalRows === 1, 'Summary should contain one row');
     assert(summaryJson.dispositions.WARNING === 1, 'Warning count is wrong');
+    assert(summaryJson.catalogPolicy === 'ACTIVE_MASTER_DATA', 'Summary should declare active master data');
+    assert(summaryJson.onlyInspectionsAreLegacy, 'Summary should declare only inspections as legacy');
     assert(reconciliationJson.invariant.allRowsClassified, 'Reconciliation invariant failed');
-    assert(warningsCsv.includes('HIST-AREA-CONSTRUCCION'), 'Warning CSV lost catalog action');
+    assert(warningsCsv.includes('AREA-CONSTRUCCION'), 'Warning CSV lost area action');
+    assert(warningsCsv.includes('SECT-CONST-PLATAFORMAS-EECC'), 'Warning CSV lost sector action');
+    assert(warningsCsv.includes('janina.santander@pending-directory.aurelia.local'), 'Warning CSV lost inspector action');
     assert(warningsCsv.includes('""comillas""'), 'CSV quotes were not escaped');
     assert(readyCsv.startsWith('"source_row"'), 'Empty READY file must preserve headers');
-    assert(catalogCsv.includes('"CREATE_ARCHIVED"'), 'Catalog CSV lost archived action');
+    assert(catalogCsv.includes('"CREATE_ACTIVE"'), 'Catalog CSV lost active action');
+    assert(catalogCsv.includes('"sector"'), 'Catalog CSV lost sector catalog');
+    assert(catalogCsv.includes('"inspector"'), 'Catalog CSV lost inspector catalog');
 
     console.log('Legacy inspections reporter smoke test passed');
   } finally {
