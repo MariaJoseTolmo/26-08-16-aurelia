@@ -20,7 +20,7 @@ function normalized(overrides: Partial<NormalizedLegacyInspection> = {}): Normal
     inspectionDate: '2023-01-01',
     inspectorName: 'Karen Opazo S.',
     areaName: 'Exploraciones',
-    companyName: 'Gold fields',
+    companyName: 'Gold Fields',
     sectorName: 'Plataformas EECC',
     detail: 'Inspección histórica',
     mode: InspectionLegacyMode.FINDING,
@@ -48,7 +48,7 @@ function resolution(
     sourceValue,
     entityId,
     entityName: sourceValue,
-    proposedCode: status === 'CREATE_ARCHIVED' ? `HIST_${sourceValue.toUpperCase()}` : undefined,
+    proposedCode: status === 'CREATE_ACTIVE' ? `MASTER_${sourceValue.toUpperCase()}` : undefined,
     message: status === 'BLOCKED' || status === 'MANUAL_REVIEW'
       ? `${sourceValue} requiere revisión`
       : undefined,
@@ -61,16 +61,24 @@ function resolved(
     alreadyImportedInspectionId?: string | null;
     area?: LegacyCatalogResolution;
     company?: LegacyCatalogResolution;
+    sector?: LegacyCatalogResolution;
+    sectors?: LegacyCatalogResolution[];
     inspector?: LegacyCatalogResolution;
+    inspectors?: LegacyCatalogResolution[];
   } = {},
 ): ResolvedLegacyInspection {
+  const sector = options.sector ?? resolution('DIRECT_MATCH', inspection.sectorName ?? 'Sector');
+  const inspector = options.inspector ?? resolution('ALIAS_MATCH', inspection.inspectorName ?? 'Inspector');
   return {
     normalized: inspection,
     sourceSystem: 'legacy_environmental_inspections_spreadsheet',
     alreadyImportedInspectionId: options.alreadyImportedInspectionId ?? null,
     area: options.area ?? resolution('DIRECT_MATCH', inspection.areaName ?? 'Área'),
     company: options.company ?? resolution('DIRECT_MATCH', inspection.companyName ?? 'Empresa'),
-    inspector: options.inspector ?? resolution('ALIAS_MATCH', inspection.inspectorName ?? 'Inspector'),
+    sector,
+    sectors: options.sectors ?? [sector],
+    inspector,
+    inspectors: options.inspectors ?? [inspector],
   };
 }
 
@@ -95,13 +103,40 @@ function main(): void {
       rawPayload: {},
     }],
   }), {
-    area: resolution('CREATE_ARCHIVED', 'Construcción', null),
+    area: resolution('CREATE_ACTIVE', 'Construcción', null),
   }));
-  assert(warning.finalDisposition === 'WARNING', 'Archived catalog action should produce WARNING');
+  assert(warning.finalDisposition === 'WARNING', 'Active catalog action should produce WARNING');
+  assert(
+    warning.validationMessages.some((message) => message.includes('catálogo activo')),
+    'Active catalog warning should be explicit',
+  );
 
-  const quarantine = validator.validate(resolved(normalized({
+  const multiRelationWarning = validator.validate(resolved(normalized({
     sourceRow: 7,
     legacyNumber: 3,
+    inspectorName: 'Daniel Martinez; Camila Zapata',
+    sectorName: 'Campamento, Plataformas EECC',
+  }), {
+    sector: resolution('CREATE_ACTIVE', 'Campamento, Plataformas EECC', null),
+    sectors: [
+      resolution('DIRECT_MATCH', 'Campamento'),
+      resolution('CREATE_ACTIVE', 'Plataformas EECC', null),
+    ],
+    inspector: resolution('CREATE_ACTIVE', 'Daniel Martinez; Camila Zapata', null),
+    inspectors: [
+      { ...resolution('CREATE_ACTIVE', 'Daniel Martinez', null), proposedEmail: 'daniel@pending.local' },
+      { ...resolution('CREATE_ACTIVE', 'Camila Zapata', null), proposedEmail: 'camila@pending.local' },
+    ],
+  }));
+  assert(multiRelationWarning.finalDisposition === 'WARNING', 'Multiple active relations should remain importable');
+  assert(
+    multiRelationWarning.validationMessages.length === 3,
+    'Each distinct active relation should produce one warning',
+  );
+
+  const quarantine = validator.validate(resolved(normalized({
+    sourceRow: 8,
+    legacyNumber: 4,
     disposition: 'QUARANTINE',
     findingsCount: null,
     closedFindingsCount: null,
@@ -110,24 +145,24 @@ function main(): void {
   assert(quarantine.finalDisposition === 'QUARANTINE', 'Invalid source row should remain QUARANTINE');
 
   const manualReview = validator.validate(resolved(normalized({
-    sourceRow: 8,
-    legacyNumber: 4,
+    sourceRow: 9,
+    legacyNumber: 5,
   }), {
-    company: resolution('MANUAL_REVIEW', 'Hintek', null),
+    company: resolution('MANUAL_REVIEW', 'Empresa ambigua', null),
   }));
   assert(manualReview.finalDisposition === 'QUARANTINE', 'Manual review should quarantine the row');
 
   const blocked = validator.validate(resolved(normalized({
-    sourceRow: 9,
-    legacyNumber: 5,
+    sourceRow: 10,
+    legacyNumber: 6,
   }), {
     company: resolution('BLOCKED', 'Empresa desconocida', null),
   }));
   assert(blocked.finalDisposition === 'BLOCKED', 'Unresolved catalog should block the row');
 
   const alreadyImported = validator.validate(resolved(normalized({
-    sourceRow: 10,
-    legacyNumber: 6,
+    sourceRow: 11,
+    legacyNumber: 7,
   }), {
     alreadyImportedInspectionId: '22222222-2222-4222-8222-222222222222',
   }));
@@ -136,19 +171,20 @@ function main(): void {
   const summary = reconciliation.summarize([
     ready,
     warning,
+    multiRelationWarning,
     quarantine,
     manualReview,
     blocked,
     alreadyImported,
   ]);
 
-  assert(summary.totalRows === 6, 'Reconciliation row count is wrong');
+  assert(summary.totalRows === 7, 'Reconciliation row count is wrong');
   assert(summary.dispositions.READY === 1, 'READY count is wrong');
-  assert(summary.dispositions.WARNING === 1, 'WARNING count is wrong');
+  assert(summary.dispositions.WARNING === 2, 'WARNING count is wrong');
   assert(summary.dispositions.QUARANTINE === 2, 'QUARANTINE count is wrong');
   assert(summary.dispositions.BLOCKED === 1, 'BLOCKED count is wrong');
   assert(summary.dispositions.ALREADY_IMPORTED === 1, 'ALREADY_IMPORTED count is wrong');
-  assert(summary.modes.finding === 5 && summary.modes.checklist === 1, 'Mode distribution is wrong');
+  assert(summary.modes.finding === 6 && summary.modes.checklist === 1, 'Mode distribution is wrong');
   assert(summary.totals.milestoneS1 === 1, 'Milestone count is wrong');
   assert(summary.invariant.allRowsClassified, 'All rows must be classified exactly once');
 
