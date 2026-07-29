@@ -21,6 +21,7 @@ interface UserScope {
 
 interface AccessOptions {
   ignoreCompanyScope?: boolean;
+  ignoreAreaScope?: boolean;
 }
 
 @Injectable()
@@ -55,7 +56,10 @@ export class ResourceScopeService {
 
   async canAccessInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
     const scope = await this.getUserScope(user);
-    return this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser });
+    return this.isAllowed(scope, resource, {
+      ignoreCompanyScope: scope.isPrincipalCompanyUser,
+      ignoreAreaScope: true,
+    });
   }
 
   async canCreateInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
@@ -114,7 +118,10 @@ export class ResourceScopeService {
   async filterAllowedInspections<T extends ScopedResource>(user: AccessTokenPayload, resources: T[]): Promise<T[]> {
     const scope = await this.getUserScope(user);
     return resources.filter((resource) =>
-      this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser }),
+      this.isAllowed(scope, resource, {
+        ignoreCompanyScope: scope.isPrincipalCompanyUser,
+        ignoreAreaScope: true,
+      }),
     );
   }
 
@@ -126,7 +133,7 @@ export class ResourceScopeService {
       if (!resource.companyId || !scope.companyIds.has(resource.companyId)) return false;
     }
 
-    if (scope.areaIds.size > 0) {
+    if (!options.ignoreAreaScope && scope.areaIds.size > 0) {
       if (!resource.areaId || !scope.areaIds.has(resource.areaId)) return false;
     }
 
