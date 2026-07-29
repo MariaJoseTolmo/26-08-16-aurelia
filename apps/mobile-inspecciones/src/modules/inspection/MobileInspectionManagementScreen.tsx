@@ -3,13 +3,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -60,28 +60,52 @@ const tonePalette: Record<Tone, { background: string; foreground: string; line: 
 
 function HeaderGradient() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+    <Svg
+      pointerEvents="none"
+      style={StyleSheet.absoluteFillObject}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+    >
       <Defs>
-        <LinearGradient id="managementHeader" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient
+          id="managementHeader"
+          x1={0}
+          y1={0}
+          x2={0}
+          y2={1}
+          gradientUnits="userSpaceOnUse"
+        >
           <Stop offset="0%" stopColor="#012659" />
           <Stop offset="100%" stopColor="#002659" />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill="url(#managementHeader)" />
+      <Rect x={0} y={0} width={1} height={1} fill="url(#managementHeader)" />
     </Svg>
   );
 }
 
 function FooterGradient() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+    <Svg
+      pointerEvents="none"
+      style={StyleSheet.absoluteFillObject}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+    >
       <Defs>
-        <LinearGradient id="managementFooter" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="2%" stopColor="#002659" />
+        <LinearGradient
+          id="managementFooter"
+          x1={0}
+          y1={0.0224}
+          x2={0}
+          y2={1.4019}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0%" stopColor="#002659" />
           <Stop offset="100%" stopColor="#004a3a" />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill="url(#managementFooter)" />
+      <Rect x={0} y={0} width={1} height={1} fill="url(#managementFooter)" />
     </Svg>
   );
 }
@@ -468,7 +492,7 @@ export function MobileInspectionManagementScreen() {
 
   if (!capabilities.read) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.denied}>
           <FontAwesome5 name="lock" size={28} color={colors.gold} />
           <Text style={styles.deniedTitle}>Acceso restringido</Text>
@@ -481,7 +505,7 @@ export function MobileInspectionManagementScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.screen}>
         <View style={styles.header}>
           <HeaderGradient />
