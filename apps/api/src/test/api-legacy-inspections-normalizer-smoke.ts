@@ -22,6 +22,7 @@ function main(): void {
     'Nº Observaciones': 1,
     'Nº Obs Cerradas': 1,
     'Nº Obs  Pendientes': 0,
+    'Obs Cerradas': 1,
     AÑO: 2023,
     Estado: 'Cerrado',
   }, 5);
@@ -51,6 +52,7 @@ function main(): void {
     'Fecha S2': '10-01-2024',
     'Nº Obs Cerradas S2': 2,
     'Nº Obs Pendientes S2': 0,
+    'Obs Cerradas': 6,
     AÑO: 2024,
     Estado: 'Cerrado',
   }, 6);
@@ -80,12 +82,15 @@ function main(): void {
     'Fecha S2': '24-07-2025',
     'Nº Obs Cerradas S2': 2,
     'Nº Obs Pendientes S2': 0,
+    'Obs Cerradas': 2,
     AÑO: 2025,
     Estado: 'Cerrado',
   }, 1808);
 
   assert(invalid1900.milestones.length === 1, 'Invalid 1900 milestone should be discarded');
   assert(invalid1900.milestones[0]?.sequenceNumber === 2, 'Valid S2 milestone should be retained');
+  assert(invalid1900.closedFindingsCount === 2, 'Final source counter must be preserved');
+  assert(invalid1900.openFindingsCount === 0, 'Final source pending count must be derived');
   assert(
     invalid1900.warnings.some((warning) => warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION),
     'Invalid 1900 date warning is missing',
@@ -95,13 +100,16 @@ function main(): void {
   const missingTotal = normalizer.normalize({
     Nº: 120,
     Fecha: '19-02-2026',
-    'Realizada por': 'Karen Opazo S.',
-    Área: 'Medio Ambiente',
+    'Realizada por': 'Janina Santander T.',
+    Área: 'Sustaining',
     Empresa: 'MKL',
     Tipo: 'Hallazgo',
     Sector: 'Plataformas EECC',
-    Detalle: 'Registro sin total',
+    Detalle: 'Plataforma 13A',
     'Nº Observaciones': null,
+    'Nº Obs Cerradas': null,
+    'Nº Obs Pendientes': 0,
+    'Obs Cerradas': 0,
     AÑO: 2026,
     Estado: 'Abierto',
   }, 2312);
