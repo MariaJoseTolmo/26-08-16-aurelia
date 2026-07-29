@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -43,8 +43,9 @@ const findingGroups: InspectionDetailFindingGroupKey[] = ['executed', 'open', 'c
 
 type FindingGroup = InspectionDetailFindingGroupKey;
 type Tone = 'danger' | 'warning' | 'success' | 'muted' | 'orange';
+type FontAwesome5Name = React.ComponentProps<typeof FontAwesome5>['name'];
 
-const groupConfig: Record<FindingGroup, { singular: string; plural: string; icon: string; tone: Tone }> = {
+const groupConfig: Record<FindingGroup, { singular: string; plural: string; icon: FontAwesome5Name; tone: Tone }> = {
   executed: { singular: 'Ejecutada', plural: 'Ejecutadas', icon: 'check-circle', tone: 'danger' },
   open: { singular: 'Abierta', plural: 'Abiertas', icon: 'clock', tone: 'warning' },
   closed: { singular: 'Cerrada', plural: 'Cerradas', icon: 'check-circle', tone: 'success' },
@@ -314,12 +315,12 @@ export function MobileAssignedFindingsScreen() {
       staleTime: 15_000,
     })),
   });
-  const detailByInspectionId = useMemo(() => new Map(
-    rows.map((row, index) => [row.inspectionId, detailQueries[index]?.data]),
-  ), [detailQueries, rows]);
+  const detailByInspectionId = new Map<string, InspectionDetailResponse | undefined>();
+  rows.forEach((row, index) => detailByInspectionId.set(row.inspectionId, detailQueries[index]?.data));
   const loading = data.table.isLoading || assignedKpis.isLoading || summary.isLoading;
   const refreshing = data.table.isRefetching || assignedKpis.isRefetching || summary.isRefetching;
   const closedFindings = summary.data?.findings.byStatus[InspectionFindingStatus.CLOSED] ?? 0;
+  const managementCount = assignedKpis.data?.openInspections ?? 0;
 
   async function refresh() {
     await Promise.all([data.table.refetch(), assignedKpis.refetch(), summary.refetch()]);
@@ -429,8 +430,8 @@ export function MobileAssignedFindingsScreen() {
         <View style={styles.tabs}>
           <FooterGradient />
           <TouchableOpacity style={[styles.tab, mode === 'management' && styles.tabSelected]} onPress={() => changeMode('management')}>
-            {table?.total ? (
-              <View style={styles.tabCount}><Text style={styles.tabCountText}>{table.total}</Text></View>
+            {managementCount > 0 ? (
+              <View style={styles.tabCount}><Text style={styles.tabCountText}>{managementCount}</Text></View>
             ) : <View style={styles.tabDot}><View style={styles.tabDotInner} /></View>}
             <Text style={[styles.tabText, mode === 'management' && styles.tabTextSelected]}>Mis hallazgos</Text>
             {mode === 'management' ? <View style={styles.tabLine} /> : null}
