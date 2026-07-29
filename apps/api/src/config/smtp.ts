@@ -27,12 +27,11 @@ export function readSmtpEnv(
   const timeoutRaw = optional(source, 'SMTP_TIMEOUT_MS');
   const requireTlsRaw = optional(source, 'SMTP_REQUIRE_TLS');
 
-  const hasRealConnectionValue = [host, user, pass].some((value) => value && !isPlaceholder(value));
-  const enabled = hasRealConnectionValue || nodeEnv === 'production';
   const normalizedHost = realValue(host);
   const normalizedFrom = realValue(from);
   const normalizedUser = realValue(user);
   const normalizedPass = realValue(pass);
+  const enabled = Boolean(normalizedHost);
 
   if (!enabled) {
     return {
@@ -49,7 +48,6 @@ export function readSmtpEnv(
   }
 
   const missing: string[] = [];
-  if (!normalizedHost) missing.push('SMTP_HOST');
   if (!normalizedFrom) missing.push('SMTP_FROM');
   if (!normalizedUser) missing.push('SMTP_USER');
   if (!normalizedPass) missing.push('SMTP_PASS');
