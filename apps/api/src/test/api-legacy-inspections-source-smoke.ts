@@ -35,6 +35,7 @@ async function main(): Promise<void> {
   );
 
   const chronologyRows = new Set<string>();
+  const chronologyWarningCounts: Partial<Record<LegacyInspectionWarningCode, number>> = {};
   const totals = rows.reduce((summary, row) => {
     summary.findings += row.findingsCount ?? 0;
     summary.closed += row.closedFindingsCount ?? 0;
@@ -49,12 +50,17 @@ async function main(): Promise<void> {
       if (milestone.sequenceNumber === 2) summary.s2 += 1;
       if (milestone.sequenceNumber === 3) summary.s3 += 1;
     });
-    if (row.warnings.some((warning) => (
-      warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
-      || warning.code === LegacyInspectionWarningCode.MILESTONE_OUT_OF_SEQUENCE
-    ))) {
+    row.warnings.forEach((warning) => {
+      if (
+        warning.code !== LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+        && warning.code !== LegacyInspectionWarningCode.MILESTONE_OUT_OF_SEQUENCE
+      ) {
+        return;
+      }
+
       chronologyRows.add(`${row.legacyYear}:${row.legacyNumber}`);
-    }
+      chronologyWarningCounts[warning.code] = (chronologyWarningCounts[warning.code] ?? 0) + 1;
+    });
     return summary;
   }, {
     findings: 0,
@@ -69,6 +75,18 @@ async function main(): Promise<void> {
     s2: 0,
     s3: 0,
   });
+
+  const diagnostics = {
+    source: input,
+    rows: rows.length,
+    uniqueLegacyKeys: legacyKeys.size,
+    totals,
+    chronologyWarningCounts,
+    chronologyRows: [...chronologyRows].sort(),
+    expectedChronologyWarningRows: expected.chronologyWarningRows,
+  };
+
+  console.log(JSON.stringify(diagnostics, null, 2));
 
   assert(rows.length === manifest.expectedRows, 'Cantidad de filas distinta al manifest');
   assert(legacyKeys.size === manifest.expectedUniqueLegacyKeys, 'Las claves AÑO + Nº no son únicas');
@@ -85,7 +103,7 @@ async function main(): Promise<void> {
   assert(totals.quarantine === expected.quarantineRows, 'Cantidad de cuarentena conocida incorrecta');
   assert(
     chronologyRows.size === expected.chronologyWarningRows,
-    'Cantidad de filas con anomalía cronológica incorrecta',
+    `Cantidad de filas con anomalía cronológica incorrecta: actual=${chronologyRows.size}, esperada=${expected.chronologyWarningRows}`,
   );
 
   manifest.knownQuarantine.forEach((known) => {
@@ -105,13 +123,6 @@ async function main(): Promise<void> {
     );
   });
 
-  console.log(JSON.stringify({
-    source: input,
-    rows: rows.length,
-    uniqueLegacyKeys: legacyKeys.size,
-    totals,
-    chronologyRows: [...chronologyRows].sort(),
-  }, null, 2));
   console.log('Legacy inspections source smoke test passed');
 }
 
