@@ -128,7 +128,10 @@ export class InspectionLegacyResolverService {
       areasByName: this.groupByNormalized(areas, (area) => area.name),
       areasByCode: new Map(areas.map((area) => [area.code, area])),
       companiesByName: this.groupByNormalized(companies, (company) => company.name),
-      companiesByCode: new Map(companies.map((company) => [company.code, company])),
+      companiesByCode: companies.reduce<Map<string, CompanyEntity>>((indexed, company) => {
+        if (company.code) indexed.set(company.code, company);
+        return indexed;
+      }, new Map()),
       sectorsByCode: new Map(sectors.map((sector) => [sector.code, sector])),
       usersByName: this.groupByNormalized(users, (user) => `${user.firstName} ${user.lastName}`),
       usersByEmail: new Map(users.map((user) => [user.email.toLocaleLowerCase('es'), user])),
