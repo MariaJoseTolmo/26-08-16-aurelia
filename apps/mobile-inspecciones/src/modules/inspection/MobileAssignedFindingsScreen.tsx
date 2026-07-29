@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -68,28 +68,52 @@ export function isEeccInspectionResponsible(user: Pick<AuthUser, 'email' | 'role
 
 function HeaderGradient() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+    <Svg
+      pointerEvents="none"
+      style={StyleSheet.absoluteFillObject}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+    >
       <Defs>
-        <LinearGradient id="assignedHeader" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient
+          id="assignedHeader"
+          x1={0}
+          y1={0}
+          x2={0}
+          y2={1}
+          gradientUnits="userSpaceOnUse"
+        >
           <Stop offset="0%" stopColor="#012659" />
           <Stop offset="100%" stopColor="#002659" />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill="url(#assignedHeader)" />
+      <Rect x={0} y={0} width={1} height={1} fill="url(#assignedHeader)" />
     </Svg>
   );
 }
 
 function FooterGradient() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+    <Svg
+      pointerEvents="none"
+      style={StyleSheet.absoluteFillObject}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="none"
+    >
       <Defs>
-        <LinearGradient id="assignedFooter" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="2%" stopColor="#002659" />
+        <LinearGradient
+          id="assignedFooter"
+          x1={0}
+          y1={0.0224}
+          x2={0}
+          y2={1.4019}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0%" stopColor="#002659" />
           <Stop offset="100%" stopColor="#004a3a" />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill="url(#assignedFooter)" />
+      <Rect x={0} y={0} width={1} height={1} fill="url(#assignedFooter)" />
     </Svg>
   );
 }
@@ -337,7 +361,7 @@ export function MobileAssignedFindingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.screen}>
         <View style={styles.header}>
           <HeaderGradient />
