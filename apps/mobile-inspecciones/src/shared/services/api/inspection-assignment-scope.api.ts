@@ -1,4 +1,4 @@
-import type { InspectionAssignmentScopeResponse } from '@aurelia/contracts';
+import { Role, type InspectionAssignmentScopeResponse } from '@aurelia/contracts';
 import type { AuthUser } from './auth.api';
 import { httpGet } from '../http-client';
 
@@ -8,7 +8,7 @@ export interface MobileInspectionAssignmentScope extends InspectionAssignmentSco
 
 function isPrincipalCompanyUser(user: AuthUser): boolean {
   const companyName = user.companyName?.trim().toLowerCase() ?? '';
-  return user.roles.includes('ADMIN') || user.email.toLowerCase().endsWith('@goldfields.com') || companyName.includes('gold field');
+  return user.roles.includes(Role.ADMIN) || user.email.toLowerCase().endsWith('@goldfields.com') || companyName.includes('gold field');
 }
 
 function fallbackScope(user: AuthUser): MobileInspectionAssignmentScope {
