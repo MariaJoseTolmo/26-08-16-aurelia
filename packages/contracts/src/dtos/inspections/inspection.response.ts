@@ -162,6 +162,8 @@ export interface InspectionManagementTableRowResponse {
   observations: InspectionManagementTableObservationSummaryResponse;
   daysOpen: number;
   closureRate: number;
+  isLegacy?: boolean;
+  readOnly?: boolean;
 }
 
 export interface InspectionManagementTableFilterOptionsResponse {

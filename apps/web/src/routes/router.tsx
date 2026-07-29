@@ -16,7 +16,7 @@ import { IncidentsPage } from '../modules/incidents/IncidentsPage';
 import { CriticalControlsPage } from '../modules/critical-controls/CriticalControlsPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
-import { MigrationsPage } from '../modules/migrations/MigrationsPage';
+import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
 import { RequireAdmin } from '../shared/components/RequireAdmin';
 import { RequireAuth } from '../shared/components/RequireAuth';
 
@@ -34,7 +34,7 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <RequireAdmin>
-          <MigrationsPage />
+          <MigrationsOperationsPage />
         </RequireAdmin>
       </RequireAuth>
     ),

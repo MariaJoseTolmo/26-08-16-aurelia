@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   InspectionFindingSeverity,
   InspectionType,
+  type CreateInspectionFindingRequest,
   type CreateInspectionRequest,
   type MobileSyncOperationType,
 } from '@aurelia/contracts';
@@ -18,20 +19,11 @@ interface SaveManualFindingInspectionOfflineInput {
   trySyncNow: boolean;
 }
 
-interface FindingSyncPayload {
+type FindingSyncPayload = CreateInspectionFindingRequest & {
   inspectionLocalId: string;
   checklistItemId: null;
-  title: string;
-  description: string | null;
-  severity: InspectionFindingSeverity;
-  ownerUserId: string | null;
-  dueAt: string | null;
-  findingTypeId: string | null;
-  severityId: string | null;
-  responsibleCompanyId: string | null;
-  responsibleUserIds: string[];
   localObservationId: string;
-}
+};
 
 interface UploadAttachmentSyncPayload {
   inspectionLocalId: string;
@@ -84,6 +76,11 @@ function observationDueAt(observation: ManualFindingObservationDraft): string | 
   return due.toISOString();
 }
 
+function trimOrNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function buildFindingTitle(draft: ManualInspectionDraft, observation: ManualFindingObservationDraft, index: number): string {
   const base = draft.findingTypeLabel ?? 'Hallazgo';
   const suffix = observation.severityLabel ? ` · ${observation.severityLabel}` : '';
@@ -91,9 +88,11 @@ function buildFindingTitle(draft: ManualInspectionDraft, observation: ManualFind
 }
 
 function buildFindingDescription(observation: ManualFindingObservationDraft): string | null {
+  const detectedCondition = trimOrNull(observation.detectedCondition);
+  const correctiveAction = trimOrNull(observation.correctiveAction);
   const lines = [
-    observation.detectedCondition.trim() || null,
-    observation.correctiveAction.trim() ? `Medida correctiva: ${observation.correctiveAction.trim()}` : null,
+    detectedCondition,
+    correctiveAction ? `Medida correctiva: ${correctiveAction}` : null,
     observation.evidence?.name ? `Evidencia local: ${observation.evidence.name}` : null,
   ].filter(Boolean);
   return lines.length > 0 ? lines.join('\n') : null;
@@ -164,6 +163,8 @@ export function useSaveManualFindingInspectionOffline() {
           checklistItemId: null,
           title: buildFindingTitle(draft, observation, index),
           description: buildFindingDescription(observation),
+          detectedCondition: trimOrNull(observation.detectedCondition),
+          proposedCorrectiveAction: trimOrNull(observation.correctiveAction),
           severity: mapSeverity(observation.severityLabel),
           ownerUserId: draft.findingResponsibleIds[0] ?? null,
           dueAt: observationDueAt(observation),

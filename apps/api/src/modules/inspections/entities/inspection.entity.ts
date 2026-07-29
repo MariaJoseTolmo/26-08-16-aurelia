@@ -6,9 +6,11 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { InspectionLegacyImportEntity } from '../../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { AreaEntity } from '../../organization/entities/area.entity';
 import { CompanyEntity } from '../../organization/entities/company.entity';
 import { LocationEntity } from '../../organization/entities/location.entity';
@@ -124,6 +126,9 @@ export class InspectionEntity {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  @OneToOne(() => InspectionLegacyImportEntity, (legacyImport) => legacyImport.inspection)
+  legacyImport: InspectionLegacyImportEntity | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
