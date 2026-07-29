@@ -42,6 +42,12 @@ export class ResourceScopeService {
     }
   }
 
+  async assertCanCreateInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<void> {
+    if (!(await this.canCreateInspection(user, resource))) {
+      throw new ForbiddenException('Inspection creation is outside the user company scope');
+    }
+  }
+
   async canAccess(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
     const scope = await this.getUserScope(user);
     return this.isAllowed(scope, resource);
@@ -50,6 +56,14 @@ export class ResourceScopeService {
   async canAccessInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
     const scope = await this.getUserScope(user);
     return this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser });
+  }
+
+  async canCreateInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.isPrincipalCompanyUser) return true;
+    if (!scope.primaryCompany || scope.companyIds.size === 0) return false;
+    if (!resource.companyId) return true;
+    return scope.companyIds.has(resource.companyId);
   }
 
   async canAccessArea(user: AccessTokenPayload, areaId: string | null | undefined): Promise<boolean> {
