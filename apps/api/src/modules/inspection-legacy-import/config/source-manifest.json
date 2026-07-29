@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sourceSystem": "legacy_environmental_inspections_spreadsheet",
   "fileName": "Planilla de inspecciones Medio Ambiente.xlsx",
   "sha256": "11f094771d95c36ed777c82197ac76fd4a6abc55ac784eee0b19783d760174b4",
@@ -28,6 +28,16 @@
     "followupS2SourceRows": 136,
     "followupS3SourceRows": 15
   },
+  "expectedNormalizedTotals": {
+    "findingsCount": 18214,
+    "closedFindingsCount": 18051,
+    "openFindingsCount": 163,
+    "followupS1Rows": 1611,
+    "followupS2Rows": 134,
+    "followupS3Rows": 14,
+    "quarantineRows": 1,
+    "chronologyWarningRows": 6
+  },
   "requiredHeaders": [
     "Nº",
     "Fecha",
@@ -50,7 +60,8 @@
     "Nº Obs Cerradas S3",
     "Nº Obs Pendientes S3",
     "AÑO",
-    "Estado"
+    "Estado",
+    "Obs Cerradas"
   ],
   "knownQuarantine": [
     {
