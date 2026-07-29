@@ -35,7 +35,7 @@
     "followupS1Rows": 1611,
     "followupS2Rows": 134,
     "followupS3Rows": 14,
-    "quarantineRows": 1,
+    "quarantineRows": 0,
     "chronologyWarningRows": 6
   },
   "requiredHeaders": [
@@ -63,14 +63,7 @@
     "Estado",
     "Obs Cerradas"
   ],
-  "knownQuarantine": [
-    {
-      "legacyYear": 2026,
-      "legacyNumber": 120,
-      "sourceRow": 2312,
-      "reason": "Nº Observaciones vacío"
-    }
-  ],
+  "knownQuarantine": [],
   "knownChronologyWarnings": [
     { "legacyYear": 2023, "legacyNumber": 234 },
     { "legacyYear": 2023, "legacyNumber": 242 },
