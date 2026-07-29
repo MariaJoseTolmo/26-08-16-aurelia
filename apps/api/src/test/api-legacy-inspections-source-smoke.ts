@@ -6,6 +6,9 @@ import { InspectionLegacyNormalizerService } from '../modules/inspection-legacy-
 import { InspectionLegacySourceManifestService } from '../modules/inspection-legacy-import/inspection-legacy-source-manifest.service';
 import { InspectionLegacyXlsxReaderService } from '../modules/inspection-legacy-import/inspection-legacy-xlsx-reader.service';
 
+const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
+const DAY_IN_MS = 86_400_000;
+
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -13,6 +16,35 @@ function assert(condition: boolean, message: string): asserts condition {
 function argumentValue(name: string): string | null {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv.at(index + 1) ?? null : null;
+}
+
+function legacyDateYear(value: unknown): number | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.getUTCFullYear();
+  }
+
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value.trim())
+      ? Number(value.trim())
+      : null;
+
+  if (numeric !== null && Number.isFinite(numeric) && numeric > 0) {
+    const date = new Date(EXCEL_EPOCH_UTC + Math.floor(numeric) * DAY_IN_MS);
+    return Number.isNaN(date.getTime()) ? null : date.getUTCFullYear();
+  }
+
+  const text = typeof value === 'string' ? value.trim() : '';
+  const isoMatch = /^(\d{4})[-/]/.exec(text);
+  if (isoMatch) return Number(isoMatch[1]);
+
+  const localMatch = /^\d{1,2}[-/]\d{1,2}[-/](\d{4})$/.exec(text);
+  return localMatch ? Number(localMatch[1]) : null;
+}
+
+function isLegacy1900Placeholder(value: unknown): boolean {
+  const year = legacyDateYear(value);
+  return year !== null && year <= 1900;
 }
 
 async function main(): Promise<void> {
@@ -36,6 +68,7 @@ async function main(): Promise<void> {
 
   const chronologyRows = new Set<string>();
   const chronologyWarningCounts: Partial<Record<LegacyInspectionWarningCode, number>> = {};
+  let legacy1900PlaceholderWarnings = 0;
   const totals = rows.reduce((summary, row) => {
     summary.findings += row.findingsCount ?? 0;
     summary.closed += row.closedFindingsCount ?? 0;
@@ -58,8 +91,17 @@ async function main(): Promise<void> {
         return;
       }
 
-      chronologyRows.add(`${row.legacyYear}:${row.legacyNumber}`);
       chronologyWarningCounts[warning.code] = (chronologyWarningCounts[warning.code] ?? 0) + 1;
+
+      if (
+        warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+        && isLegacy1900Placeholder(warning.rawValue)
+      ) {
+        legacy1900PlaceholderWarnings += 1;
+        return;
+      }
+
+      chronologyRows.add(`${row.legacyYear}:${row.legacyNumber}`);
     });
     return summary;
   }, {
@@ -82,6 +124,7 @@ async function main(): Promise<void> {
     uniqueLegacyKeys: legacyKeys.size,
     totals,
     chronologyWarningCounts,
+    legacy1900PlaceholderWarnings,
     chronologyRows: [...chronologyRows].sort(),
     expectedChronologyWarningRows: expected.chronologyWarningRows,
   };
@@ -103,7 +146,7 @@ async function main(): Promise<void> {
   assert(totals.quarantine === expected.quarantineRows, 'Cantidad de cuarentena conocida incorrecta');
   assert(
     chronologyRows.size === expected.chronologyWarningRows,
-    `Cantidad de filas con anomalía cronológica incorrecta: actual=${chronologyRows.size}, esperada=${expected.chronologyWarningRows}`,
+    `Cantidad de filas con anomalía cronológica real incorrecta: actual=${chronologyRows.size}, esperada=${expected.chronologyWarningRows}`,
   );
 
   manifest.knownQuarantine.forEach((known) => {
