@@ -2,7 +2,12 @@ import { randomUUID } from 'crypto';
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Role, type AuthClientApplication, type LoginRequest as SharedLoginRequest } from '@aurelia/contracts';
+import {
+  INSPECTION_CAPABILITIES,
+  Role,
+  type AuthClientApplication,
+  type LoginRequest as SharedLoginRequest,
+} from '@aurelia/contracts';
 import { UserEntity } from '../users/entities/user.entity';
 import { CredentialHashService } from './credential-hash.service';
 import { JwtTokenService } from './jwt-token.service';
@@ -259,6 +264,8 @@ export class AuthService {
     const permissions = userRoles.flatMap((userRole) => (
       userRole.role.rolePermissions?.map((rolePermission) => rolePermission.permission.code) ?? []
     ));
+    const roleCodes = userRoles.map((userRole) => userRole.role.code);
+    if (roleCodes.includes(Role.INSPECTOR)) permissions.push(INSPECTION_CAPABILITIES.create);
 
     return Array.from(new Set(permissions)).sort();
   }
