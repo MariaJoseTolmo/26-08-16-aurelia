@@ -1,17 +1,14 @@
 import { randomUUID } from 'crypto';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Role } from '@aurelia/contracts';
+import { Role, type AuthClientApplication, type LoginRequest as SharedLoginRequest } from '@aurelia/contracts';
 import { UserEntity } from '../users/entities/user.entity';
 import { CredentialHashService } from './credential-hash.service';
 import { JwtTokenService } from './jwt-token.service';
 import { SessionRegistryService } from './session-registry.service';
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+export type LoginRequest = SharedLoginRequest;
 
 export interface LoginResponse {
   token: string;
@@ -119,6 +116,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    this.assertClientAccess(user, payload.client ?? 'web');
+
     await this.usersRepository.update(user.id, {
       failedLoginAttempts: 0,
       lockedUntil: null,
@@ -172,6 +171,17 @@ export class AuthService {
 
   async logoutAll(userId: string): Promise<void> {
     await this.sessionRegistryService.revokeAll(userId);
+  }
+
+  private assertClientAccess(user: UserEntity, client: AuthClientApplication): void {
+    const roles = (user.userRoles ?? [])
+      .filter((userRole) => userRole.role.isActive)
+      .map((userRole) => userRole.role.code);
+    const isMobileOnlyInspector = roles.includes(Role.INSPECTOR) && !roles.includes(Role.ADMIN);
+
+    if (isMobileOnlyInspector && client !== 'mobile-inspecciones') {
+      throw new ForbiddenException('Los perfiles de inspector solo pueden iniciar sesión desde la aplicación móvil de inspecciones.');
+    }
   }
 
   private async issueLoginResponse(userId: string, context: AuthClientContext, existingRefreshToken?: string, existingSessionId?: string): Promise<LoginResponse> {
