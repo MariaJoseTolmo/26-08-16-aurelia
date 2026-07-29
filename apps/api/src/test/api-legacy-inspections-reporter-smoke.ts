@@ -45,7 +45,10 @@ async function main(): Promise<void> {
     sourceSystem: 'legacy_environmental_inspections_spreadsheet',
     alreadyImportedInspectionId: null,
     finalDisposition: 'WARNING',
-    validationMessages: ['Área, sector e inspector requieren crear catálogos activos'],
+    validationMessages: [
+      'CEI Atacama requiere crear catálogo activo CEI_ATACAMA',
+      'CEI atacama requiere crear catálogo activo CEI_ATACAMA',
+    ],
     normalized: {
       sourceRow: 5,
       legacyYear: 2023,
@@ -109,6 +112,7 @@ async function main(): Promise<void> {
       dispositions: { WARNING: number };
       catalogPolicy: string;
       onlyInspectionsAreLegacy: boolean;
+      validationMessages: Array<{ message: string; count: number }>;
     };
     const reconciliationJson = JSON.parse(reconciliation) as {
       invariant: { allRowsClassified: boolean };
@@ -118,6 +122,7 @@ async function main(): Promise<void> {
     assert(summaryJson.dispositions.WARNING === 1, 'Warning count is wrong');
     assert(summaryJson.catalogPolicy === 'ACTIVE_MASTER_DATA', 'Summary should declare active master data');
     assert(summaryJson.onlyInspectionsAreLegacy, 'Summary should declare only inspections as legacy');
+    assert(summaryJson.validationMessages.length === 2, 'Summary should preserve case-sensitive messages as a list');
     assert(reconciliationJson.invariant.allRowsClassified, 'Reconciliation invariant failed');
     assert(warningsCsv.includes('AREA-CONSTRUCCION'), 'Warning CSV lost area action');
     assert(warningsCsv.includes('SECT-CONST-PLATAFORMAS-EECC'), 'Warning CSV lost sector action');
