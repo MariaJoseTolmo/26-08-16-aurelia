@@ -18,6 +18,26 @@ function normalize(value: string): string {
     .replace(/\s+/g, ' ');
 }
 
+function aliasesResolveToSingleMaster(
+  entries: Array<{ code: string; sourceValues: string[] }>,
+): boolean {
+  const mastersByAlias = new Map<string, Set<string>>();
+
+  entries.forEach((entry) => {
+    entry.sourceValues.forEach((sourceValue) => {
+      const alias = normalize(sourceValue);
+      const masterCodes = mastersByAlias.get(alias) ?? new Set<string>();
+
+      masterCodes.add(entry.code);
+      mastersByAlias.set(alias, masterCodes);
+    });
+  });
+
+  return [...mastersByAlias.values()].every(
+    (masterCodes) => masterCodes.size === 1,
+  );
+}
+
 function main(): void {
   assert(masterData.version === 2, 'Master data version must be 2');
   assert(masterData.source.totalRows === 2308, 'Source row count is wrong');
@@ -57,10 +77,14 @@ function main(): void {
   assert(Boolean(corp), 'CORP company is missing');
   assert(corp?.isContractor === false, 'Gold Fields must not be a contractor');
 
-  const normalizedAreaSources = masterData.areas.flatMap((area) => area.sourceValues.map(normalize));
-  const normalizedCompanySources = masterData.companies.flatMap((company) => company.sourceValues.map(normalize));
-  assert(unique(normalizedAreaSources), 'Area source aliases must resolve to exactly one master');
-  assert(unique(normalizedCompanySources), 'Company source aliases must resolve to exactly one master');
+  assert(
+    aliasesResolveToSingleMaster(masterData.areas),
+    'Area source aliases must not resolve to multiple masters',
+  );
+  assert(
+    aliasesResolveToSingleMaster(masterData.companies),
+    'Company source aliases must not resolve to multiple masters',
+  );
 
   const userEmails = new Set(masterData.users.map((user) => user.email.toLocaleLowerCase('es')));
   masterData.inspectorGroups.forEach((group) => {
