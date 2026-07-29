@@ -1,11 +1,10 @@
 import { randomUUID } from 'crypto';
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   INSPECTION_CAPABILITIES,
   Role,
-  type AuthClientApplication,
   type LoginRequest as SharedLoginRequest,
 } from '@aurelia/contracts';
 import { UserEntity } from '../users/entities/user.entity';
@@ -121,8 +120,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.assertClientAccess(user, payload.client);
-
     await this.usersRepository.update(user.id, {
       failedLoginAttempts: 0,
       lockedUntil: null,
@@ -176,17 +173,6 @@ export class AuthService {
 
   async logoutAll(userId: string): Promise<void> {
     await this.sessionRegistryService.revokeAll(userId);
-  }
-
-  private assertClientAccess(user: UserEntity, client: AuthClientApplication | undefined): void {
-    const roles = (user.userRoles ?? [])
-      .filter((userRole) => userRole.role.isActive)
-      .map((userRole) => userRole.role.code);
-    const isMobileOnlyInspector = roles.includes(Role.INSPECTOR) && !roles.includes(Role.ADMIN);
-
-    if (isMobileOnlyInspector && client && client !== 'mobile-inspecciones') {
-      throw new ForbiddenException('Los perfiles de inspector solo pueden iniciar sesión desde la aplicación móvil de inspecciones.');
-    }
   }
 
   private async issueLoginResponse(userId: string, context: AuthClientContext, existingRefreshToken?: string, existingSessionId?: string): Promise<LoginResponse> {
