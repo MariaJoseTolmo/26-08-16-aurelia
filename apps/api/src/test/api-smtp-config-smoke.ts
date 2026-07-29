@@ -14,6 +14,21 @@ function main(): void {
   });
   assert.equal(disabled.enabled, false);
 
+  const disabledWithoutHost = readSmtpEnv({
+    NODE_ENV: 'production',
+    SMTP_HOST: '',
+    SMTP_PORT: '587',
+    SMTP_SECURE: 'false',
+    SMTP_USER: 'aurelia-user-from-key-vault',
+    SMTP_PASS: 'secret-from-key-vault',
+    SMTP_FROM: 'no-reply-aurelia@kabeli.cl',
+  });
+  assert.equal(disabledWithoutHost.enabled, false);
+  assert.equal(disabledWithoutHost.host, null);
+  assert.equal(disabledWithoutHost.user, null);
+  assert.equal(disabledWithoutHost.pass, null);
+  assert.equal(disabledWithoutHost.from, null);
+
   assert.throws(() => readSmtpEnv({
     NODE_ENV: 'production',
     SMTP_HOST: 'smtp.example.com',
