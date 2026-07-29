@@ -3,6 +3,17 @@ import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import sourceManifest from './config/source-manifest.json';
 
+export interface InspectionLegacyKnownQuarantine {
+  legacyYear: number;
+  legacyNumber: number;
+  sourceRow: number;
+  reason: string;
+}
+
+export type InspectionLegacySourceManifest = Omit<typeof sourceManifest, 'knownQuarantine'> & {
+  knownQuarantine: InspectionLegacyKnownQuarantine[];
+};
+
 export interface InspectionLegacySourceVerification {
   valid: boolean;
   expected: {
@@ -23,7 +34,7 @@ export interface InspectionLegacySourceVerification {
 
 @Injectable()
 export class InspectionLegacySourceManifestService {
-  get manifest(): typeof sourceManifest {
+  get manifest(): InspectionLegacySourceManifest {
     return sourceManifest;
   }
 
