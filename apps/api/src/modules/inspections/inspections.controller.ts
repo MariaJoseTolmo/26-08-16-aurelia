@@ -97,7 +97,7 @@ export class InspectionsController {
   @Post()
   async create(@Body() dto: CreateInspectionDto, @Req() request: AuthenticatedRequest): Promise<InspectionResponse> {
     const companyId = await this.resourceScopeService.resolveInspectionAssignmentCompany(request.user, dto.companyId);
-    await this.resourceScopeService.assertCanAccessInspection(request.user, { companyId, areaId: dto.areaId });
+    await this.resourceScopeService.assertCanCreateInspection(request.user, { companyId, areaId: dto.areaId });
     return this.inspectionsService.create({ ...dto, companyId }, request.user.sub);
   }
 
