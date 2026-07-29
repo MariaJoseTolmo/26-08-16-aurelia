@@ -22,7 +22,10 @@ function normalizeLoginResponse(response: LoginApiResponse): LoginResponse {
 }
 
 export function login(payload: LoginRequest): Promise<LoginResponse> {
-  return httpPost<LoginRequest, LoginApiResponse>('/auth/login', payload).then(normalizeLoginResponse);
+  return httpPost<LoginRequest, LoginApiResponse>('/auth/login', {
+    ...payload,
+    client: 'web',
+  }).then(normalizeLoginResponse);
 }
 
 export function getMe(): Promise<MeResponse> {
