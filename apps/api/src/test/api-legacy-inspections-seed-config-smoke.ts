@@ -8,13 +8,16 @@ function assert(condition: boolean, message: string): asserts condition {
 }
 
 function expectFailure(run: () => unknown, expectedMessage: string): void {
+  let failure: unknown = null;
   try {
     run();
-    throw new Error(`Se esperaba un error que incluyera: ${expectedMessage}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    assert(message.includes(expectedMessage), `Mensaje inesperado: ${message}`);
+    failure = error;
   }
+
+  assert(failure !== null, `Se esperaba un error que incluyera: ${expectedMessage}`);
+  const message = failure instanceof Error ? failure.message : String(failure);
+  assert(message.includes(expectedMessage), `Mensaje inesperado: ${message}`);
 }
 
 function main(): void {
