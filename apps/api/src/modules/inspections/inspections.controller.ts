@@ -32,6 +32,7 @@ import { UpsertInspectionAnswerDto } from './dto/upsert-inspection-answer.dto';
 import { InspectionAccessService } from './inspection-access.service';
 import { InspectionAssignmentEmailService } from './inspection-assignment-email.service';
 import { InspectionDetailService } from './inspection-detail.service';
+import { InspectionRejectionEmailService } from './inspection-rejection-email.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
 import { InspectionsService } from './inspections.service';
 
@@ -47,6 +48,7 @@ export class InspectionsController {
     private readonly inspectionDetailService: InspectionDetailService,
     private readonly resourceScopeService: ResourceScopeService,
     private readonly assignmentEmails: InspectionAssignmentEmailService,
+    private readonly rejectionEmails: InspectionRejectionEmailService,
     private readonly transitions: InspectionTransitionPolicyService,
   ) {}
 
@@ -277,11 +279,17 @@ export class InspectionsController {
       this.transitions.assertFindingTransition(currentFinding.status, dto.status);
     }
     const isCancellation = dto.status === InspectionFindingStatus.CANCELLED;
+    const isRejectionTransition = dto.status === InspectionFindingStatus.REJECTED
+      && currentFinding.status !== InspectionFindingStatus.REJECTED;
     const isReviewAction = dto.status === InspectionFindingStatus.CLOSED
       || dto.status === InspectionFindingStatus.REJECTED
       || dto.closedAt !== undefined
       || dto.rejectedAt !== undefined
       || dto.rejectionReason !== undefined;
+
+    if (isRejectionTransition && !dto.rejectionReason?.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
 
     if (isCancellation) {
       this.assertCapability(request, INSPECTION_CAPABILITIES.admin);
@@ -303,6 +311,9 @@ export class InspectionsController {
 
     const finding = await this.inspectionsService.updateFinding(findingId, dto, request.user.sub);
     await this.closeInspectionIfAllFindingsClosed(finding.inspectionId, request.user.sub);
+    if (isRejectionTransition && finding.status === InspectionFindingStatus.REJECTED) {
+      this.dispatchFindingRejectionEmail(finding.id, request.user.sub);
+    }
     return finding;
   }
 
@@ -366,6 +377,13 @@ export class InspectionsController {
     if (previousStatus === InspectionStatus.IN_PROGRESS || updated.status !== InspectionStatus.IN_PROGRESS) return;
     await this.assignmentEmails.notifyInspectionAssigned(updated.id).catch((error) => {
       this.logAssignmentEmailFailure(updated.id, error);
+    });
+  }
+
+  private dispatchFindingRejectionEmail(findingId: string, actorId: string | null): void {
+    void this.rejectionEmails.notifyFindingRejected(findingId, actorId).catch((error) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Unable to dispatch rejected finding email finding=${findingId}: ${detail}`);
     });
   }
 
