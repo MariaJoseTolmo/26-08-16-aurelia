@@ -4,6 +4,10 @@ import { AccessControlModule } from '../access-control/access-control.module';
 import { AuditModule } from '../audit/audit.module';
 import { CommentsModule } from '../comments/comments.module';
 import { EvidencesModule } from '../evidences/evidences.module';
+import { InspectionLegacyImportEntity } from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { InspectionLegacyMilestoneEntity } from '../inspection-legacy-import/entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from '../inspection-legacy-import/entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from '../inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AreaEntity } from '../organization/entities/area.entity';
 import { CompanyEntity } from '../organization/entities/company.entity';
@@ -64,6 +68,10 @@ import { InspectionsService } from './inspections.service';
       InspectionFormSectionEntity,
       InspectionFormItemEntity,
       InspectionEntity,
+      InspectionLegacyImportEntity,
+      InspectionLegacyMilestoneEntity,
+      InspectionLegacyParticipantEntity,
+      InspectionLegacySectorLinkEntity,
       InspectionItemResponseEntity,
       InspectionFindingEntity,
       InspectionFindingResponsibleEntity,

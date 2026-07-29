@@ -43,6 +43,10 @@ import { InspectionSlaPolicyEntity } from '../modules/inspections/entities/inspe
 import { InspectionStateEntity } from '../modules/inspections/entities/inspection-state.entity';
 import { InspectionTypeEntity } from '../modules/inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../modules/inspections/entities/inspection.entity';
+import { InspectionLegacyImportEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { InspectionLegacyMilestoneEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
 import { ControlAreaAssignmentEntity } from '../modules/mue/entities/control-area-assignment.entity';
 import { ControlEvidenceEntity } from '../modules/mue/entities/control-evidence.entity';
 import { ControlSelfAssessmentAnswerEntity } from '../modules/mue/entities/control-self-assessment-answer.entity';
@@ -143,6 +147,10 @@ export const AppDataSource = new DataSource({
     InspectionSlaPolicyEntity,
     InspectionSlaEventEntity,
     InspectionAiAssessmentEntity,
+    InspectionLegacyImportEntity,
+    InspectionLegacyMilestoneEntity,
+    InspectionLegacyParticipantEntity,
+    InspectionLegacySectorLinkEntity,
     IncidentTypeEntity,
     IncidentLevelEntity,
     IncidentEntity,
