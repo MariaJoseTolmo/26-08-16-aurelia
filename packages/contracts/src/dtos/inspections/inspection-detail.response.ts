@@ -140,6 +140,53 @@ export interface InspectionDetailChecklistResultResponse {
   sections: InspectionDetailChecklistSectionResponse[];
 }
 
+export interface InspectionDetailLegacyMilestoneResponse {
+  sequenceNumber: number;
+  occurredAt: ISODateString | null;
+  closedIncrement: number;
+  pendingAfter: number;
+  closedPercentage: number | null;
+  pendingPercentage: number | null;
+}
+
+export interface InspectionDetailLegacyParticipantResponse {
+  userId: ID | null;
+  fullName: string | null;
+  isPrimary: boolean;
+}
+
+export interface InspectionDetailLegacySectorResponse {
+  sectorId: ID | null;
+  name: string | null;
+  isPrimary: boolean;
+}
+
+export interface InspectionDetailLegacyDataAvailabilityResponse {
+  findingDetails: boolean;
+  checklistAnswers: boolean;
+  comments: boolean;
+  images: boolean;
+}
+
+export interface InspectionDetailLegacySummaryResponse {
+  sourceSystem: string;
+  legacyYear: number;
+  legacyNumber: number;
+  mode: 'finding' | 'checklist';
+  originalInspectorName: string | null;
+  originalAreaName: string | null;
+  originalCompanyName: string | null;
+  originalSectorName: string | null;
+  originalDetail: string | null;
+  totalObservations: number;
+  closedObservations: number;
+  openObservations: number;
+  milestones: InspectionDetailLegacyMilestoneResponse[];
+  participants: InspectionDetailLegacyParticipantResponse[];
+  sectors: InspectionDetailLegacySectorResponse[];
+  dataAvailability: InspectionDetailLegacyDataAvailabilityResponse;
+}
+
 export interface InspectionDetailResponse {
   header: InspectionDetailHeaderResponse;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
