@@ -175,6 +175,8 @@ export const AppDataSource = new DataSource({
     SprRecordApprovalEntity,
     SprConsolidationRuleEntity,
   ],
-  migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
+  // Only timestamp-prefixed, versioned migrations are executable. This deliberately
+  // ignores stale generated-auto-schema-sync artifacts that may survive an overlay deployment.
+  migrations: [__dirname + '/migrations/[0-9]*-*{.ts,.js}'],
   synchronize: env.database.synchronize,
 });

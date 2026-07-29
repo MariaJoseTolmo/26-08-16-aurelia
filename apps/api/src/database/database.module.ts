@@ -19,10 +19,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         // synchronize solo se habilita explícitamente vía DB_SYNCHRONIZE=true (desarrollo).
         synchronize: config.get<boolean>('database.synchronize'),
         ssl: config.get<boolean>('database.ssl') ? { rejectUnauthorized: false } : false,
-        migrations: ['dist/database/migrations/**/*.js'],
+        // Carga sólo migraciones versionadas con prefijo timestamp y evita ejecutar
+        // artefactos obsoletos como generated-auto-schema-sync.js que puedan quedar
+        // en el filesystem después de un despliegue por superposición.
+        migrations: ['dist/database/migrations/[0-9]*-*.js'],
       }),
     }),
   ],
 })
 export class DatabaseModule {}
-
