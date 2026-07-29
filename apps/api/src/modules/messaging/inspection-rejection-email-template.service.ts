@@ -46,7 +46,6 @@ export class InspectionRejectionEmailTemplateService {
         observationNumber,
         rejectionReason,
         rejectedByName,
-        rejectedByProfile,
         rejectedBy,
         areaSector,
         inspectionMode,
@@ -84,7 +83,6 @@ export class InspectionRejectionEmailTemplateService {
     observationNumber: string;
     rejectionReason: string;
     rejectedByName: string;
-    rejectedByProfile: string;
     rejectedBy: string;
     areaSector: string;
     inspectionMode: 'Hallazgo' | 'Checklist';
@@ -95,7 +93,6 @@ export class InspectionRejectionEmailTemplateService {
     const observationNumber = escapeHtml(input.observationNumber);
     const rejectionReason = escapeHtml(input.rejectionReason).replace(/\r?\n/g, '<br>');
     const rejectedByName = escapeHtml(input.rejectedByName);
-    const rejectedByProfile = escapeHtml(input.rejectedByProfile);
     const rejectedBy = escapeHtml(input.rejectedBy);
     const areaSector = escapeHtml(input.areaSector);
     const inspectionMode = escapeHtml(input.inspectionMode);
