@@ -20,7 +20,9 @@ export function hasMobileInspectionCapability(
   user: MobileInspectionUser | null,
   capability: InspectionCapability,
 ): boolean {
-  if (user?.roles?.includes('ADMIN')) return true;
+  const roles = user?.roles ?? [];
+  if (roles.includes('ADMIN')) return true;
+  if (capability === INSPECTION_CAPABILITIES.create && roles.includes('INSPECTOR')) return true;
   return (user?.permissions ?? []).includes(capability);
 }
 
