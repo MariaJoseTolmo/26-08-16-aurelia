@@ -101,18 +101,27 @@ export class InspectionRejectionEmailService {
       },
     });
 
-    await Promise.allSettled(recipients.map((recipient) => this.deliverToRecipient({
-      notificationId: notification.id,
-      recipient,
-      finding,
-      inspection,
-      inspectionNumber,
-      observationNumber,
-      rejectionReason,
-      rejectedByName,
-      rejectedByProfile,
-      eventKey,
-    })));
+    await Promise.all(recipients.map(async (recipient) => {
+      try {
+        await this.deliverToRecipient({
+          notificationId: notification.id,
+          recipient,
+          finding,
+          inspection,
+          inspectionNumber,
+          observationNumber,
+          rejectionReason,
+          rejectedByName,
+          rejectedByProfile,
+          eventKey,
+        });
+      } catch (error) {
+        const detail = this.safeErrorDetail(error);
+        this.logger.error(
+          `Unable to prepare rejected finding email finding=${finding.id} recipientUser=${recipient.id}: ${detail}`,
+        );
+      }
+    }));
   }
 
   private async deliverToRecipient(input: {
@@ -177,14 +186,14 @@ export class InspectionRejectionEmailService {
         );
         return;
       } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
+        const detail = this.safeErrorDetail(error);
         const state = await this.notificationDeliveries.markFailed(delivery.id, detail, false, {
           attempt,
           inspectionId: input.inspection.id,
           findingId: input.finding.id,
           recipientUserId: input.recipient.id,
         }).catch((trackingError) => {
-          const trackingDetail = trackingError instanceof Error ? trackingError.message : String(trackingError);
+          const trackingDetail = this.safeErrorDetail(trackingError);
           this.logger.warn(`Unable to update rejected email delivery=${delivery.id}: ${trackingDetail}`);
           return null;
         });
@@ -304,6 +313,23 @@ export class InspectionRejectionEmailService {
 
   private userFullName(user: UserEntity): string {
     return `${user.firstName} ${user.lastName}`.trim() || user.email;
+  }
+
+  private safeErrorDetail(error: unknown): string {
+    const smtp = this.config.get<{ user?: string | null; pass?: string | null }>('smtp');
+    const secrets = [
+      smtp?.user,
+      smtp?.pass,
+      this.config.get<string>('SMTP_USER'),
+      this.config.get<string>('SMTP_PASS'),
+    ].filter((value): value is string => Boolean(value));
+    let detail = error instanceof Error ? error.message : String(error);
+    for (const secret of secrets) detail = detail.split(secret).join('[REDACTED]');
+    detail = detail
+      .replace(/(AUTH(?:\s+PLAIN|\s+LOGIN)?\s+)[^\s]+/gi, '$1[REDACTED]')
+      .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[REDACTED]')
+      .trim();
+    return (detail || 'Email delivery failed').slice(0, 1000);
   }
 
   private delay(milliseconds: number): Promise<void> {
