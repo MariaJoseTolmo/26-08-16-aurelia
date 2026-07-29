@@ -44,8 +44,8 @@ function serviceWith(row: UserEntity | null): ResourceScopeService {
   return new ResourceScopeService(repository);
 }
 
-describe('ResourceScopeService inspection scope', () => {
-  it('permite a EECC solo su compañía y área asignada', async () => {
+describe('ResourceScopeService inspection access scope', () => {
+  it('mantiene para EECC el acceso general restringido por compañía y área', async () => {
     const service = serviceWith(userRow({ companyId: 'company-1', areaId: 'area-1' }));
 
     await expect(service.canAccessInspection(baseToken, {
@@ -62,7 +62,7 @@ describe('ResourceScopeService inspection scope', () => {
     })).resolves.toBe(false);
   });
 
-  it('rechaza recursos sin compañía o área cuando el scope las exige', async () => {
+  it('rechaza recursos sin compañía o área cuando el scope general las exige', async () => {
     const service = serviceWith(userRow({ companyId: 'company-1', areaId: 'area-1' }));
 
     await expect(service.canAccessInspection(baseToken, {
@@ -75,7 +75,7 @@ describe('ResourceScopeService inspection scope', () => {
     })).resolves.toBe(false);
   });
 
-  it('permite a Gold Fields cruzar compañías pero conserva el scope de área', async () => {
+  it('mantiene para Gold Fields el acceso general entre compañías con scope de área', async () => {
     const token: AccessTokenPayload = {
       ...baseToken,
       email: 'verificador@goldfields.com',
@@ -93,10 +93,71 @@ describe('ResourceScopeService inspection scope', () => {
       areaId: 'area-2',
     })).resolves.toBe(false);
   });
+});
+
+describe('ResourceScopeService inspection creation scope', () => {
+  it('permite a EECC crear en cualquier área de su compañía', async () => {
+    const service = serviceWith(userRow({ companyId: 'company-1', areaId: 'area-1' }));
+
+    await expect(service.canCreateInspection(baseToken, {
+      companyId: 'company-1',
+      areaId: 'area-2',
+    })).resolves.toBe(true);
+    await expect(service.canCreateInspection(baseToken, {
+      companyId: 'company-1',
+      areaId: null,
+    })).resolves.toBe(true);
+  });
+
+  it('rechaza a EECC cuando la empresa solicitada no pertenece a su scope', async () => {
+    const service = serviceWith(userRow({ companyId: 'company-1', areaId: 'area-1' }));
+
+    await expect(service.canCreateInspection(baseToken, {
+      companyId: 'company-2',
+      areaId: 'area-1',
+    })).resolves.toBe(false);
+  });
+
+  it('permite resolver la empresa primaria cuando el cliente no envía companyId', async () => {
+    const service = serviceWith(userRow({ companyId: 'company-1', areaId: 'area-1' }));
+
+    await expect(service.canCreateInspection(baseToken, {
+      companyId: null,
+      areaId: 'area-2',
+    })).resolves.toBe(true);
+  });
+
+  it('permite a Gold Fields crear para cualquier empresa y cualquier área', async () => {
+    const token: AccessTokenPayload = {
+      ...baseToken,
+      email: 'supervisor.medioambiente@goldfields.com',
+      roles: ['INSPECTOR'],
+      permissions: ['inspections:create'],
+    };
+    const service = serviceWith(userRow({ companyId: 'gold-fields', areaId: 'medio-ambiente', principal: true }));
+
+    await expect(service.canCreateInspection(token, {
+      companyId: 'company-2',
+      areaId: 'area-99',
+    })).resolves.toBe(true);
+    await expect(service.canCreateInspection(token, {
+      companyId: null,
+      areaId: null,
+    })).resolves.toBe(true);
+  });
+
+  it('rechaza usuarios sin empresa asignada cuando no son Gold Fields ni ADMIN', async () => {
+    const service = serviceWith(userRow({ companyId: null, areaId: 'area-1' }));
+
+    await expect(service.canCreateInspection(baseToken, {
+      companyId: 'company-1',
+      areaId: 'area-1',
+    })).resolves.toBe(false);
+  });
 
   it('rechaza usuarios inactivos o inexistentes', async () => {
     const service = serviceWith(null);
-    await expect(service.canAccessInspection(baseToken, {
+    await expect(service.canCreateInspection(baseToken, {
       companyId: 'company-1',
       areaId: 'area-1',
     })).rejects.toBeInstanceOf(ForbiddenException);
@@ -104,7 +165,7 @@ describe('ResourceScopeService inspection scope', () => {
 
   it('permite al rol ADMIN sin fila activa', async () => {
     const service = serviceWith(null);
-    await expect(service.canAccessInspection({
+    await expect(service.canCreateInspection({
       ...baseToken,
       roles: ['ADMIN'],
       permissions: [],

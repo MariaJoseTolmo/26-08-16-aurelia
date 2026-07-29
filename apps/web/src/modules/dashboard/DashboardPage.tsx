@@ -14,10 +14,8 @@ import {
   DashboardAnnualKpiClosedCard,
   DashboardAnnualKpiFindingsCard,
   DashboardCoreAnalysisSection,
-  DashboardAnnualKpiHistoricalClosureCard,
   DashboardAnnualKpiInspectionsCard,
   DashboardAnnualKpiOpenCard,
-  DashboardAnnualKpiYearClosureCard,
   DashboardAlertsHeaderLeft,
   DashboardFrameShell,
   DashboardAlertsSectionLayout,
@@ -46,6 +44,7 @@ import { DashboardFigmaCompanyAnalysisChart } from './components/DashboardFigmaC
 import { DashboardFigmaOpenFindingsDetailsTable } from './components/DashboardFigmaOpenFindingsDetailsTable';
 import { DashboardPeriodLite, getCurrentDashboardPeriod } from './components/DashboardPeriodLite';
 import { DashboardCompanyFilter } from './components/DashboardCompanyFilter';
+import { DashboardDynamicClosureKpiCard } from './components/DashboardDynamicClosureKpiCard';
 import {
   DashboardCompanyCardOpenCompanies,
   DashboardCompanyCardOpenDays,
@@ -80,6 +79,19 @@ export function DashboardPage() {
   const { annualInspectionRows, monthlySeriesRows, areaObservationRows, closureMetrics, isLoading: isChartsLoading, isError: isChartsError } = useDashboardChartsFiltered(dashboardQuery);
   const { runtimeModel: companyAnalysisRuntimeModel } = useDashboardCompanyAnalysisFiltered(companyDashboardQuery);
   const { rows: openFindingRows, severeOpenFindings, openInspections, isLoading: isOpenFindingsLoading, isError: isOpenFindingsError } = useDashboardDetailsFiltered(companyDashboardQuery);
+
+  const selectedYearClosureRate = useMemo(() => {
+    const selectedYear = annualInspectionRows.find((row) => row.year === dashboardQuery.year);
+    const closed = selectedYear?.closed ?? 0;
+    const total = closed + (selectedYear?.open ?? 0);
+    return total > 0 ? (closed / total) * 100 : 0;
+  }, [annualInspectionRows, dashboardQuery.year]);
+
+  const historicalReferenceLabel = useMemo(() => {
+    const years = annualInspectionRows.map((row) => row.year).filter((year) => Number.isFinite(year));
+    if (years.length === 0) return `referencia hasta ${dashboardQuery.year}`;
+    return `referencia ${Math.min(...years)}–${Math.max(...years)}`;
+  }, [annualInspectionRows, dashboardQuery.year]);
 
   const companyFilterOptions = useMemo(() => {
     const fromQuery = (companiesQuery.data ?? []).map((company) => ({ id: (company.id ?? '').trim(), name: (company.name ?? '').trim() }));
@@ -128,8 +140,8 @@ export function DashboardPage() {
                         <DashboardAnnualKpiClosedCard iconPath={svgPaths.p2acec00} closedValue={kpisRuntimeModel.closedInspections} closedRate={kpisRuntimeModel.closedRate} />
                         <DashboardAnnualKpiOpenCard iconPath={svgPaths.p162f2a3a} openValue={kpisRuntimeModel.openInspections} openLabel={kpisRuntimeModel.openLabel} />
                         <DashboardAnnualKpiFindingsCard iconPath={svgPaths.p31927d00} findingsValue={kpisRuntimeModel.totalFindings} findingsLabel={kpisRuntimeModel.findingsLabel} />
-                        {isKpisLoading ? <div className="bg-white rounded-[8px] border border-[#e3e3e3] min-h-[96px] flex items-center justify-center text-[12px] text-[#646464]">Cargando KPI...</div> : <DashboardAnnualKpiYearClosureCard iconPath={svgPaths.p12a2ea00} />}
-                        {isKpisError ? <div className="bg-white rounded-[8px] border border-[#ffd0db] min-h-[96px] flex items-center justify-center text-[12px] text-[#570b1d]">Error al cargar KPI</div> : <DashboardAnnualKpiHistoricalClosureCard iconPath={svgPaths.p347ba580} />}
+                        {isChartsLoading ? <div className="bg-white rounded-[8px] border border-[#e3e3e3] min-h-[96px] flex items-center justify-center text-[12px] text-[#646464]">Cargando KPI...</div> : isChartsError ? <div className="bg-white rounded-[8px] border border-[#ffd0db] min-h-[96px] flex items-center justify-center text-[12px] text-[#570b1d]">Error al cargar KPI</div> : <DashboardDynamicClosureKpiCard iconPath={svgPaths.p12a2ea00} title="% Cierre del año" rate={selectedYearClosureRate} detail={`año ${dashboardQuery.year} · meta >99%`} accent="#c8a064" iconColor="#C8A064" />}
+                        {isChartsLoading ? <div className="bg-white rounded-[8px] border border-[#e3e3e3] min-h-[96px] flex items-center justify-center text-[12px] text-[#646464]">Cargando KPI...</div> : isChartsError ? <div className="bg-white rounded-[8px] border border-[#ffd0db] min-h-[96px] flex items-center justify-center text-[12px] text-[#570b1d]">Error al cargar KPI</div> : <DashboardDynamicClosureKpiCard iconPath={svgPaths.p347ba580} title="% Cierre histórico" rate={closureMetrics.historicalClosureRate} detail={historicalReferenceLabel} accent="#24588b" iconColor="#1F6F8B" />}
                       </DashboardResponsiveTopKpisGrid>
                     </DashboardTopKpis>
                   }
