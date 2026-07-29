@@ -1,4 +1,4 @@
-import { httpGet, httpPost } from './http-client';
+import { httpGet, httpPost, httpPostForm } from './http-client';
 
 export interface DatabaseMaintenancePlanResponse {
   migration: {
@@ -44,10 +44,55 @@ export interface RunDatabaseMaintenanceRequest {
   runSeedsOnly?: boolean;
 }
 
+export interface LegacyInspectionsPreviewResponse {
+  fileName: string;
+  sourceSha256: string;
+  totalRows: number;
+  dispositions: {
+    READY: number;
+    WARNING: number;
+    QUARANTINE: number;
+  };
+  totals: {
+    findingsCount: number;
+    closedFindingsCount: number;
+    openFindingsCount: number;
+    milestoneS1: number;
+    milestoneS2: number;
+    milestoneS3: number;
+  };
+  warningCodes: Record<string, number>;
+}
+
+export interface LegacyInspectionsImportResponse {
+  fileName: string;
+  sourceSha256: string;
+  totalRows: number;
+  dispositions: Record<string, number>;
+  importedRows: number;
+  alreadyImportedRows: number;
+}
+
 export async function getDatabaseMaintenancePlan(): Promise<DatabaseMaintenancePlanResponse> {
   return httpGet<DatabaseMaintenancePlanResponse>('/admin/database/maintenance/plan');
 }
 
 export async function runDatabaseMaintenance(payload: RunDatabaseMaintenanceRequest): Promise<DatabaseMaintenanceRunResponse> {
   return httpPost<RunDatabaseMaintenanceRequest, DatabaseMaintenanceRunResponse>('/admin/database/maintenance', payload);
+}
+
+export async function previewLegacyInspections(file: File): Promise<LegacyInspectionsPreviewResponse> {
+  const body = new FormData();
+  body.append('file', file);
+  return httpPostForm<LegacyInspectionsPreviewResponse>('/admin/database/maintenance/legacy-inspections/preview', body);
+}
+
+export async function importLegacyInspections(
+  file: File,
+  confirmation: string,
+): Promise<LegacyInspectionsImportResponse> {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('confirmation', confirmation);
+  return httpPostForm<LegacyInspectionsImportResponse>('/admin/database/maintenance/legacy-inspections/import', body);
 }

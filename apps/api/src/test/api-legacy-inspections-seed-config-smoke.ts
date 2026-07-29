@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { availableSeedNames } from '../database/seeds/seed-registry';
 import { resolveLegacyInspectionsImportSeedConfig } from '../database/seeds/010-seed-legacy-inspections-import';
+import { LEGACY_INSPECTIONS_WEB_CONFIRMATION } from '../modules/database-maintenance/legacy-inspections-web-import.service';
 import { InspectionLegacySourceManifestService } from '../modules/inspection-legacy-import/inspection-legacy-source-manifest.service';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -24,8 +25,12 @@ function main(): void {
   const manifest = new InspectionLegacySourceManifestService().manifest;
 
   assert(
-    availableSeedNames.includes('inspections-legacy-import'),
-    'El seed inspections-legacy-import debe estar disponible en /migrations',
+    !(availableSeedNames as readonly string[]).includes('inspections-legacy-import'),
+    'El import legacy no debe aparecer entre los seeds genéricos de /migrations',
+  );
+  assert(
+    LEGACY_INSPECTIONS_WEB_CONFIRMATION === 'IMPORTAR_2308_INSPECCIONES_LEGACY',
+    'La confirmación web debe ser explícita y estable',
   );
 
   expectFailure(
@@ -58,7 +63,7 @@ function main(): void {
   assert(seedConfig.filePath === resolve(manifest.fileName), 'La ruta del XLSX debe resolverse de forma absoluta');
   assert(seedConfig.confirmedSha256 === manifest.sha256, 'El SHA confirmado debe conservarse');
 
-  console.log('Legacy inspections web seed config smoke test passed');
+  console.log('Legacy inspections web import config smoke test passed');
 }
 
 main();
