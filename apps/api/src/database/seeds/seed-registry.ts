@@ -7,6 +7,7 @@ import { runDevPasswordResetSeed } from './005-seed-dev-password-reset';
 import { runNotificationsPermissionsSeed } from './006-seed-notifications-permissions';
 import { runBootstrapSeed } from './008-seed-bootstrap';
 import { runInspectionsMasterDataSeed } from './009-seed-inspections-master-data';
+import { runLegacyInspectionsImportSeed } from './010-seed-legacy-inspections-import';
 
 const seedRegistry = {
   bootstrap: runBootstrapSeed,
@@ -17,6 +18,7 @@ const seedRegistry = {
   'dev-password-reset': runDevPasswordResetSeed,
   'notifications-permissions': runNotificationsPermissionsSeed,
   'inspections-master': runInspectionsMasterDataSeed,
+  'inspections-legacy-import': runLegacyInspectionsImportSeed,
 } as const;
 
 export type SeedName = keyof typeof seedRegistry;
