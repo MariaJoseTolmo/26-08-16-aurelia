@@ -5,7 +5,6 @@ import type {
   EvidenceLinkResponse,
   EvidenceResponse,
   InspectionChecklistAnswerResponse,
-  InspectionDashboardSummaryResponse,
   InspectionDetailResponse,
   InspectionFindingResponse,
   InspectionHistoryKpisResponse,
@@ -100,10 +99,6 @@ export function fetchInspections(): Promise<InspectionResponse[]> {
 
 export function fetchInspectionManagementKpis(): Promise<InspectionManagementKpisResponse> {
   return httpGet<InspectionManagementKpisResponse>('/inspections/dashboard/management-kpis');
-}
-
-export function fetchInspectionDashboardSummary(): Promise<InspectionDashboardSummaryResponse> {
-  return httpGet<InspectionDashboardSummaryResponse>('/inspections/dashboard/summary');
 }
 
 export function fetchInspectionHistoryKpis(): Promise<InspectionHistoryKpisResponse> {

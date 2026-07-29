@@ -97,7 +97,7 @@ importers:
         specifier: ^22.7.0
         version: 22.20.0
       '@types/pdfkit':
-        specifier: ^0.17.4
+        specifier: ^0.17.3
         version: 0.17.6
       ts-node:
         specifier: ^10.9.2

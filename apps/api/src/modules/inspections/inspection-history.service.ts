@@ -9,10 +9,6 @@ import type {
   InspectionManagementTableRowResponse,
 } from '@aurelia/contracts';
 import { Repository } from 'typeorm';
-import {
-  InspectionLegacyImportEntity,
-  InspectionLegacyMode,
-} from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { AreaEntity } from '../organization/entities/area.entity';
 import { CompanyEntity } from '../organization/entities/company.entity';
 import { SectorEntity } from '../organization/entities/sector.entity';
@@ -30,8 +26,6 @@ export class InspectionHistoryService {
     private readonly inspections: Repository<InspectionEntity>,
     @InjectRepository(InspectionFindingEntity)
     private readonly findings: Repository<InspectionFindingEntity>,
-    @InjectRepository(InspectionLegacyImportEntity)
-    private readonly legacyImports: Repository<InspectionLegacyImportEntity>,
     @InjectRepository(AreaEntity)
     private readonly areas: Repository<AreaEntity>,
     @InjectRepository(CompanyEntity)
@@ -45,18 +39,19 @@ export class InspectionHistoryService {
   ) {}
 
   async getHistoryKpis(scope: InspectionDataScope = {}): Promise<InspectionHistoryKpisResponse> {
-    const [allInspections, allFindings, legacyImports] = await Promise.all([
-      this.inspections.find(),
-      this.findings.find(),
-      this.legacyImports.find(),
-    ]);
+    const [allInspections, allFindings] = await Promise.all([this.inspections.find(), this.findings.find()]);
     const { inspections, findings } = this.applyScope(allInspections, allFindings, scope);
     const findingsByInspection = this.groupFindingsByInspection(findings);
-    const legacyByInspection = new Map(legacyImports.map((legacyImport) => [legacyImport.inspectionId, legacyImport]));
     const year = new Date().getFullYear();
     const closedInspections = inspections.filter((inspection) =>
       this.isClosedInspectionInYear(inspection, findingsByInspection.get(inspection.id) ?? [], year),
     );
+    const closedInspectionIds = new Set(closedInspections.map((inspection) => inspection.id));
+    const currentFindings = findings.filter((finding) =>
+      closedInspectionIds.has(finding.inspectionId)
+      && finding.status !== InspectionFindingStatus.CANCELLED,
+    );
+    const closedFindings = currentFindings.filter((finding) => finding.status === InspectionFindingStatus.CLOSED).length;
     const closureDays = closedInspections.map((inspection) =>
       this.resolveClosureDays(inspection, findingsByInspection.get(inspection.id) ?? []),
     );
@@ -70,28 +65,12 @@ export class InspectionHistoryService {
         .filter((value): value is string => Boolean(value)),
     ).size;
 
-    let totalFindings = 0;
-    let closedFindings = 0;
-    closedInspections.forEach((inspection) => {
-      const legacy = legacyByInspection.get(inspection.id);
-      if (legacy) {
-        totalFindings += inspection.findingsCount;
-        closedFindings += Math.max(0, inspection.findingsCount - inspection.openFindingsCount);
-        return;
-      }
-      const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
-      totalFindings += inspectionFindings.length;
-      closedFindings += inspectionFindings.filter(
-        (finding) => finding.status === InspectionFindingStatus.CLOSED,
-      ).length;
-    });
-
     return {
       year,
       closedInspections: closedInspections.length,
       averageClosureDays,
-      closedFindingsRate: totalFindings > 0
-        ? Number(((closedFindings / totalFindings) * 100).toFixed(2))
+      closedFindingsRate: currentFindings.length > 0
+        ? Number(((closedFindings / currentFindings.length) * 100).toFixed(2))
         : 0,
       contractorCompanies,
     };
@@ -101,19 +80,9 @@ export class InspectionHistoryService {
     query: ManagementTableQuery = {},
     scope: InspectionDataScope = {},
   ): Promise<InspectionManagementTableResponse> {
-    const [
-      allInspections,
-      allFindings,
-      legacyImports,
-      companies,
-      areas,
-      sectors,
-      users,
-      inspectionTypes,
-    ] = await Promise.all([
+    const [allInspections, allFindings, companies, areas, sectors, users, inspectionTypes] = await Promise.all([
       this.inspections.find(),
       this.findings.find(),
-      this.legacyImports.find(),
       this.companies.find(),
       this.areas.find(),
       this.sectors.find(),
@@ -127,32 +96,25 @@ export class InspectionHistoryService {
     const userById = new Map(users.map((user) => [user.id, user]));
     const typeById = new Map(inspectionTypes.map((type) => [type.id, type]));
     const findingsByInspection = this.groupFindingsByInspection(findings);
-    const legacyByInspection = new Map(legacyImports.map((legacyImport) => [legacyImport.inspectionId, legacyImport]));
 
     const closedInspections = inspections.filter((inspection) =>
       this.isInspectionEffectivelyClosed(inspection, findingsByInspection.get(inspection.id) ?? []),
     );
     const rows = closedInspections.map((inspection, index) => {
       const inspectionFindings = findingsByInspection.get(inspection.id) ?? [];
-      const legacy = legacyByInspection.get(inspection.id) ?? null;
-      const observations = legacy
-        ? this.createLegacyObservationSummary(inspection)
-        : this.createObservationSummary(inspectionFindings);
-      const maxSeverity = legacy
-        ? null
-        : inspectionFindings.reduce<InspectionFindingSeverity | null>(
-            (current, finding) => this.resolveMaxSeverity(current, finding.severity),
-            null,
-          );
+      const observations = this.createObservationSummary(inspectionFindings);
+      const maxSeverity = inspectionFindings.reduce<InspectionFindingSeverity | null>(
+        (current, finding) => this.resolveMaxSeverity(current, finding.severity),
+        null,
+      );
       const closeDate = this.resolveCloseDate(inspection, inspectionFindings);
-      const observationsCount = legacy ? inspection.findingsCount : inspectionFindings.length;
-      const closureRate = observationsCount > 0
-        ? Number(((observations.closed / observationsCount) * 100).toFixed(2))
+      const closureRate = inspectionFindings.length > 0
+        ? Number(((observations.closed / inspectionFindings.length) * 100).toFixed(2))
         : 0;
 
       return {
         inspectionId: inspection.id,
-        inspectionNumber: this.resolveInspectionNumber(inspection, index, legacy),
+        inspectionNumber: this.resolveInspectionNumber(inspection, index),
         date: closeDate ? closeDate.toISOString() : null,
         inspector: this.formatInspectorLabel(userById.get(inspection.inspectorId ?? '') ?? null),
         areaSector: this.formatAreaSectorLabel(inspection.areaId, inspection.sectorId, areaNameById, sectorNameById),
@@ -160,12 +122,11 @@ export class InspectionHistoryService {
         type: this.formatInspectionTypeLabel(
           inspection,
           typeById.get(inspection.inspectionTypeId) ?? null,
-          observationsCount,
-          legacy,
+          inspectionFindings.length,
         ),
         urgencyLabel: this.formatHistoryUrgencyLabel(maxSeverity),
         urgencySeverity: maxSeverity,
-        observationsCount,
+        observationsCount: inspectionFindings.length,
         observations,
         daysOpen: this.resolveClosureDays(inspection, inspectionFindings),
         closureRate,
@@ -254,17 +215,6 @@ export class InspectionHistoryService {
       else summary.open += 1;
       return summary;
     }, { executed: 0, open: 0, closed: 0, rejected: 0 });
-  }
-
-  private createLegacyObservationSummary(
-    inspection: InspectionEntity,
-  ): InspectionManagementTableObservationSummaryResponse {
-    return {
-      executed: 0,
-      open: inspection.openFindingsCount,
-      closed: Math.max(0, inspection.findingsCount - inspection.openFindingsCount),
-      rejected: 0,
-    };
   }
 
   private buildFilterOptions(rows: InspectionManagementTableRowResponse[]): InspectionManagementTableFilterOptionsResponse {
@@ -357,12 +307,7 @@ export class InspectionHistoryService {
     return Math.min(Math.floor(parsed), totalPages);
   }
 
-  private resolveInspectionNumber(
-    inspection: InspectionEntity,
-    index: number,
-    legacy: InspectionLegacyImportEntity | null,
-  ): string {
-    if (legacy) return `${legacy.legacyYear}-${String(legacy.legacyNumber).padStart(3, '0')}`;
+  private resolveInspectionNumber(inspection: InspectionEntity, index: number): string {
     const match = inspection.title.match(/#?(\d+)/);
     return match?.[1] ?? String(index + 1).padStart(3, '0');
   }
@@ -393,11 +338,7 @@ export class InspectionHistoryService {
     inspection: InspectionEntity,
     type: InspectionTypeEntity | null,
     findingsCount: number,
-    legacy: InspectionLegacyImportEntity | null,
   ): string {
-    if (legacy) {
-      return legacy.legacyMode === InspectionLegacyMode.CHECKLIST ? 'Checklist' : 'Hallazgo';
-    }
     if (inspection.templateId) return 'Checklist normativo';
     if (!type) return findingsCount > 0 ? 'Hallazgo' : 'Checklist normativo';
     const label = `${type.code} ${type.name}`.toLowerCase();

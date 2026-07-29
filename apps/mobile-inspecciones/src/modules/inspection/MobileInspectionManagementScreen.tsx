@@ -3,13 +3,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -60,56 +60,28 @@ const tonePalette: Record<Tone, { background: string; foreground: string; line: 
 
 function HeaderGradient() {
   return (
-    <Svg
-      pointerEvents="none"
-      style={styles.headerGradient}
-      width="100%"
-      height="100%"
-      viewBox="0 0 1 1"
-      preserveAspectRatio="none"
-    >
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
       <Defs>
-        <LinearGradient
-          id="managementHeader"
-          x1={0}
-          y1={0}
-          x2={0}
-          y2={1}
-          gradientUnits="userSpaceOnUse"
-        >
+        <LinearGradient id="managementHeader" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor="#012659" />
           <Stop offset="100%" stopColor="#002659" />
         </LinearGradient>
       </Defs>
-      <Rect x={0} y={0} width={1} height={1} fill="url(#managementHeader)" />
+      <Rect width="100%" height="100%" fill="url(#managementHeader)" />
     </Svg>
   );
 }
 
 function FooterGradient() {
   return (
-    <Svg
-      pointerEvents="none"
-      style={styles.footerGradient}
-      width="100%"
-      height="100%"
-      viewBox="0 0 1 1"
-      preserveAspectRatio="none"
-    >
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
       <Defs>
-        <LinearGradient
-          id="managementFooter"
-          x1={0}
-          y1={0.0224}
-          x2={0}
-          y2={1.4019}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0%" stopColor="#002659" />
+        <LinearGradient id="managementFooter" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="2%" stopColor="#002659" />
           <Stop offset="100%" stopColor="#004a3a" />
         </LinearGradient>
       </Defs>
-      <Rect x={0} y={0} width={1} height={1} fill="url(#managementFooter)" />
+      <Rect width="100%" height="100%" fill="url(#managementFooter)" />
     </Svg>
   );
 }
@@ -496,7 +468,7 @@ export function MobileInspectionManagementScreen() {
 
   if (!capabilities.read) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe}>
         <View style={styles.denied}>
           <FontAwesome5 name="lock" size={28} color={colors.gold} />
           <Text style={styles.deniedTitle}>Acceso restringido</Text>
@@ -509,7 +481,7 @@ export function MobileInspectionManagementScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.screen}>
         <View style={styles.header}>
           <HeaderGradient />
@@ -687,10 +659,9 @@ export function MobileInspectionManagementScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#012659' },
+  safe: { flex: 1, backgroundColor: colors.navyDark },
   screen: { flex: 1, backgroundColor: '#f7f7f7' },
   header: { position: 'relative', overflow: 'hidden', backgroundColor: colors.navyDark, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 20 },
-  headerGradient: { position: 'absolute', left: -20, right: -20, top: -6, bottom: -20 },
   brandRow: { height: 51, flexDirection: 'row', alignItems: 'center' },
   bell: { position: 'relative', marginLeft: 'auto', width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   bellUnreadDot: { position: 'absolute', left: 22, top: 8, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: '#002659', backgroundColor: '#c4365a' },
@@ -774,8 +745,7 @@ const styles = StyleSheet.create({
   pageButtonDisabled: { opacity: 0.35 },
   pageButtonText: { color: colors.primary, fontSize: 20, lineHeight: 22 },
   pageLabel: { color: colors.muted, fontSize: 11, fontWeight: fontWeight.semibold },
-  tabs: { height: 88, position: 'relative', backgroundColor: colors.navyDark, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28, borderTopWidth: 1, borderTopColor: colors.border },
-  footerGradient: { position: 'absolute', left: -16, right: -16, top: -12, bottom: -28 },
+  tabs: { height: 84, position: 'relative', backgroundColor: colors.navyDark, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, paddingTop: 4, paddingBottom: 2 },
   tabSelected: { backgroundColor: 'rgba(0,179,152,0.09)' },
   tabCount: { minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#c4365a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
