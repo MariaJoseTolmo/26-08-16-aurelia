@@ -58,7 +58,7 @@ export class ResourceScopeService {
     const scope = await this.getUserScope(user);
     return this.isAllowed(scope, resource, {
       ignoreCompanyScope: scope.isPrincipalCompanyUser,
-      ignoreAreaScope: scope.isPrincipalCompanyUser,
+      ignoreAreaScope: true,
     });
   }
 
@@ -120,7 +120,7 @@ export class ResourceScopeService {
     return resources.filter((resource) =>
       this.isAllowed(scope, resource, {
         ignoreCompanyScope: scope.isPrincipalCompanyUser,
-        ignoreAreaScope: scope.isPrincipalCompanyUser,
+        ignoreAreaScope: true,
       }),
     );
   }
