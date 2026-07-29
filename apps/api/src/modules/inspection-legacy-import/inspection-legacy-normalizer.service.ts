@@ -27,6 +27,7 @@ const HEADERS = {
   initialPending: ['Nº Obs  Pendientes', 'Nº Obs Pendientes', 'N° Obs Pendientes'],
   initialClosedPercentage: ['% Obs Cerradas'],
   initialPendingPercentage: ['% Obs Pendientes'],
+  finalClosed: ['Obs Cerradas'],
   legacyYear: ['AÑO', 'Año', 'Ano'],
   status: ['Estado'],
 } as const;
@@ -138,14 +139,35 @@ export class InspectionLegacyNormalizerService {
 
     const initialClosedRaw = this.read(rawPayload, HEADERS.initialClosed);
     const initialPendingRaw = this.read(rawPayload, HEADERS.initialPending);
+    const finalClosedRaw = this.read(rawPayload, HEADERS.finalClosed);
     let initialClosed = this.parseNonNegativeInteger(initialClosedRaw);
     let initialPending = this.parseNonNegativeInteger(initialPendingRaw);
+    let sourceFinalClosed = this.parseNonNegativeInteger(finalClosedRaw);
 
     if (initialClosedRaw !== null && initialClosedRaw !== undefined && initialClosed === null) {
       warnings.push(this.invalidCounterWarning('Nº Obs Cerradas', initialClosedRaw));
     }
     if (initialPendingRaw !== null && initialPendingRaw !== undefined && initialPending === null) {
       warnings.push(this.invalidCounterWarning('Nº Obs Pendientes', initialPendingRaw));
+    }
+    if (finalClosedRaw !== null && finalClosedRaw !== undefined && sourceFinalClosed === null) {
+      warnings.push(this.invalidCounterWarning('Obs Cerradas', finalClosedRaw));
+    }
+    if (
+      findingsCount !== null
+      && sourceFinalClosed !== null
+      && sourceFinalClosed > findingsCount
+    ) {
+      warnings.push({
+        code: LegacyInspectionWarningCode.COUNTER_RECONCILIATION_MISMATCH,
+        message: 'Obs Cerradas no puede superar Nº Observaciones',
+        field: 'Obs Cerradas',
+        rawValue: {
+          findingsCount,
+          sourceFinalClosed,
+        },
+      });
+      sourceFinalClosed = null;
     }
 
     initialClosed ??= 0;
@@ -160,14 +182,18 @@ export class InspectionLegacyNormalizerService {
     );
 
     const lastMilestone = milestones.at(-1) ?? null;
-    const openFindingsCount = lastMilestone?.pendingAfter ?? initialPending;
+    const milestoneOpenFindingsCount = lastMilestone?.pendingAfter ?? initialPending;
+    const openFindingsCount = findingsCount !== null && sourceFinalClosed !== null
+      ? findingsCount - sourceFinalClosed
+      : milestoneOpenFindingsCount;
     const incrementalClosed = milestones.reduce(
       (total, milestone) => total + milestone.closedIncrement,
       initialClosed,
     );
-    const closedFindingsCount = findingsCount !== null && openFindingsCount !== null
-      ? Math.max(findingsCount - openFindingsCount, 0)
-      : incrementalClosed;
+    const closedFindingsCount = sourceFinalClosed
+      ?? (findingsCount !== null && openFindingsCount !== null
+        ? Math.max(findingsCount - openFindingsCount, 0)
+        : incrementalClosed);
 
     if (
       findingsCount !== null
@@ -182,6 +208,7 @@ export class InspectionLegacyNormalizerService {
           findingsCount,
           incrementalClosed,
           openFindingsCount,
+          sourceFinalClosed,
         },
       });
     }

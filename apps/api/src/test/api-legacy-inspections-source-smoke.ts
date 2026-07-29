@@ -1,6 +1,7 @@
 import { InspectionStatus } from '@aurelia/contracts';
 import { resolve } from 'node:path';
 import { InspectionLegacyMode } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { LegacyInspectionWarningCode } from '../modules/inspection-legacy-import/inspection-legacy-import.types';
 import { InspectionLegacyNormalizerService } from '../modules/inspection-legacy-import/inspection-legacy-normalizer.service';
 import { InspectionLegacySourceManifestService } from '../modules/inspection-legacy-import/inspection-legacy-source-manifest.service';
 import { InspectionLegacyXlsxReaderService } from '../modules/inspection-legacy-import/inspection-legacy-xlsx-reader.service';
@@ -26,12 +27,14 @@ async function main(): Promise<void> {
   const workbook = await reader.read(resolve(input));
   const rows = normalizer.normalizeMany(workbook.rows, workbook.firstDataRow);
   const manifest = sourceManifest.manifest;
+  const expected = manifest.expectedNormalizedTotals;
   const legacyKeys = new Set(
     rows
       .filter((row) => row.legacyYear && row.legacyNumber)
       .map((row) => `${row.legacyYear}:${row.legacyNumber}`),
   );
 
+  const chronologyRows = new Set<string>();
   const totals = rows.reduce((summary, row) => {
     summary.findings += row.findingsCount ?? 0;
     summary.closed += row.closedFindingsCount ?? 0;
@@ -46,6 +49,12 @@ async function main(): Promise<void> {
       if (milestone.sequenceNumber === 2) summary.s2 += 1;
       if (milestone.sequenceNumber === 3) summary.s3 += 1;
     });
+    if (row.warnings.some((warning) => (
+      warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+      || warning.code === LegacyInspectionWarningCode.MILESTONE_OUT_OF_SEQUENCE
+    ))) {
+      chronologyRows.add(`${row.legacyYear}:${row.legacyNumber}`);
+    }
     return summary;
   }, {
     findings: 0,
@@ -67,19 +76,41 @@ async function main(): Promise<void> {
   assert(totals.checklistMode === manifest.expectedTotals.checklistModeRows, 'Cantidad Checklist incorrecta');
   assert(totals.closedRows === manifest.expectedTotals.closedRows, 'Cantidad Cerrado incorrecta');
   assert(totals.openRows === manifest.expectedTotals.openRows, 'Cantidad Abierto incorrecta');
-  assert(totals.findings === manifest.expectedTotals.findingsCount, 'Total de observaciones incorrecto');
-  assert(totals.closed === manifest.expectedTotals.closedFindingsCount, 'Total de observaciones cerradas incorrecto');
-  assert(totals.open === manifest.expectedTotals.openFindingsCount, 'Total de observaciones pendientes incorrecto');
-  assert(totals.s1 === manifest.expectedTotals.followupS1RowsAfterDiscarding1900Date, 'Cantidad S1 incorrecta');
-  assert(totals.s2 === manifest.expectedTotals.followupS2SourceRows, 'Cantidad S2 incorrecta');
-  assert(totals.s3 === manifest.expectedTotals.followupS3SourceRows, 'Cantidad S3 incorrecta');
-  assert(totals.quarantine === manifest.knownQuarantine.length, 'Cantidad de cuarentena conocida incorrecta');
+  assert(totals.findings === expected.findingsCount, 'Total normalizado de observaciones incorrecto');
+  assert(totals.closed === expected.closedFindingsCount, 'Total normalizado de observaciones cerradas incorrecto');
+  assert(totals.open === expected.openFindingsCount, 'Total normalizado de observaciones pendientes incorrecto');
+  assert(totals.s1 === expected.followupS1Rows, 'Cantidad normalizada S1 incorrecta');
+  assert(totals.s2 === expected.followupS2Rows, 'Cantidad normalizada S2 incorrecta');
+  assert(totals.s3 === expected.followupS3Rows, 'Cantidad normalizada S3 incorrecta');
+  assert(totals.quarantine === expected.quarantineRows, 'Cantidad de cuarentena conocida incorrecta');
+  assert(
+    chronologyRows.size === expected.chronologyWarningRows,
+    'Cantidad de filas con anomalía cronológica incorrecta',
+  );
+
+  manifest.knownQuarantine.forEach((known) => {
+    const row = rows.find((candidate) => (
+      candidate.legacyYear === known.legacyYear
+      && candidate.legacyNumber === known.legacyNumber
+      && candidate.sourceRow === known.sourceRow
+    ));
+    assert(Boolean(row), `No se encontró la cuarentena conocida ${known.legacyYear}:${known.legacyNumber}`);
+    assert(row?.disposition === 'QUARANTINE', `La fila ${known.legacyYear}:${known.legacyNumber} debe quedar en cuarentena`);
+  });
+
+  manifest.knownChronologyWarnings.forEach((known) => {
+    assert(
+      chronologyRows.has(`${known.legacyYear}:${known.legacyNumber}`),
+      `No se detectó la anomalía cronológica ${known.legacyYear}:${known.legacyNumber}`,
+    );
+  });
 
   console.log(JSON.stringify({
     source: input,
     rows: rows.length,
     uniqueLegacyKeys: legacyKeys.size,
     totals,
+    chronologyRows: [...chronologyRows].sort(),
   }, null, 2));
   console.log('Legacy inspections source smoke test passed');
 }
