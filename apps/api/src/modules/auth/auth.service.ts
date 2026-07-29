@@ -116,7 +116,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.assertClientAccess(user, payload.client ?? 'web');
+    this.assertClientAccess(user, payload.client);
 
     await this.usersRepository.update(user.id, {
       failedLoginAttempts: 0,
@@ -173,13 +173,13 @@ export class AuthService {
     await this.sessionRegistryService.revokeAll(userId);
   }
 
-  private assertClientAccess(user: UserEntity, client: AuthClientApplication): void {
+  private assertClientAccess(user: UserEntity, client: AuthClientApplication | undefined): void {
     const roles = (user.userRoles ?? [])
       .filter((userRole) => userRole.role.isActive)
       .map((userRole) => userRole.role.code);
     const isMobileOnlyInspector = roles.includes(Role.INSPECTOR) && !roles.includes(Role.ADMIN);
 
-    if (isMobileOnlyInspector && client !== 'mobile-inspecciones') {
+    if (isMobileOnlyInspector && client && client !== 'mobile-inspecciones') {
       throw new ForbiddenException('Los perfiles de inspector solo pueden iniciar sesión desde la aplicación móvil de inspecciones.');
     }
   }
