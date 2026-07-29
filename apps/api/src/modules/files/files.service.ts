@@ -4,12 +4,13 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileResponse, FileStorageProvider } from '@aurelia/contracts';
+import { BlobServiceClient } from '@azure/storage-blob';
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
-import { access, mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import * as path from 'path';
+import { access, readFile } from 'fs/promises';
 import { FileEntity } from './entities/file.entity';
 
 export interface FileContentResponse {
@@ -20,14 +21,17 @@ export interface FileContentResponse {
 
 export interface FileStorageHealthResponse {
   status: 'ok';
-  provider: FileStorageProvider.LOCAL;
-  uploadPath: string;
+  provider: FileStorageProvider.AZURE_BLOB;
+  accountName: string;
+  containerName: string;
+  probeBlobPath: string;
   checkedAt: string;
 }
 
 @Injectable()
 export class FilesService {
   constructor(
+    private readonly config: ConfigService,
     @InjectRepository(FileEntity)
     private readonly files: Repository<FileEntity>,
   ) {}
@@ -72,30 +76,62 @@ export class FilesService {
   }
 
   async healthCheck(): Promise<FileStorageHealthResponse> {
-    const uploadPath = path.join(process.cwd(), 'uploads');
-    const probeFile = path.join(uploadPath, `.health-${Date.now()}-${Math.round(Math.random() * 1e9)}.tmp`);
-    const content = `aurelia-storage-health:${new Date().toISOString()}`;
+    const connectionString = this.config.get<string>('STORAGE_CONNECTION_STRING')?.trim();
+    const accountName = this.config.get<string>('STORAGE_ACCOUNT_NAME')?.trim();
+    const containerName = this.resolveStorageContainerName();
+    const checkedAt = new Date().toISOString();
+    const probeBlobPath = `health/probe-${Date.now()}-${Math.round(Math.random() * 1e9)}.txt`;
+    const content = `aurelia-blob-health:${checkedAt}`;
 
     try {
-      await mkdir(uploadPath, { recursive: true });
-      await writeFile(probeFile, content, { encoding: 'utf8' });
-      const readBack = await readFile(probeFile, { encoding: 'utf8' });
-      if (readBack !== content) {
-        throw new ServiceUnavailableException('Storage probe mismatch after write/read roundtrip');
+      if (!connectionString) {
+        throw new Error('Missing STORAGE_CONNECTION_STRING');
       }
-      await unlink(probeFile);
+      if (!accountName) {
+        throw new Error('Missing STORAGE_ACCOUNT_NAME');
+      }
+
+      const blobService = BlobServiceClient.fromConnectionString(connectionString);
+      const container = blobService.getContainerClient(containerName);
+      const blob = container.getBlockBlobClient(probeBlobPath);
+
+      await blob.uploadData(Buffer.from(content, 'utf8'), {
+        blobHTTPHeaders: { blobContentType: 'text/plain; charset=utf-8' },
+      });
+
+      const downloaded = await blob.downloadToBuffer();
+      const readBack = downloaded.toString('utf8');
+      if (readBack !== content) {
+        throw new Error('Storage probe mismatch after write/read roundtrip');
+      }
+
+      await blob.deleteIfExists();
 
       return {
         status: 'ok',
-        provider: FileStorageProvider.LOCAL,
-        uploadPath,
-        checkedAt: new Date().toISOString(),
+        provider: FileStorageProvider.AZURE_BLOB,
+        accountName,
+        containerName,
+        probeBlobPath,
+        checkedAt,
       };
     } catch (error) {
       throw new ServiceUnavailableException(
         `Storage health check failed: ${error instanceof Error ? error.message : 'unknown error'}`,
       );
     }
+  }
+
+  private resolveStorageContainerName(): string {
+    const documents = this.config.get<string>('STORAGE_CONTAINER_DOCUMENTS')?.trim();
+    if (documents) return documents;
+
+    const evidences = this.config.get<string>('STORAGE_CONTAINER_EVIDENCES')?.trim();
+    if (evidences) return evidences;
+
+    throw new ServiceUnavailableException(
+      'Storage health check failed: missing STORAGE_CONTAINER_DOCUMENTS or STORAGE_CONTAINER_EVIDENCES',
+    );
   }
 
   private async findEntityOrThrow(id: string): Promise<FileEntity> {
