@@ -22,6 +22,11 @@ export interface InspectionLegacyDryRunArtifacts {
   reconciliationJson: string;
 }
 
+interface InspectionLegacyValidationMessageCount {
+  message: string;
+  count: number;
+}
+
 @Injectable()
 export class InspectionLegacyDryRunReporterService {
   constructor(
@@ -91,14 +96,20 @@ export class InspectionLegacyDryRunReporterService {
     return counts;
   }
 
-  private countValidationMessages(rows: ValidatedLegacyInspection[]): Record<string, number> {
-    const counts: Record<string, number> = {};
+  private countValidationMessages(rows: ValidatedLegacyInspection[]): InspectionLegacyValidationMessageCount[] {
+    const counts = new Map<string, number>();
     rows.forEach((row) => {
       row.validationMessages.forEach((message) => {
-        counts[message] = (counts[message] ?? 0) + 1;
+        counts.set(message, (counts.get(message) ?? 0) + 1);
       });
     });
-    return counts;
+
+    return [...counts.entries()]
+      .map(([message, count]) => ({ message, count }))
+      .sort((left, right) => (
+        right.count - left.count
+        || left.message.localeCompare(right.message, 'es')
+      ));
   }
 
   private async writeJson(filePath: string, value: unknown): Promise<void> {
