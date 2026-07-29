@@ -127,6 +127,7 @@ export interface InspectionManagementKpisResponse {
   inspectionsDeltaPercent: number;
   openInspections: number;
   openFindings: number;
+  closedFindings: number;
   pendingApprovalInspections: number;
   closedFindingsRate: number;
 }
@@ -146,6 +147,13 @@ export interface InspectionManagementTableObservationSummaryResponse {
   rejected: number;
 }
 
+export interface InspectionManagementTableObservationSeveritySummaryResponse {
+  executed: InspectionFindingSeverity[];
+  open: InspectionFindingSeverity[];
+  closed: InspectionFindingSeverity[];
+  rejected: InspectionFindingSeverity[];
+}
+
 export interface InspectionManagementTableRowResponse {
   inspectionId: string;
   inspectionNumber: string;
@@ -160,6 +168,7 @@ export interface InspectionManagementTableRowResponse {
   hasOverdueFindings?: boolean;
   observationsCount: number;
   observations: InspectionManagementTableObservationSummaryResponse;
+  observationSeverities: InspectionManagementTableObservationSeveritySummaryResponse;
   daysOpen: number;
   closureRate: number;
   isLegacy?: boolean;
