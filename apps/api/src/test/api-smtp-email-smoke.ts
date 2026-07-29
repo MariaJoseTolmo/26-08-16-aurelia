@@ -18,13 +18,17 @@ async function main(): Promise<void> {
   try {
     const address = server.address() as AddressInfo;
     const config = new ConfigService({
-      SMTP_HOST: '127.0.0.1',
-      SMTP_PORT: String(address.port),
-      SMTP_SECURE: 'false',
-      SMTP_USER: 'aurelia-user',
-      SMTP_PASS: 'aurelia-pass',
-      SMTP_FROM: 'AurelIA <no-reply-aurelia@kabeli.cl>',
-      SMTP_TIMEOUT_MS: '5000',
+      smtp: {
+        enabled: true,
+        host: '127.0.0.1',
+        port: address.port,
+        secure: false,
+        requireTls: false,
+        user: null,
+        pass: null,
+        from: 'AurelIA <no-reply-aurelia@kabeli.cl>',
+        timeoutMs: 5000,
+      },
     });
     const transport = new SmtpEmailTransport(config);
     const result = await transport.send({
@@ -39,11 +43,33 @@ async function main(): Promise<void> {
     assert.equal(result.rejected.length, 0);
     assert.match(result.messageId ?? '', /^<.+@kabeli\.cl>$/);
     assert.ok(commands.some((command) => command.startsWith('EHLO ')));
-    assert.ok(commands.some((command) => command.startsWith('AUTH PLAIN ')));
+    assert.ok(!commands.some((command) => command.startsWith('AUTH ')));
     assert.ok(commands.includes('MAIL FROM:<no-reply-aurelia@kabeli.cl>'));
     assert.ok(commands.includes('RCPT TO:<responsable@example.com>'));
     assert.match(rawMessage, /Content-Type: multipart\/alternative/);
     assert.match(rawMessage, /Message-ID: <.+@kabeli\.cl>/);
+
+    const tlsRequired = new SmtpEmailTransport(new ConfigService({
+      smtp: {
+        enabled: true,
+        host: '127.0.0.1',
+        port: address.port,
+        secure: false,
+        requireTls: true,
+        user: null,
+        pass: null,
+        from: 'AurelIA <no-reply-aurelia@kabeli.cl>',
+        timeoutMs: 5000,
+      },
+    }));
+
+    await assert.rejects(() => tlsRequired.send({
+      to: [{ email: 'responsable@example.com' }],
+      subject: 'TLS requerido',
+      text: 'Prueba',
+      html: '<p>Prueba</p>',
+    }), /did not advertise STARTTLS/);
+
     console.log('SMTP email transport smoke test passed.');
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -78,9 +104,7 @@ function handleClient(
       if (command) commands.push(command);
 
       if (command.startsWith('EHLO ')) {
-        socket.write('250-smtp.test\r\n250 AUTH PLAIN\r\n');
-      } else if (command.startsWith('AUTH PLAIN ')) {
-        socket.write('235 2.7.0 authenticated\r\n');
+        socket.write('250 smtp.test\r\n');
       } else if (command.startsWith('MAIL FROM:')) {
         socket.write('250 2.1.0 sender ok\r\n');
       } else if (command.startsWith('RCPT TO:')) {

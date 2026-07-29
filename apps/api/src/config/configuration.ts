@@ -1,4 +1,5 @@
 import { readApiEnv } from './env';
+import { readSmtpEnv } from './smtp';
 
 export default () => {
   const env = readApiEnv();
@@ -10,5 +11,6 @@ export default () => {
     security: env.security,
     auth: env.auth,
     ai: env.ai,
+    smtp: readSmtpEnv(),
   };
 };

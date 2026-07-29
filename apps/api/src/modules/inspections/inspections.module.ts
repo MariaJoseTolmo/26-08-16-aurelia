@@ -43,6 +43,7 @@ import { InspectionHistoryController } from './inspection-history.controller';
 import { InspectionHistoryService } from './inspection-history.service';
 import { InspectionProcessController } from './inspection-process.controller';
 import { InspectionProcessService } from './inspection-process.service';
+import { InspectionRejectionEmailService } from './inspection-rejection-email.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
 import { InspectionTransversalController } from './inspection-transversal.controller';
 import { InspectionTransversalService } from './inspection-transversal.service';
@@ -105,6 +106,7 @@ import { InspectionsService } from './inspections.service';
     InspectionTransversalService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
+    InspectionRejectionEmailService,
   ],
   exports: [
     InspectionsService,
@@ -116,6 +118,7 @@ import { InspectionsService } from './inspections.service';
     InspectionDetailService,
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
+    InspectionRejectionEmailService,
   ],
 })
 export class InspectionsModule {}
