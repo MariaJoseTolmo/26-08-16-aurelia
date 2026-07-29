@@ -60,6 +60,11 @@ async function main(): Promise<void> {
   const rows = normalizer.normalizeMany(workbook.rows, workbook.firstDataRow);
   const manifest = sourceManifest.manifest;
   const expected = manifest.expectedNormalizedTotals;
+  const knownChronologyKeys = new Set(
+    manifest.knownChronologyWarnings.map(
+      (known) => `${known.legacyYear}:${known.legacyNumber}`,
+    ),
+  );
   const legacyKeys = new Set(
     rows
       .filter((row) => row.legacyYear && row.legacyNumber)
@@ -92,16 +97,16 @@ async function main(): Promise<void> {
       }
 
       chronologyWarningCounts[warning.code] = (chronologyWarningCounts[warning.code] ?? 0) + 1;
+      const rowKey = `${row.legacyYear}:${row.legacyNumber}`;
+      const isPlaceholder = warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+        && isLegacy1900Placeholder(warning.rawValue);
 
-      if (
-        warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
-        && isLegacy1900Placeholder(warning.rawValue)
-      ) {
+      if (isPlaceholder) {
         legacy1900PlaceholderWarnings += 1;
-        return;
+        if (!knownChronologyKeys.has(rowKey)) return;
       }
 
-      chronologyRows.add(`${row.legacyYear}:${row.legacyNumber}`);
+      chronologyRows.add(rowKey);
     });
     return summary;
   }, {
