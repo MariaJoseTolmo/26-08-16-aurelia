@@ -49,6 +49,7 @@ function testIntegrationSources(): void {
   const controller = source('src/modules/inspections/inspections.controller.ts');
   const service = source('src/modules/inspections/inspection-sla-reassignment.service.ts');
   const detail = source('src/modules/inspections/inspection-detail.service.ts');
+  const webSheet = source('../web/src/modules/inspections/components/SlaReassignSheet.tsx');
   const webModal = source('../web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx');
   const mobileModal = source('../mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx');
   const closedMobileModal = source('../mobile-inspecciones/src/modules/inspection/MobileNativeClosedInspectionDetailModal.tsx');
@@ -74,10 +75,15 @@ function testIntegrationSources(): void {
     'Inspection detail must expose SLA reassignment milestones',
   );
   assert(
-    webModal.includes('Ingrese el motivo de la modificación')
-      && webModal.includes('SLA anterior:')
-      && webModal.includes('Nuevo SLA:'),
-    'Web must require a reason and render previous/new SLA in Seguimientos',
+    webSheet.includes('Ingrese el motivo de la modificación')
+      && webSheet.includes('reason.trim().length >= 3'),
+    'Web must require a meaningful reason before enabling SLA reassignment',
+  );
+  assert(
+    webModal.includes('SLA anterior:')
+      && webModal.includes('Nuevo SLA:')
+      && webModal.includes('detail.slaReassignments'),
+    'Web must render previous/new SLA in Seguimientos',
   );
   assert(
     mobileModal.includes('Ingrese el motivo de la modificación')
