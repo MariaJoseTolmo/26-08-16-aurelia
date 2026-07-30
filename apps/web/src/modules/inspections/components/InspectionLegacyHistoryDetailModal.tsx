@@ -126,7 +126,7 @@ function FollowupItem({ title, date, completed, children, last = false }: { titl
   return (
     <div className={`relative flex gap-[12px] ${last ? '' : 'pb-[18px]'}`}>
       <TimelineMarker completed={completed} />
-      {!last ? <div className="absolute left-[11px] top-[24px] h-[calc(100%-18px)] w-[2px] bg-[#e3e3e3]" /> : null}
+      {!last ? <div className="absolute bottom-0 left-[11px] top-[24px] w-[2px] bg-[#e3e3e3]" /> : null}
       <div className="min-w-0 flex-1 pt-[2px]">
         <p className="text-[12px] font-bold leading-none text-[#131313]">{title}</p>
         <p className="pt-[4px] text-[11px] text-[#646464]">{date}</p>
@@ -202,7 +202,7 @@ function GeneralPanel({ detail, legacy }: { detail: InspectionDetailResponse; le
           icon={<InspectionDetailPersonIcon />}
           title="Quién realizó la inspección"
           rows={[
-            { label: 'Nombre original', value: legacy.originalInspectorName ?? participantNames || detail.general.inspectorName ?? '—' },
+            { label: 'Nombre original', value: legacy.originalInspectorName || participantNames || detail.general.inspectorName || '—' },
             { label: 'Empresa inspeccionada', value: legacy.originalCompanyName ?? detail.general.companyName ?? '—' },
           ]}
         />
