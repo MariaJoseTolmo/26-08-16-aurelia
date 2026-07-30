@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
-  InspectionFindingSlaReassignmentResponse,
   InspectionFindingStatus,
   InspectionSlaEventType,
+  type InspectionFindingSlaReassignmentResponse,
 } from '@aurelia/contracts';
 import { randomUUID } from 'node:crypto';
 import { DataSource, Not } from 'typeorm';
@@ -10,6 +10,7 @@ import { UserEntity } from '../users/entities/user.entity';
 import { ReassignInspectionFindingSlaDto } from './dto/reassign-inspection-finding-sla.dto';
 import { InspectionFindingEntity } from './entities/inspection-finding.entity';
 import { InspectionSlaEventEntity } from './entities/inspection-sla-event.entity';
+import { addInspectionBusinessDays, inspectionBusinessDaysUntil } from './inspection-business-days';
 
 @Injectable()
 export class InspectionSlaReassignmentService {
@@ -39,8 +40,8 @@ export class InspectionSlaReassignmentService {
 
       const reassignedAt = new Date();
       const previousDueAt = finding.dueAt ? new Date(finding.dueAt) : null;
-      const previousSlaBusinessDays = this.businessDaysUntil(reassignedAt, previousDueAt);
-      const newDueAt = this.addBusinessDays(reassignedAt, dto.slaBusinessDays);
+      const previousSlaBusinessDays = inspectionBusinessDaysUntil(reassignedAt, previousDueAt);
+      const newDueAt = addInspectionBusinessDays(reassignedAt, dto.slaBusinessDays);
       const inspectionFindings = await findingRepository.find({
         where: {
           inspectionId: finding.inspectionId,
@@ -94,31 +95,5 @@ export class InspectionSlaReassignmentService {
         reassignedByName,
       };
     });
-  }
-
-  private addBusinessDays(value: Date, businessDays: number): Date {
-    const result = new Date(value);
-    let remaining = businessDays;
-    while (remaining > 0) {
-      result.setDate(result.getDate() + 1);
-      const day = result.getDay();
-      if (day !== 0 && day !== 6) remaining -= 1;
-    }
-    return result;
-  }
-
-  private businessDaysUntil(from: Date, dueAt: Date | null): number {
-    if (!dueAt || dueAt.getTime() <= from.getTime()) return 0;
-    const cursor = new Date(from);
-    cursor.setHours(0, 0, 0, 0);
-    const target = new Date(dueAt);
-    target.setHours(0, 0, 0, 0);
-    let days = 0;
-    while (cursor.getTime() < target.getTime()) {
-      cursor.setDate(cursor.getDate() + 1);
-      const day = cursor.getDay();
-      if (day !== 0 && day !== 6) days += 1;
-    }
-    return days;
   }
 }
