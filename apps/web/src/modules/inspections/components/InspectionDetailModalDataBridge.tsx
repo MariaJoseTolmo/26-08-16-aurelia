@@ -61,7 +61,7 @@ function buildRecordFromDetail(detail: InspectionDetailResponse, fallback: Inspe
     id: formatInspectionNumber(detail.header.inspectionNumber),
     title: buildInspectionHeaderTitle(detail, fallback.title),
     kind: detail.header.kind,
-    metadataLine1: findingMetadata?.metadataLine1 ?? detail.header.metadataLine1 || fallback.metadataLine1,
+    metadataLine1: findingMetadata?.metadataLine1 ?? (detail.header.metadataLine1 || fallback.metadataLine1),
     metadataLine2: findingMetadata?.metadataLine2 ?? detail.header.metadataLine2 ?? fallback.metadataLine2,
     progressPercent: detail.header.progressPercent,
     counts: detail.header.counts,
