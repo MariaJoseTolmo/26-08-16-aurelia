@@ -30,7 +30,7 @@ import { useMobileInspectionDetail } from './hooks/useMobileInspectionManagement
 
 type DetailTab = 'observations' | 'result' | 'followups' | 'general';
 type Props = { visible: boolean; inspectionId: string | null; onClose: () => void };
-type FollowupStep = { id: string; title: string; date: string; summary?: string; bullets?: string[]; completed: boolean; occurredAt?: string | null };
+type FollowupStep = { id: string; title: string; date: string; summary?: string; bullets?: string[]; reason?: string; completed: boolean; occurredAt?: string | null };
 
 const apiOrigin = API_URL.replace(/\/api\/?$/, '');
 
@@ -112,14 +112,14 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
   }
   const completed = followups.filter((item) => item.completed);
   const pending = Array.from({ length: Math.max(0, 3 - completed.length) }, (_, index) => ({ id: `pending-${completed.length + index + 1}`, title: `Seguimiento ${completed.length + index + 1}`, date: '—', completed: false, occurredAt: null } satisfies FollowupStep));
-  const slaEvents = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Motivo: ${event.reason}`], completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));
+  const slaEvents = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`], reason: event.reason, completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));
   const activities = [...completed, ...slaEvents].sort((a, b) => timestamp(a.occurredAt) - timestamp(b.occurredAt));
   return [{ id: 'initial', title: 'Inspección inicial', date: formatDate(detail.general.scheduledAt), summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`, completed: true, occurredAt: detail.general.scheduledAt }, ...activities, ...pending];
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
   const steps = buildFollowupSteps(detail);
-  return <ScrollView style={styles.body} contentContainerStyle={styles.followups}><View style={styles.followupHeading}><MobileInspectionFollowupIcon /><Text style={styles.followupHeadingText}>HISTORIAL DE SEGUIMIENTOS</Text></View>{steps.map((step, index) => <View key={step.id} style={styles.timelineRow}><View style={styles.timelineRail}>{step.completed ? <MobileInspectionTimelineCompletedIcon /> : <MobileInspectionTimelinePendingIcon />}{index < steps.length - 1 ? <View style={styles.timelineLine} /> : null}</View><View style={[styles.timelineCopy, index < steps.length - 1 && styles.timelineSpaced]}><Text style={styles.timelineTitle}>{step.title}</Text><Text style={styles.timelineDate}>{step.date}</Text>{step.summary ? <Text style={styles.timelineSummary}>{step.summary}</Text> : null}{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}</View></View>)}</ScrollView>;
+  return <ScrollView style={styles.body} contentContainerStyle={styles.followups}><View style={styles.followupHeading}><MobileInspectionFollowupIcon /><Text style={styles.followupHeadingText}>HISTORIAL DE SEGUIMIENTOS</Text></View>{steps.map((step, index) => <View key={step.id} style={styles.timelineRow}><View style={styles.timelineRail}>{step.completed ? <MobileInspectionTimelineCompletedIcon /> : <MobileInspectionTimelinePendingIcon />}{index < steps.length - 1 ? <View style={styles.timelineLine} /> : null}</View><View style={[styles.timelineCopy, index < steps.length - 1 && styles.timelineSpaced]}><Text style={styles.timelineTitle}>{step.title}</Text><Text style={styles.timelineDate}>{step.date}</Text>{step.summary ? <Text style={styles.timelineSummary}>{step.summary}</Text> : null}{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}{step.reason ? <View style={styles.timelineReason}><Text style={styles.timelineReasonLabel}>Motivo:</Text><Text style={styles.timelineReasonText}>{step.reason}</Text></View> : null}</View></View>)}</ScrollView>;
 }
 
 function InfoRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
@@ -226,6 +226,9 @@ const styles = StyleSheet.create({
   timelineDate: { marginTop: 4, fontSize: 13, color: colors.muted },
   timelineSummary: { marginTop: 5, fontSize: 13, color: colors.muted },
   timelineBullet: { marginTop: 3, fontSize: 13, lineHeight: 18, color: colors.muted },
+  timelineReason: { marginTop: 2 },
+  timelineReasonLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.bold, color: colors.muted },
+  timelineReasonText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.regular, color: colors.muted },
   general: { padding: 14, gap: 12 },
   generalCard: { overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: '#e3e3e3', backgroundColor: colors.white },
   generalHeading: { minHeight: 34, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#f7f7f7', fontSize: 10, letterSpacing: .5, fontWeight: fontWeight.bold, color: colors.muted },
