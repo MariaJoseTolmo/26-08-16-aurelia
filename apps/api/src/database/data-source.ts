@@ -77,6 +77,18 @@ import { UserAreaEntity } from '../modules/users/entities/user-area.entity';
 import { UserCompanyEntity } from '../modules/users/entities/user-company.entity';
 import { UserRoleEntity } from '../modules/users/entities/user-role.entity';
 import { UserEntity } from '../modules/users/entities/user.entity';
+import { WasteInventoryMovementEntity } from '../modules/waste/entities/waste-inventory-movement.entity';
+import { WasteLotEntity } from '../modules/waste/entities/waste-lot.entity';
+import { WasteOperationalCategoryEntity } from '../modules/waste/entities/waste-operational-category.entity';
+import { WasteReceiptEntity } from '../modules/waste/entities/waste-receipt.entity';
+import { WasteSidrepRecordEntity } from '../modules/waste/entities/waste-sidrep-record.entity';
+import { WasteSinaderPeriodLineEntity } from '../modules/waste/entities/waste-sinader-period-line.entity';
+import { WasteSinaderPeriodEntity } from '../modules/waste/entities/waste-sinader-period.entity';
+import { WasteTypeEntity } from '../modules/waste/entities/waste-type.entity';
+import { WasteUnitEntity } from '../modules/waste/entities/waste-unit.entity';
+import { WasteWarehouseEntity } from '../modules/waste/entities/waste-warehouse.entity';
+import { WasteWithdrawalItemEntity } from '../modules/waste/entities/waste-withdrawal-item.entity';
+import { WasteWithdrawalRequestEntity } from '../modules/waste/entities/waste-withdrawal-request.entity';
 import { WorkflowDefinitionStepEntity } from '../modules/workflows/entities/workflow-definition-step.entity';
 import { WorkflowDefinitionEntity } from '../modules/workflows/entities/workflow-definition.entity';
 import { WorkflowInstanceStepEntity } from '../modules/workflows/entities/workflow-instance-step.entity';
@@ -174,6 +186,18 @@ export const AppDataSource = new DataSource({
     SprMonthlyRecordEntity,
     SprRecordApprovalEntity,
     SprConsolidationRuleEntity,
+    WasteUnitEntity,
+    WasteOperationalCategoryEntity,
+    WasteTypeEntity,
+    WasteWarehouseEntity,
+    WasteReceiptEntity,
+    WasteLotEntity,
+    WasteInventoryMovementEntity,
+    WasteWithdrawalRequestEntity,
+    WasteWithdrawalItemEntity,
+    WasteSidrepRecordEntity,
+    WasteSinaderPeriodEntity,
+    WasteSinaderPeriodLineEntity,
   ],
   // Only timestamp-prefixed, versioned migrations are executable. This deliberately
   // ignores stale generated-auto-schema-sync artifacts that may survive an overlay deployment.

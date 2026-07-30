@@ -25,6 +25,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { SprModule } from './modules/spr/spr.module';
 import { UsersModule } from './modules/users/users.module';
+import { WasteModule } from './modules/waste/waste.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 
 @Module({
@@ -56,6 +57,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
     MobileBootstrapModule,
     MobileSyncModule,
     SprModule,
+    WasteModule,
     AiModule,
   ],
   providers: [

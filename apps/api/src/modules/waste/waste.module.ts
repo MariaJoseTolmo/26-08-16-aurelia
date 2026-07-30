@@ -1,0 +1,39 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { WasteInventoryMovementEntity } from './entities/waste-inventory-movement.entity';
+import { WasteLotEntity } from './entities/waste-lot.entity';
+import { WasteOperationalCategoryEntity } from './entities/waste-operational-category.entity';
+import { WasteReceiptEntity } from './entities/waste-receipt.entity';
+import { WasteSidrepRecordEntity } from './entities/waste-sidrep-record.entity';
+import { WasteSinaderPeriodLineEntity } from './entities/waste-sinader-period-line.entity';
+import { WasteSinaderPeriodEntity } from './entities/waste-sinader-period.entity';
+import { WasteTypeEntity } from './entities/waste-type.entity';
+import { WasteUnitEntity } from './entities/waste-unit.entity';
+import { WasteWarehouseEntity } from './entities/waste-warehouse.entity';
+import { WasteWithdrawalItemEntity } from './entities/waste-withdrawal-item.entity';
+import { WasteWithdrawalRequestEntity } from './entities/waste-withdrawal-request.entity';
+import { WasteController } from './waste.controller';
+import { WasteService } from './waste.service';
+
+const WASTE_ENTITIES = [
+  WasteUnitEntity,
+  WasteOperationalCategoryEntity,
+  WasteTypeEntity,
+  WasteWarehouseEntity,
+  WasteReceiptEntity,
+  WasteLotEntity,
+  WasteInventoryMovementEntity,
+  WasteWithdrawalRequestEntity,
+  WasteWithdrawalItemEntity,
+  WasteSidrepRecordEntity,
+  WasteSinaderPeriodEntity,
+  WasteSinaderPeriodLineEntity,
+];
+
+@Module({
+  imports: [TypeOrmModule.forFeature(WASTE_ENTITIES)],
+  controllers: [WasteController],
+  providers: [WasteService],
+  exports: [WasteService],
+})
+export class WasteModule {}
