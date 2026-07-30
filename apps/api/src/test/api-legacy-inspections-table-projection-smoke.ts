@@ -5,6 +5,9 @@ import {
   InspectionLegacyImportEntity,
   InspectionLegacyMode,
 } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { InspectionLegacyMilestoneEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
 import { AreaEntity } from '../modules/organization/entities/area.entity';
 import { CompanyEntity } from '../modules/organization/entities/company.entity';
 import { SectorEntity } from '../modules/organization/entities/sector.entity';
@@ -13,6 +16,7 @@ import { InspectionFindingEntity } from '../modules/inspections/entities/inspect
 import { InspectionTypeEntity } from '../modules/inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../modules/inspections/entities/inspection.entity';
 import { InspectionHistoryService } from '../modules/inspections/inspection-history.service';
+import { InspectionLegacyDetailProjectionService } from '../modules/inspections/inspection-legacy-detail-projection.service';
 import { InspectionLegacyTableProjectionService } from '../modules/inspections/inspection-legacy-table-projection.service';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -22,13 +26,14 @@ function assert(condition: boolean, message: string): asserts condition {
 async function main(): Promise<void> {
   const year = new Date().getFullYear();
   const inspectionId = '11111111-1111-4111-8111-111111111111';
+  const legacyImportId = '77777777-7777-4777-8777-777777777777';
   const companyId = '22222222-2222-4222-8222-222222222222';
   const areaId = '33333333-3333-4333-8333-333333333333';
   const sectorId = '44444444-4444-4444-8444-444444444444';
   const inspectorId = '55555555-5555-4555-8555-555555555555';
   const inspectionTypeId = '66666666-6666-4666-8666-666666666666';
   const startedAt = new Date(`${year}-01-01T12:00:00.000Z`);
-  const closedAt = new Date(`${year}-01-05T12:00:00.000Z`);
+  const closedAt = new Date(`${year}-01-15T12:00:00.000Z`);
   const inspection = {
     id: inspectionId,
     status: InspectionStatus.CLOSED,
@@ -49,11 +54,52 @@ async function main(): Promise<void> {
     title: 'Inspección histórica restaurada',
   } as InspectionEntity;
   const legacyImport = {
+    id: legacyImportId,
     inspectionId,
+    sourceSystem: 'legacy_environmental_inspections_spreadsheet',
     legacyYear: year,
     legacyNumber: 42,
     legacyMode: InspectionLegacyMode.FINDING,
+    legacyInspectorName: 'Karen Opazo S.',
+    legacyAreaName: 'Servicios Generales',
+    legacyCompanyName: 'AGGREKO',
+    legacySectorName: 'Campamento',
+    legacyDetail: 'Plataforma 17',
   } as InspectionLegacyImportEntity;
+  const milestones = [
+    {
+      legacyImportId,
+      sequenceNumber: 1,
+      occurredAt: `${year}-01-08`,
+      closedIncrement: 4,
+      pendingAfter: 3,
+      closedPercentage: '57.14',
+      pendingPercentage: '42.86',
+    },
+    {
+      legacyImportId,
+      sequenceNumber: 2,
+      occurredAt: `${year}-01-15`,
+      closedIncrement: 3,
+      pendingAfter: 0,
+      closedPercentage: '100.00',
+      pendingPercentage: '0.00',
+    },
+  ] as InspectionLegacyMilestoneEntity[];
+  const legacyParticipants = [{
+    legacyImportId,
+    userId: inspectorId,
+    sourceName: 'Karen Opazo S.',
+    sequenceNumber: 1,
+    isPrimary: true,
+  }] as InspectionLegacyParticipantEntity[];
+  const legacySectorLinks = [{
+    legacyImportId,
+    sectorId,
+    sourceName: 'Campamento',
+    sequenceNumber: 1,
+    isPrimary: true,
+  }] as InspectionLegacySectorLinkEntity[];
   const company = { id: companyId, name: 'AGGREKO' } as CompanyEntity;
   const area = { id: areaId, name: 'Planta Procesos' } as AreaEntity;
   const sector = { id: sectorId, name: 'Barrio Cívico' } as SectorEntity;
@@ -72,6 +118,7 @@ async function main(): Promise<void> {
   const inspectionsRepository = {
     find: async () => [inspection],
     findBy: async () => [inspection],
+    findOneBy: async () => inspection,
   } as unknown as Repository<InspectionEntity>;
   const findingsRepository = {
     find: async () => [],
@@ -79,7 +126,17 @@ async function main(): Promise<void> {
   const legacyImportsRepository = {
     find: async () => [legacyImport],
     findBy: async () => [legacyImport],
+    findOneBy: async () => legacyImport,
   } as unknown as Repository<InspectionLegacyImportEntity>;
+  const milestonesRepository = {
+    find: async () => milestones,
+  } as unknown as Repository<InspectionLegacyMilestoneEntity>;
+  const participantsRepository = {
+    find: async () => legacyParticipants,
+  } as unknown as Repository<InspectionLegacyParticipantEntity>;
+  const sectorLinksRepository = {
+    find: async () => legacySectorLinks,
+  } as unknown as Repository<InspectionLegacySectorLinkEntity>;
   const areasRepository = {
     find: async () => [area],
   } as unknown as Repository<AreaEntity>;
@@ -171,7 +228,29 @@ async function main(): Promise<void> {
   assert(projectedRow.isLegacy === true, 'Projected row should be marked as legacy');
   assert(projectedRow.readOnly === true, 'Projected row should remain read-only');
 
-  console.log('Legacy inspections table projection smoke test passed');
+  const detailProjection = new InspectionLegacyDetailProjectionService(
+    inspectionsRepository,
+    legacyImportsRepository,
+    milestonesRepository,
+    participantsRepository,
+    sectorLinksRepository,
+  );
+  const detail = await detailProjection.getSummary(inspectionId);
+
+  assert(detail !== null, 'Legacy detail summary should be available');
+  assert(detail.totalObservations === 7, 'Legacy detail should expose aggregate total observations');
+  assert(detail.closedObservations === 7, 'Legacy detail should expose aggregate closed observations');
+  assert(detail.openObservations === 0, 'Legacy detail should expose aggregate open observations');
+  assert(detail.milestones.length === 2, 'Legacy detail should expose restored S1-S3 milestones');
+  assert(detail.milestones[0]?.occurredAt === `${year}-01-08`, 'Legacy detail should preserve S1 date');
+  assert(detail.milestones[0]?.closedIncrement === 4, 'Legacy detail should preserve S1 closed increment');
+  assert(detail.milestones[0]?.pendingAfter === 3, 'Legacy detail should preserve S1 pending count');
+  assert(detail.milestones[1]?.closedPercentage === 100, 'Legacy detail should preserve final closure percentage');
+  assert(detail.originalAreaName === 'Servicios Generales', 'Legacy detail should preserve original area text');
+  assert(detail.originalSectorName === 'Campamento', 'Legacy detail should preserve original sector text');
+  assert(detail.dataAvailability.findingDetails === false, 'Legacy detail must not imply individual finding reconstruction');
+
+  console.log('Legacy inspections table and detail projection smoke test passed');
 }
 
 void main();
