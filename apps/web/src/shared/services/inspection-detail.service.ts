@@ -1,7 +1,9 @@
 import type {
   InspectionDetailResponse,
   InspectionFindingResponse,
+  InspectionFindingSlaReassignmentResponse,
   InspectionProcessRequestResponse,
+  ReassignInspectionFindingSlaRequest,
   ResubmitInspectionEvidenceRequest,
   UpdateInspectionFindingRequest,
 } from '@aurelia/contracts';
@@ -17,6 +19,16 @@ export function updateInspectionFinding(
 ): Promise<InspectionFindingResponse> {
   return httpPatch<UpdateInspectionFindingRequest, InspectionFindingResponse>(
     `/inspections/findings/${encodeURIComponent(findingId)}`,
+    payload,
+  );
+}
+
+export function reassignInspectionFindingSla(
+  findingId: string,
+  payload: ReassignInspectionFindingSlaRequest,
+): Promise<InspectionFindingSlaReassignmentResponse> {
+  return httpPost<ReassignInspectionFindingSlaRequest, InspectionFindingSlaReassignmentResponse>(
+    `/inspections/findings/${encodeURIComponent(findingId)}/reassign-sla`,
     payload,
   );
 }

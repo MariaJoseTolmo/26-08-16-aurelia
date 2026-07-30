@@ -5,6 +5,7 @@ import {
   InspectionEvidenceRelationType,
   InspectionFindingSeverity,
   InspectionFindingStatus,
+  InspectionSlaEventType,
   InspectionType,
   type EvidenceResponse,
   type ID,
@@ -18,6 +19,7 @@ import {
   type InspectionDetailGeneralResponse,
   type InspectionDetailResponse,
   type InspectionDetailResponsibleResponse,
+  type InspectionFindingSlaReassignmentResponse,
 } from '@aurelia/contracts';
 import { In, Repository } from 'typeorm';
 import { EvidencesService } from '../evidences/evidences.service';
@@ -32,6 +34,7 @@ import { InspectionFormItemEntity } from './entities/inspection-form-item.entity
 import { InspectionFormSectionEntity } from './entities/inspection-form-section.entity';
 import { InspectionFormTemplateEntity } from './entities/inspection-form-template.entity';
 import { InspectionItemResponseEntity } from './entities/inspection-item-response.entity';
+import { InspectionSlaEventEntity } from './entities/inspection-sla-event.entity';
 import { InspectionTypeEntity } from './entities/inspection-type.entity';
 import { InspectionEntity } from './entities/inspection.entity';
 
@@ -63,6 +66,8 @@ export class InspectionDetailService {
     private readonly findingResponsibles: Repository<InspectionFindingResponsibleEntity>,
     @InjectRepository(InspectionFollowupEntity)
     private readonly followups: Repository<InspectionFollowupEntity>,
+    @InjectRepository(InspectionSlaEventEntity)
+    private readonly slaEvents: Repository<InspectionSlaEventEntity>,
     @InjectRepository(AreaEntity)
     private readonly areas: Repository<AreaEntity>,
     @InjectRepository(CompanyEntity)
@@ -86,12 +91,18 @@ export class InspectionDetailService {
 
     const activeFindings = findings.filter((finding) => finding.status !== InspectionFindingStatus.CANCELLED);
     const findingIds = activeFindings.map((finding) => finding.id);
-    const [responsibles, followups, evidenceByFinding] = await Promise.all([
+    const [responsibles, followups, slaEvents, evidenceByFinding] = await Promise.all([
       findingIds.length
         ? this.findingResponsibles.find({ where: { findingId: In(findingIds) } })
         : Promise.resolve([]),
       findingIds.length
         ? this.followups.find({ where: { findingId: In(findingIds) }, order: { sequenceNumber: 'ASC' } })
+        : Promise.resolve([]),
+      findingIds.length
+        ? this.slaEvents.find({
+            where: { findingId: In(findingIds), type: InspectionSlaEventType.REASSIGNED },
+            order: { occurredAt: 'ASC', createdAt: 'ASC' },
+          })
         : Promise.resolve([]),
       this.loadEvidenceByFinding(findingIds),
     ]);
@@ -105,6 +116,7 @@ export class InspectionDetailService {
       evidenceByFinding.get(finding.id) ?? [],
       currentUserId,
     ));
+    const findingById = new Map(activeFindings.map((finding, index) => [finding.id, { finding, index }]));
     const groups = this.groupFindings(findingItems);
     const counts = this.countFindingGroups(findingItems);
     const progressPercent = findingItems.length === 0
@@ -136,6 +148,10 @@ export class InspectionDetailService {
       },
       findings: groups,
       followups: followups.map((followup) => this.toFollowupResponse(followup, maps)),
+      slaReassignments: slaEvents.flatMap((event) => {
+        const entry = findingById.get(event.findingId);
+        return entry ? [this.toSlaReassignmentResponse(event, entry.finding, entry.index, maps)] : [];
+      }),
       general: this.toGeneralResponse(inspection, template, maps, generalEvidence, findingItems),
       checklistResult,
     };
@@ -339,6 +355,42 @@ export class InspectionDetailService {
       performedByUserId: followup.performedByUserId,
       performedByName: user ? this.userFullName(user) : null,
       completed: Boolean(followup.performedAt),
+    };
+  }
+
+  private toSlaReassignmentResponse(
+    event: InspectionSlaEventEntity,
+    finding: InspectionFindingEntity,
+    findingIndex: number,
+    maps: EntityNameMaps,
+  ): InspectionFindingSlaReassignmentResponse {
+    const metadata = event.metadata ?? {};
+    const reassignedByUserId = typeof metadata.reassignedByUserId === 'string'
+      ? metadata.reassignedByUserId
+      : null;
+    const user = reassignedByUserId ? maps.users.get(reassignedByUserId) : null;
+    const previousDueAt = typeof metadata.previousDueAt === 'string' ? metadata.previousDueAt : null;
+    const newDueAt = typeof metadata.newDueAt === 'string'
+      ? metadata.newDueAt
+      : event.dueAt?.toISOString() ?? event.occurredAt.toISOString();
+    return {
+      id: event.id,
+      findingId: finding.id,
+      inspectionId: finding.inspectionId,
+      findingNumber: typeof metadata.findingNumber === 'number' ? metadata.findingNumber : findingIndex + 1,
+      findingTitle: typeof metadata.findingTitle === 'string' ? metadata.findingTitle : finding.title,
+      previousSlaBusinessDays: typeof metadata.previousSlaBusinessDays === 'number'
+        ? metadata.previousSlaBusinessDays
+        : 0,
+      newSlaBusinessDays: typeof metadata.newSlaBusinessDays === 'number'
+        ? metadata.newSlaBusinessDays
+        : 0,
+      previousDueAt,
+      newDueAt,
+      reason: typeof metadata.reason === 'string' ? metadata.reason : 'SLA reasignado',
+      reassignedAt: event.occurredAt.toISOString(),
+      reassignedByUserId,
+      reassignedByName: user ? this.userFullName(user) : null,
     };
   }
 

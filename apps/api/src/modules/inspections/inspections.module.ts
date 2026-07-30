@@ -29,6 +29,8 @@ import { InspectionItemResponseEntity } from './entities/inspection-item-respons
 import { InspectionProcessRequestEntity } from './entities/inspection-process-request.entity';
 import { InspectionRiskConsequenceEntity } from './entities/inspection-risk-consequence.entity';
 import { InspectionRiskProbabilityEntity } from './entities/inspection-risk-probability.entity';
+import { InspectionSlaEventEntity } from './entities/inspection-sla-event.entity';
+import { InspectionSlaPolicyEntity } from './entities/inspection-sla-policy.entity';
 import { InspectionStateEntity } from './entities/inspection-state.entity';
 import { InspectionTypeEntity } from './entities/inspection-type.entity';
 import { InspectionEntity } from './entities/inspection.entity';
@@ -49,6 +51,7 @@ import { InspectionLegacyTableResponseInterceptor } from './inspection-legacy-ta
 import { InspectionProcessController } from './inspection-process.controller';
 import { InspectionProcessService } from './inspection-process.service';
 import { InspectionRejectionEmailService } from './inspection-rejection-email.service';
+import { InspectionSlaReassignmentService } from './inspection-sla-reassignment.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
 import { InspectionTransversalController } from './inspection-transversal.controller';
 import { InspectionTransversalService } from './inspection-transversal.service';
@@ -82,6 +85,8 @@ import { InspectionsService } from './inspections.service';
       InspectionFindingEntity,
       InspectionFindingResponsibleEntity,
       InspectionFollowupEntity,
+      InspectionSlaPolicyEntity,
+      InspectionSlaEventEntity,
       InspectionStateEntity,
       InspectionProcessRequestEntity,
       InspectionAiAssessmentEntity,
@@ -112,6 +117,7 @@ import { InspectionsService } from './inspections.service';
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
     InspectionRejectionEmailService,
+    InspectionSlaReassignmentService,
     InspectionLegacyTableProjectionService,
     InspectionLegacyTableResponseInterceptor,
     InspectionLegacyDetailProjectionService,
@@ -136,6 +142,7 @@ import { InspectionsService } from './inspections.service';
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
     InspectionRejectionEmailService,
+    InspectionSlaReassignmentService,
   ],
 })
 export class InspectionsModule {}

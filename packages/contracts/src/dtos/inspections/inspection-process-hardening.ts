@@ -33,6 +33,7 @@ export enum InspectionSlaEventType {
   SECOND_REMINDER = 'second_reminder',
   OVERDUE = 'overdue',
   ESCALATED = 'escalated',
+  REASSIGNED = 'reassigned',
 }
 
 export enum NotificationDeliveryStatus {
@@ -99,6 +100,27 @@ export interface ResubmitInspectionEvidenceRequest {
   reason: string;
   evidenceIds: string[];
   executedActionDescription?: string | null;
+}
+
+export interface ReassignInspectionFindingSlaRequest {
+  slaBusinessDays: number;
+  reason: string;
+}
+
+export interface InspectionFindingSlaReassignmentResponse {
+  id: string;
+  findingId: string;
+  inspectionId: string;
+  findingNumber: number;
+  findingTitle: string;
+  previousSlaBusinessDays: number;
+  newSlaBusinessDays: number;
+  previousDueAt: ISODateString | null;
+  newDueAt: ISODateString;
+  reason: string;
+  reassignedAt: ISODateString;
+  reassignedByUserId: string | null;
+  reassignedByName: string | null;
 }
 
 export interface InspectionSlaPolicyResponse {
