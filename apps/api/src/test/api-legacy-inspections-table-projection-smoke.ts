@@ -1,5 +1,11 @@
 import 'reflect-metadata';
-import { InspectionStatus, type InspectionManagementTableResponse } from '@aurelia/contracts';
+import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import {
+  InspectionStatus,
+  type InspectionDetailResponse,
+  type InspectionManagementTableResponse,
+} from '@aurelia/contracts';
+import { firstValueFrom, of } from 'rxjs';
 import type { Repository } from 'typeorm';
 import {
   InspectionLegacyImportEntity,
@@ -17,6 +23,7 @@ import { InspectionTypeEntity } from '../modules/inspections/entities/inspection
 import { InspectionEntity } from '../modules/inspections/entities/inspection.entity';
 import { InspectionHistoryService } from '../modules/inspections/inspection-history.service';
 import { InspectionLegacyDetailProjectionService } from '../modules/inspections/inspection-legacy-detail-projection.service';
+import { InspectionLegacyDetailResponseInterceptor } from '../modules/inspections/inspection-legacy-detail-response.interceptor';
 import { InspectionLegacyTableProjectionService } from '../modules/inspections/inspection-legacy-table-projection.service';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -250,7 +257,71 @@ async function main(): Promise<void> {
   assert(detail.originalSectorName === 'Campamento', 'Legacy detail should preserve original sector text');
   assert(detail.dataAvailability.findingDetails === false, 'Legacy detail must not imply individual finding reconstruction');
 
-  console.log('Legacy inspections table and detail projection smoke test passed');
+  const nativeDetail = {
+    header: {
+      inspectionId,
+      inspectionNumber: `${year}-042`,
+      title: 'Inspección histórica restaurada',
+      kind: 'finding',
+      inspectionType: 'environmental',
+      metadataLine1: 'Inspección ambiental',
+      metadataLine2: null,
+      progressPercent: 0,
+      counts: { executed: 0, open: 0, closed: 0, rejected: 0 },
+    },
+    findings: { executed: [], open: [], closed: [], rejected: [] },
+    followups: [],
+    general: {
+      inspectorName: null,
+      inspectorCompanyName: null,
+      areaName: null,
+      sectorName: null,
+      companyName: null,
+      templateName: null,
+      templateCode: null,
+      scheduledAt: startedAt.toISOString(),
+      locationLabel: null,
+      latitude: null,
+      longitude: null,
+      generalEvidence: [],
+      responsibles: [],
+    },
+    checklistResult: null,
+  } as InspectionDetailResponse;
+  const interceptor = new InspectionLegacyDetailResponseInterceptor(detailProjection);
+  const context = {
+    switchToHttp: () => ({
+      getRequest: () => ({
+        method: 'GET',
+        originalUrl: `/api/inspections/${inspectionId}/detail`,
+        params: { id: inspectionId },
+      }),
+    }),
+  } as unknown as ExecutionContext;
+  const next = {
+    handle: () => of(nativeDetail),
+  } as CallHandler;
+  const nativeProjected = await firstValueFrom(
+    interceptor.intercept(context, next),
+  ) as InspectionDetailResponse;
+
+  assert(nativeProjected.header.title === 'Plataforma 17', 'Native detail should preserve original legacy detail as title');
+  assert(nativeProjected.header.counts.closed === 7, 'Native detail should expose aggregate closed count');
+  assert(nativeProjected.header.progressPercent === 100, 'Native detail should expose aggregate closure progress');
+  assert(nativeProjected.findings.closed.length === 7, 'Native detail should render one presentation row per restored observation');
+  assert(nativeProjected.findings.closed.every((finding) => finding.condition === null), 'Missing finding descriptions should remain empty');
+  assert(nativeProjected.findings.closed.every((finding) => finding.beforeEvidence.length === 0 && finding.afterEvidence.length === 0), 'Missing legacy evidence should remain absent');
+  assert(nativeProjected.findings.closed.slice(0, 4).every((finding) => finding.closedAt === `${year}-01-08`), 'S1 closure increment should drive the first four presentation rows');
+  assert(nativeProjected.findings.closed.slice(4).every((finding) => finding.closedAt === `${year}-01-15`), 'S2 closure increment should drive the remaining presentation rows');
+  assert(nativeProjected.followups.length === 3, 'Native detail should always expose S1-S3 timeline slots');
+  assert(nativeProjected.followups[0]?.completed === true, 'Restored S1 should be completed');
+  assert(nativeProjected.followups[1]?.completed === true, 'Restored S2 should be completed');
+  assert(nativeProjected.followups[2]?.completed === false, 'Missing S3 should remain pending');
+  assert(nativeProjected.general.inspectorName === 'Karen Opazo S.', 'Native detail should use original inspector text');
+  assert(nativeProjected.general.areaName === 'Servicios Generales', 'Native detail should use original area text');
+  assert(nativeProjected.general.sectorName === 'Campamento', 'Native detail should use original sector text');
+
+  console.log('Legacy inspections table and native detail projection smoke test passed');
 }
 
 void main();

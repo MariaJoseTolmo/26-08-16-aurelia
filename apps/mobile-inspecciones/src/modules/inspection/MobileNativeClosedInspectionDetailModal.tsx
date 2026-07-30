@@ -75,9 +75,9 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function formatDateTime(value: string | null | undefined): string {
-  if (!value) return 'dd-mm-aaaa · 00:00';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'dd-mm-aaaa · 00:00';
+  if (Number.isNaN(date.getTime())) return '—';
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
@@ -277,13 +277,14 @@ function checklistQuestion(detail: InspectionDetailResponse, item: InspectionDet
 
 function FindingPills({ detail, item }: { detail: InspectionDetailResponse; item: InspectionDetailFindingItemResponse }) {
   const index = closedFindingIndex(detail, item);
-  const severity = severityColors(item.severityLabel);
+  const severityLabel = item.severityLabel || '—';
+  const severity = severityColors(severityLabel);
   const label = detail.header.kind === 'checklist' ? `Ítem ${index}` : `Obs. ${index}`;
   return (
     <View style={styles.pillRow}>
       <View style={styles.indexPill}><Text style={styles.indexPillText}>{label}</Text></View>
       <View style={[styles.severityPill, { backgroundColor: severity.background }]}>
-        <Text style={[styles.severityPillText, { color: severity.color }]}>{item.severityLabel}</Text>
+        <Text style={[styles.severityPillText, { color: severity.color }]}>{severityLabel}</Text>
       </View>
     </View>
   );
@@ -297,6 +298,8 @@ function ClosedFindingCard({
   item: InspectionDetailFindingItemResponse;
 }) {
   const question = checklistQuestion(detail, item);
+  const beforeEvidence = item.beforeEvidence[0];
+  const afterEvidence = item.afterEvidence[0];
   return (
     <View style={styles.findingCard}>
       <View style={styles.findingTop}>
@@ -312,10 +315,12 @@ function ClosedFindingCard({
         <TextBlock label="CONDICIÓN DETECTADA" value={item.condition} bordered />
         <TextBlock label="MEDIDA CORRECTIVA PROPUESTA" value={item.proposedCorrectiveAction} />
         <TextBlock label="DESCRIPCIÓN DE LA ACCIÓN TOMADA" value={item.executedActionDescription} />
-        <View style={styles.evidenceRow}>
-          <EvidenceBox title="ANTES" evidence={item.beforeEvidence[0]} />
-          <EvidenceBox title="DESPUÉS" evidence={item.afterEvidence[0]} after />
-        </View>
+        {beforeEvidence || afterEvidence ? (
+          <View style={styles.evidenceRow}>
+            {beforeEvidence ? <EvidenceBox title="ANTES" evidence={beforeEvidence} /> : null}
+            {afterEvidence ? <EvidenceBox title="DESPUÉS" evidence={afterEvidence} after /> : null}
+          </View>
+        ) : null}
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>SLA cerrado</Text>
           <View style={styles.infoValueRow}>
@@ -628,11 +633,13 @@ function GeneralPanel({ detail }: { detail: InspectionDetailResponse }) {
       <GeneralSection title="DÓNDE Y CUÁNDO" icon="map-marker-alt">
         <GeneralInfoRows rows={locationRows} />
       </GeneralSection>
-      <GeneralSection title="FOTOGRAFÍA GENERAL DE LA INSPECCIÓN" icon="camera">
-        <View style={styles.generalPhotoContent}>
-          <GeneralPhotoGallery evidences={general.generalEvidence} />
-        </View>
-      </GeneralSection>
+      {general.generalEvidence.length > 0 ? (
+        <GeneralSection title="FOTOGRAFÍA GENERAL DE LA INSPECCIÓN" icon="camera">
+          <View style={styles.generalPhotoContent}>
+            <GeneralPhotoGallery evidences={general.generalEvidence} />
+          </View>
+        </GeneralSection>
+      ) : null}
       <GeneralObservations detail={detail} />
       <ResponsiblesSection detail={detail} />
     </View>
