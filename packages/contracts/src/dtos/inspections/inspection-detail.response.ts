@@ -192,7 +192,7 @@ export interface InspectionDetailResponse {
   header: InspectionDetailHeaderResponse;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
   followups: InspectionDetailFollowupResponse[];
-  slaReassignments: InspectionFindingSlaReassignmentResponse[];
+  slaReassignments?: InspectionFindingSlaReassignmentResponse[];
   general: InspectionDetailGeneralResponse;
   checklistResult: InspectionDetailChecklistResultResponse | null;
   legacy?: InspectionDetailLegacySummaryResponse | null;
