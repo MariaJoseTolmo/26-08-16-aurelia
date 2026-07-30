@@ -1,11 +1,9 @@
 name: Temporary fix SLA reason layout inspections
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/inspecciones/carlo
-    paths:
-      - .github/workflows/tmp-fix-sla-reason-layout-inspections.yml
+      - main
 
 permissions:
   contents: write
