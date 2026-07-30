@@ -19,6 +19,7 @@ import { InspectionDetailReportPdfTranslatedService } from './inspection-detail-
 import { InspectionPeriodicReportClassificationService } from './inspection-periodic-report-classification.service';
 import { InspectionPeriodicReportController } from './inspection-periodic-report.controller';
 import { InspectionPeriodicReportExportService } from './inspection-periodic-report-export.service';
+import { InspectionPeriodicReportLegacyProjectionService } from './inspection-periodic-report-legacy-projection.service';
 import { InspectionPeriodicReportPdfAlertIconFidelityService } from './inspection-periodic-report-pdf-alert-icon-fidelity.service';
 import { InspectionPeriodicReportPdfService } from './inspection-periodic-report-pdf.service';
 import { InspectionPeriodicReportService } from './inspection-periodic-report.service';
@@ -56,6 +57,7 @@ import { XlsxWorkbookService } from './xlsx-workbook.service';
     ReportTranslationService,
     XlsxWorkbookService,
     InspectionPeriodicReportService,
+    InspectionPeriodicReportLegacyProjectionService,
     InspectionPeriodicReportClassificationService,
     InspectionPeriodicReportPdfAlertIconFidelityService,
     {
