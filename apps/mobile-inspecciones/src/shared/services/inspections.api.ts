@@ -102,6 +102,16 @@ function formatScheduledDate(value: string | null | undefined): string {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : 'Sin fecha';
 }
 
+function resolveSector(response: InspectionDetailResponse): string {
+  const locationSegments = response.general.locationLabel
+    ?.split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  return response.general.sectorName?.trim()
+    || locationSegments[locationSegments.length - 1]
+    || 'Sin ubicación';
+}
+
 function buildFindingMetadata(response: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
   const currentSegments = response.header.metadataLine1
     .split(' · ')
@@ -114,17 +124,17 @@ function buildFindingMetadata(response: InspectionDetailResponse): { metadataLin
   const findingType = existingTypeMatch?.[1]?.trim() || projectedType || 'sin clasificación';
   const date = currentSegments.find((value) => /^\d{2}-\d{2}-\d{4}$/.test(value))
     ?? formatScheduledDate(response.general.scheduledAt);
-  const locationSegments = response.general.locationLabel
-    ?.split(' · ')
-    .map((value) => value.trim())
-    .filter(Boolean) ?? [];
-  const sector = response.general.sectorName?.trim()
-    || locationSegments[locationSegments.length - 1]
-    || 'Sin ubicación';
 
   return {
-    metadataLine1: `Hallazgo · ${date} · ${sector}`,
+    metadataLine1: `Hallazgo · ${date} · ${resolveSector(response)}`,
     metadataLine2: `Tipo de hallazgo: ${findingType}`,
+  };
+}
+
+function buildChecklistMetadata(response: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  return {
+    metadataLine1: response.header.metadataLine1,
+    metadataLine2: `${formatScheduledDate(response.general.scheduledAt)} · ${resolveSector(response)}`,
   };
 }
 
@@ -132,14 +142,16 @@ function normalizeInspectionDetail(response: InspectionDetailResponse): Inspecti
   const area = response.general.areaName?.trim();
   const company = response.general.companyName?.trim();
   const title = [area, company].filter((value): value is string => Boolean(value)).join(' · ');
-  const findingMetadata = response.header.kind === 'finding' ? buildFindingMetadata(response) : null;
+  const metadata = response.header.kind === 'finding'
+    ? buildFindingMetadata(response)
+    : buildChecklistMetadata(response);
 
   return {
     ...response,
     header: {
       ...response.header,
       ...(title ? { title } : {}),
-      ...(findingMetadata ?? {}),
+      ...metadata,
     },
   };
 }
