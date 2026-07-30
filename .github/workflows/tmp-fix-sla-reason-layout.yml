@@ -1,0 +1,157 @@
+name: Temporary fix SLA reason layout
+
+on:
+  push:
+    branches:
+      - feature/residuos
+    paths:
+      - .github/workflows/tmp-fix-sla-reason-layout.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/residuos
+          fetch-depth: 0
+
+      - name: Apply focused timeline changes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          def update(path: str, transforms):
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              for old, new, label in transforms:
+                  text = replace_once(text, old, new, f"{path} - {label}")
+              file.write_text(text, encoding='utf-8')
+
+          update(
+              'apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx',
+              [
+                  (
+                      "  bullets?: string[];\n  completed: boolean;",
+                      "  bullets?: string[];\n  reason?: string;\n  completed: boolean;",
+                      'followup reason field',
+                  ),
+                  (
+                      "    bullets: [\n      `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Motivo: ${event.reason}`,\n    ],\n    completed: true,",
+                      "    bullets: [\n      `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n    ],\n    reason: event.reason,\n    completed: true,",
+                      'separate reason from bullets',
+                  ),
+                  (
+                      "{step.bullets ? <ul className=\"list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]\">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div></div>;",
+                      "{step.bullets ? <ul className=\"list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]\">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}{step.reason ? <div className=\"pt-[2px] text-[11px] leading-[14px] text-[#646464]\"><p className=\"font-['Inter:Bold',sans-serif] font-bold\">Motivo:</p><p className=\"font-['Inter:Regular',sans-serif] font-normal\">{step.reason}</p></div> : null}</div></div>;",
+                      'render reason block',
+                  ),
+              ],
+          )
+
+          update(
+              'apps/web/src/modules/inspections/components/InspectionHistoryDetailModal.tsx',
+              [
+                  (
+                      "  bullets?: string[];\n  completed: boolean;",
+                      "  bullets?: string[];\n  reason?: string;\n  completed: boolean;",
+                      'followup reason field',
+                  ),
+                  (
+                      "    bullets: [\n      `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Motivo: ${event.reason}`,\n    ],\n    completed: true,",
+                      "    bullets: [\n      `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n      `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,\n    ],\n    reason: event.reason,\n    completed: true,",
+                      'separate reason from bullets',
+                  ),
+                  (
+                      "{step.bullets ? <ul className=\"list-disc pl-[20px] pt-[3px] text-[11px] leading-[15px] text-[#646464]\">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div>",
+                      "{step.bullets ? <ul className=\"list-disc pl-[20px] pt-[3px] text-[11px] leading-[15px] text-[#646464]\">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}{step.reason ? <div className=\"pt-[2px] text-[11px] leading-[15px] text-[#646464]\"><p className=\"font-['Inter:Bold',sans-serif] font-bold\">Motivo:</p><p className=\"font-['Inter:Regular',sans-serif] font-normal\">{step.reason}</p></div> : null}</div>",
+                      'render reason block',
+                  ),
+              ],
+          )
+
+          update(
+              'apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx',
+              [
+                  (
+                      "  bullets?: string[];\n  completed: boolean;",
+                      "  bullets?: string[];\n  reason?: string;\n  completed: boolean;",
+                      'followup reason field',
+                  ),
+                  (
+                      "const slaSteps = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Motivo: ${event.reason}`], completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));",
+                      "const slaSteps = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`], reason: event.reason, completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));",
+                      'separate reason from bullets',
+                  ),
+                  (
+                      "{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}</View>",
+                      "{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}{step.reason ? <View style={styles.timelineReason}><Text style={styles.timelineReasonLabel}>Motivo:</Text><Text style={styles.timelineReasonText}>{step.reason}</Text></View> : null}</View>",
+                      'render reason block',
+                  ),
+                  (
+                      "  timelineBullet: { marginTop: 3, fontSize: 13, lineHeight: 18, color: colors.muted },",
+                      "  timelineBullet: { marginTop: 3, fontSize: 13, lineHeight: 18, color: colors.muted },\n  timelineReason: { marginTop: 2 },\n  timelineReasonLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.bold, color: colors.muted },\n  timelineReasonText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.regular, color: colors.muted },",
+                      'reason styles',
+                  ),
+              ],
+          )
+
+          update(
+              'apps/mobile-inspecciones/src/modules/inspection/MobileNativeClosedInspectionDetailModal.tsx',
+              [
+                  (
+                      "type FollowupStep = { id: string; title: string; date: string; summary?: string; bullets?: string[]; completed: boolean; occurredAt?: string | null };",
+                      "type FollowupStep = { id: string; title: string; date: string; summary?: string; bullets?: string[]; reason?: string; completed: boolean; occurredAt?: string | null };",
+                      'followup reason field',
+                  ),
+                  (
+                      "const slaEvents = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Motivo: ${event.reason}`], completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));",
+                      "const slaEvents = (detail.slaReassignments ?? []).map((event) => ({ id: `sla-${event.id}`, title: `Observación “${event.findingNumber}” SLA reasignado`, date: formatDate(event.reassignedAt), bullets: [`SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`, `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`], reason: event.reason, completed: true, occurredAt: event.reassignedAt } satisfies FollowupStep));",
+                      'separate reason from bullets',
+                  ),
+                  (
+                      "{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}</View>",
+                      "{step.bullets?.map((bullet) => <Text key={bullet} style={styles.timelineBullet}>• {bullet}</Text>)}{step.reason ? <View style={styles.timelineReason}><Text style={styles.timelineReasonLabel}>Motivo:</Text><Text style={styles.timelineReasonText}>{step.reason}</Text></View> : null}</View>",
+                      'render reason block',
+                  ),
+                  (
+                      "  timelineBullet: { marginTop: 3, fontSize: 13, lineHeight: 18, color: colors.muted },",
+                      "  timelineBullet: { marginTop: 3, fontSize: 13, lineHeight: 18, color: colors.muted },\n  timelineReason: { marginTop: 2 },\n  timelineReasonLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.bold, color: colors.muted },\n  timelineReasonText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.regular, color: colors.muted },",
+                      'reason styles',
+                  ),
+              ],
+          )
+          PY
+
+      - name: Commit each modified file
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add apps/web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx
+          git commit -m "fix(web): separate SLA reassignment reason in followup timeline"
+
+          git add apps/web/src/modules/inspections/components/InspectionHistoryDetailModal.tsx
+          git commit -m "fix(web): align SLA reason in history timeline"
+
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx
+          git commit -m "fix(mobile): separate SLA reassignment reason in followup timeline"
+
+          git add apps/mobile-inspecciones/src/modules/inspection/MobileNativeClosedInspectionDetailModal.tsx
+          git commit -m "fix(mobile): align SLA reason in closed timeline"
+
+          git rm .github/workflows/tmp-fix-sla-reason-layout.yml
+          git commit -m "chore: remove temporary SLA layout workflow"
+          git push origin HEAD:feature/residuos
