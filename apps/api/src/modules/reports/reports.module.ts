@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FilesModule } from '../files/files.module';
+import { InspectionLegacyImportEntity } from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { InspectionFindingEntity } from '../inspections/entities/inspection-finding.entity';
 import { InspectionTypeEntity } from '../inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../inspections/entities/inspection.entity';
@@ -37,6 +38,7 @@ import { XlsxWorkbookService } from './xlsx-workbook.service';
     TypeOrmModule.forFeature([
       InspectionEntity,
       InspectionFindingEntity,
+      InspectionLegacyImportEntity,
       InspectionTypeEntity,
       CompanyEntity,
       AreaEntity,
