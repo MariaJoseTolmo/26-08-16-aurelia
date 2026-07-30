@@ -18,6 +18,7 @@ export function MobileClosedInspectionDetailModal({ visible, inspectionId, onClo
   if (detail?.legacy) {
     return (
       <MobileLegacyClosedInspectionDetailModal
+        key={detail.header.inspectionId}
         visible={visible}
         detail={detail}
         onClose={onClose}
