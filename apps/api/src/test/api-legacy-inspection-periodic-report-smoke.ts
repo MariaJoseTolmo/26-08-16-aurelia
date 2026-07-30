@@ -15,9 +15,18 @@ function assert(condition: boolean, message: string): asserts condition {
 async function main(): Promise<void> {
   const legacyInspectionId = '11111111-1111-4111-8111-111111111111';
   const nativeInspectionId = '22222222-2222-4222-8222-222222222222';
+  const legacyCompanyId = '33333333-3333-4333-8333-333333333333';
+  const nativeCompanyId = '44444444-4444-4444-8444-444444444444';
   const legacyInspection = {
     id: legacyInspectionId,
+    companyId: legacyCompanyId,
     findingsCount: 7,
+    openFindingsCount: 0,
+  } as InspectionEntity;
+  const nativeInspection = {
+    id: nativeInspectionId,
+    companyId: nativeCompanyId,
+    findingsCount: 2,
     openFindingsCount: 0,
   } as InspectionEntity;
   const legacyImport = {
@@ -32,7 +41,7 @@ async function main(): Promise<void> {
   } as InspectionLegacyImportEntity;
 
   const inspectionsRepository = {
-    findBy: async () => [legacyInspection],
+    findBy: async () => [legacyInspection, nativeInspection],
   } as unknown as Repository<InspectionEntity>;
   const legacyImportsRepository = {
     findBy: async () => [legacyImport],
@@ -123,6 +132,8 @@ async function main(): Promise<void> {
   const projected = await service.project(report);
   const nativeRow = projected.inspections.rows.find((row) => row.inspectionId === nativeInspectionId);
   const legacyRow = projected.inspections.rows.find((row) => row.inspectionId === legacyInspectionId);
+  const legacyCompany = projected.companiesWithMostPending.find((row) => row.company === 'AGGREKO');
+  const nativeCompany = projected.companiesWithMostPending.find((row) => row.company === 'Gold Fields');
 
   assert(nativeRow?.observationsCount === 2, 'Native inspection must keep its real observations');
   assert(legacyRow?.inspectionNumber === '2026-042', 'Legacy report must preserve the historical key');
@@ -138,6 +149,12 @@ async function main(): Promise<void> {
   assert(projected.summary.complianceRate === 100, 'Combined report compliance must be recalculated');
   assert(projected.inspectionsByType.some((row) => row.label === 'Hallazgo' && row.count === 1), 'Type distribution must include legacy rows');
   assert(projected.findingsByArea.some((row) => row.label === 'Servicios Generales' && row.count === 7), 'Area findings distribution must include legacy counters');
+  assert(projected.companiesWithMostPending.length === 2, 'Company sheet must include native and legacy companies');
+  assert(legacyCompany?.companyId === legacyCompanyId, 'Legacy company row must preserve the mapped company ID');
+  assert(legacyCompany?.inspectionsInPeriod === 1, 'Legacy company row must count its inspection');
+  assert(legacyCompany?.pendingFindings === 0, 'Closed legacy company must have no pending observations');
+  assert(legacyCompany?.complianceRate === 100, 'Closed legacy company must show full compliance');
+  assert(nativeCompany?.inspectionsInPeriod === 1, 'Native company row must remain in the company sheet');
 
   console.log('Legacy inspection periodic report projection smoke test passed');
 }
