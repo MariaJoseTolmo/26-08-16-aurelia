@@ -13,6 +13,7 @@
     "test:smoke": "ts-node src/test/api-smoke.ts",
     "test:scope": "ts-node src/test/api-scope-smoke.ts",
     "test:inspection-scope": "ts-node src/test/api-inspection-creation-scope-smoke.ts",
+    "test:inspection-table-filters": "ts-node src/test/api-inspection-table-filters-smoke.ts",
     "test:auth-access": "ts-node src/test/api-inspector-web-login-smoke.ts",
     "test:legacy-projection": "ts-node src/test/api-legacy-inspections-table-projection-smoke.ts",
     "test:legacy-export": "ts-node src/test/api-legacy-inspection-periodic-report-smoke.ts",
