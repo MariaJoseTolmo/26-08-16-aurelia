@@ -7,6 +7,7 @@ import type {
   InspectionType,
 } from '../../enums';
 import type { ID, ISODateString } from '../../types/common';
+import type { InspectionFindingSlaReassignmentResponse } from './inspection-process-hardening';
 
 export type InspectionDetailKind = 'finding' | 'checklist';
 export type InspectionDetailFindingGroupKey = 'executed' | 'open' | 'closed' | 'rejected';
@@ -191,6 +192,7 @@ export interface InspectionDetailResponse {
   header: InspectionDetailHeaderResponse;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
   followups: InspectionDetailFollowupResponse[];
+  slaReassignments: InspectionFindingSlaReassignmentResponse[];
   general: InspectionDetailGeneralResponse;
   checklistResult: InspectionDetailChecklistResultResponse | null;
   legacy?: InspectionDetailLegacySummaryResponse | null;
