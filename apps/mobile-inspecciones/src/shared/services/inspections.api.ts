@@ -7,12 +7,14 @@ import type {
   InspectionChecklistAnswerResponse,
   InspectionDetailResponse,
   InspectionFindingResponse,
+  InspectionFindingSlaReassignmentResponse,
   InspectionHistoryKpisResponse,
   InspectionManagementKpisResponse,
   InspectionManagementTableResponse,
   InspectionProcessRequestResponse,
   InspectionResponse,
   LinkEvidenceRequest,
+  ReassignInspectionFindingSlaRequest,
   ResubmitInspectionEvidenceRequest,
   UpdateInspectionFindingRequest,
   UpsertInspectionAnswerRequest,
@@ -144,6 +146,16 @@ export function updateInspectionFinding(
 ): Promise<InspectionFindingResponse> {
   return httpPatch<UpdateInspectionFindingRequest, InspectionFindingResponse>(
     `/inspections/findings/${encodeURIComponent(findingId)}`,
+    payload,
+  );
+}
+
+export function reassignInspectionFindingSla(
+  findingId: string,
+  payload: ReassignInspectionFindingSlaRequest,
+): Promise<InspectionFindingSlaReassignmentResponse> {
+  return httpPost<ReassignInspectionFindingSlaRequest, InspectionFindingSlaReassignmentResponse>(
+    `/inspections/findings/${encodeURIComponent(findingId)}/reassign-sla`,
     payload,
   );
 }
