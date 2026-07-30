@@ -28,6 +28,16 @@ function formatScheduledDate(value: string | null | undefined): string {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : 'Sin fecha';
 }
 
+function resolveSector(detail: InspectionDetailResponse): string {
+  const locationSegments = detail.general.locationLabel
+    ?.split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  return detail.general.sectorName?.trim()
+    || locationSegments[locationSegments.length - 1]
+    || 'Sin ubicación';
+}
+
 function buildFindingMetadata(detail: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
   const currentSegments = detail.header.metadataLine1
     .split(' · ')
@@ -40,29 +50,31 @@ function buildFindingMetadata(detail: InspectionDetailResponse): { metadataLine1
   const findingType = existingTypeMatch?.[1]?.trim() || projectedType || 'sin clasificación';
   const date = currentSegments.find((value) => /^\d{2}-\d{2}-\d{4}$/.test(value))
     ?? formatScheduledDate(detail.general.scheduledAt);
-  const locationSegments = detail.general.locationLabel
-    ?.split(' · ')
-    .map((value) => value.trim())
-    .filter(Boolean) ?? [];
-  const sector = detail.general.sectorName?.trim()
-    || locationSegments[locationSegments.length - 1]
-    || 'Sin ubicación';
 
   return {
-    metadataLine1: `Hallazgo · ${date} · ${sector}`,
+    metadataLine1: `Hallazgo · ${date} · ${resolveSector(detail)}`,
     metadataLine2: `Tipo de hallazgo: ${findingType}`,
   };
 }
 
+function buildChecklistMetadata(detail: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  return {
+    metadataLine1: detail.header.metadataLine1,
+    metadataLine2: `${formatScheduledDate(detail.general.scheduledAt)} · ${resolveSector(detail)}`,
+  };
+}
+
 function buildRecordFromDetail(detail: InspectionDetailResponse, fallback: InspectionDetailModalRecord): InspectionDetailModalRecord {
-  const findingMetadata = detail.header.kind === 'finding' ? buildFindingMetadata(detail) : null;
+  const metadata = detail.header.kind === 'finding'
+    ? buildFindingMetadata(detail)
+    : buildChecklistMetadata(detail);
   return {
     ...fallback,
     id: formatInspectionNumber(detail.header.inspectionNumber),
     title: buildInspectionHeaderTitle(detail, fallback.title),
     kind: detail.header.kind,
-    metadataLine1: findingMetadata?.metadataLine1 ?? (detail.header.metadataLine1 || fallback.metadataLine1),
-    metadataLine2: findingMetadata?.metadataLine2 ?? detail.header.metadataLine2 ?? fallback.metadataLine2,
+    metadataLine1: metadata.metadataLine1 || fallback.metadataLine1,
+    metadataLine2: metadata.metadataLine2 || fallback.metadataLine2,
     progressPercent: detail.header.progressPercent,
     counts: detail.header.counts,
   };
