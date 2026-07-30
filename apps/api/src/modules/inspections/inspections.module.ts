@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccessControlModule } from '../access-control/access-control.module';
 import { AuditModule } from '../audit/audit.module';
@@ -41,6 +42,10 @@ import { InspectionFindingCatalogController } from './inspection-finding-catalog
 import { InspectionFindingCatalogService } from './inspection-finding-catalog.service';
 import { InspectionHistoryController } from './inspection-history.controller';
 import { InspectionHistoryService } from './inspection-history.service';
+import { InspectionLegacyDetailProjectionService } from './inspection-legacy-detail-projection.service';
+import { InspectionLegacyDetailResponseInterceptor } from './inspection-legacy-detail-response.interceptor';
+import { InspectionLegacyTableProjectionService } from './inspection-legacy-table-projection.service';
+import { InspectionLegacyTableResponseInterceptor } from './inspection-legacy-table-response.interceptor';
 import { InspectionProcessController } from './inspection-process.controller';
 import { InspectionProcessService } from './inspection-process.service';
 import { InspectionRejectionEmailService } from './inspection-rejection-email.service';
@@ -107,6 +112,18 @@ import { InspectionsService } from './inspections.service';
     InspectionFindingCatalogService,
     InspectionAssignmentEmailService,
     InspectionRejectionEmailService,
+    InspectionLegacyTableProjectionService,
+    InspectionLegacyTableResponseInterceptor,
+    InspectionLegacyDetailProjectionService,
+    InspectionLegacyDetailResponseInterceptor,
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: InspectionLegacyTableResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: InspectionLegacyDetailResponseInterceptor,
+    },
   ],
   exports: [
     InspectionsService,

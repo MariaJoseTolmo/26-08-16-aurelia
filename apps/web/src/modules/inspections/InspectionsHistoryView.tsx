@@ -6,6 +6,7 @@ import type { InspectionManagementPageSize, InspectionManagementTableParams } fr
 import type { InspectionDetailModalRecord } from './components/InspectionDetailModal';
 import { InspectionDetailModalDataBridge } from './components/InspectionDetailModalDataBridge';
 import { ClearFiltersIcon, HistoryAverageClosureIcon, HistoryClosedInspectionsIcon, HistoryClosedObservationsIcon, HistoryContractorCompaniesIcon, InspectionExportChevronIcon, InspectionExportDocumentIcon } from './components/InspectionManagementIcons';
+import { InspectionTableDateFilter } from './components/InspectionTableDateFilter';
 
 type BadgeTone = 'blue' | 'mint' | 'pink' | 'yellow' | 'green';
 type TableFilterKey = keyof TableFilters;
@@ -247,7 +248,7 @@ function InspectionHistoryTable({ rows, total, page, totalPages, pageSize, isLoa
             <tr className="h-[32px]"><HeaderCell>Nº</HeaderCell><HeaderCell>Fecha cierre</HeaderCell><HeaderCell>Inspector</HeaderCell><HeaderCell>Área. Sector</HeaderCell><HeaderCell>Empresa</HeaderCell><HeaderCell>Tipo</HeaderCell><HeaderCell>Urgencia máxima</HeaderCell><HeaderCell>Nº obs</HeaderCell><HeaderCell>Obs.</HeaderCell><HeaderCell>Días</HeaderCell><HeaderCell>Cierre</HeaderCell><HeaderCell>Acciones</HeaderCell></tr>
             <tr className="h-[37px] bg-[#f0f4f8]">
               <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><TableTextFilter value={filters.id} onChange={(value) => onFilterChange('id', value)} width={48} placeholder="#" /></td>
-              <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><TableTextFilter value={filters.date} onChange={(value) => onFilterChange('date', value)} width={123} placeholder="dd-mm-aaaa" /></td>
+              <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><InspectionTableDateFilter value={filters.date} onChange={(value) => onFilterChange('date', value)} /></td>
               <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><TableSelectFilter value={filters.inspector} onChange={(value) => onFilterChange('inspector', value)} width={175} allLabel="Todos los inspectores" options={options.inspectors} /></td>
               <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><TableSelectFilter value={filters.area} onChange={(value) => onFilterChange('area', value)} width={184} allLabel="Todas las áreas" options={options.areas} /></td>
               <td className="border-r border-b border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px]"><TableSelectFilter value={filters.company} onChange={(value) => onFilterChange('company', value)} width={173} allLabel="Todas las empresas" options={options.companies} /></td>

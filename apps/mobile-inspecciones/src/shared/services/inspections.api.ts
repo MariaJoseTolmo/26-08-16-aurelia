@@ -20,6 +20,8 @@ import type {
 } from '@aurelia/contracts';
 import { httpGet, httpPatch, httpPost } from './http-client';
 
+export { fetchInspectionHomeSummary as fetchInspectionDashboardSummary } from './api/inspection-home.api';
+
 export type MobileInspectionManagementMode = 'management' | 'history';
 
 export type MobileInspectionManagementFilters = {

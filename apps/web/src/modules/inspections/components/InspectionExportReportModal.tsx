@@ -16,6 +16,7 @@ type PeriodOption = {
 type Props = {
   open: boolean;
   format: InspectionExportFormat | null;
+  initialInspectionState?: InspectionType;
   onClose: () => void;
 };
 
@@ -63,13 +64,13 @@ function InspectionTypeChip({ active, children, onClick, widthClass }: { active:
   return <button type="button" className={`h-[25px] shrink-0 rounded-[8px] border-[1.5px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold leading-[normal] ${widthClass} ${active ? 'border-[#e8c86a] bg-[#ffeab8] text-[#463100]' : 'border-[#d1d1d1] bg-[#f4f6f9] text-[#646464]'}`} aria-pressed={active} onClick={onClick}>{children}{active ? ' ✓' : ''}</button>;
 }
 
-export function InspectionExportReportModal({ open, format, onClose }: Props): ReactElement | null {
+export function InspectionExportReportModal({ open, format, initialInspectionState = 'all', onClose }: Props): ReactElement | null {
   const currentYear = new Date().getFullYear();
   const years = useMemo(() => Array.from({ length: 4 }, (_, index) => currentYear - index), [currentYear]);
   const rootRef = useRef<HTMLDivElement>(null);
   const [year, setYear] = useState(currentYear);
   const [period, setPeriod] = useState('year');
-  const [inspectionType, setInspectionType] = useState<InspectionType>('all');
+  const [inspectionType, setInspectionType] = useState<InspectionType>(initialInspectionState);
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
   const [isExporting, setIsExporting] = useState(false);
   const periodLabel = periodOptions.find((option) => option.value === period)?.label ?? 'Todo el año';
@@ -80,10 +81,10 @@ export function InspectionExportReportModal({ open, format, onClose }: Props): R
     if (!open) return;
     setYear(currentYear);
     setPeriod('year');
-    setInspectionType('all');
+    setInspectionType(initialInspectionState);
     setOpenDropdown(null);
     setIsExporting(false);
-  }, [currentYear, open]);
+  }, [currentYear, initialInspectionState, open]);
 
   useEffect(() => {
     if (!open) return;

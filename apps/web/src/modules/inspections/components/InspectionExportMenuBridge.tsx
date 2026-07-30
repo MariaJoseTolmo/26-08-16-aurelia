@@ -17,9 +17,14 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function isManagementExportTrigger(button: HTMLButtonElement) {
-  const path = window.location.pathname.replace(/\/+$/, '') || '/';
-  return path === '/inspections' && normalizeText(button.textContent ?? '') === 'Exportar';
+function normalizedPath() {
+  return window.location.pathname.replace(/\/+$/, '') || '/';
+}
+
+function isInspectionExportTrigger(button: HTMLButtonElement) {
+  const path = normalizedPath();
+  return (path === '/inspections' || path === '/inspections/history')
+    && normalizeText(button.textContent ?? '') === 'Exportar';
 }
 
 function buildMenuState(trigger: HTMLButtonElement): ExportMenuState {
@@ -68,7 +73,7 @@ export function InspectionExportMenuBridge(): ReactElement | null {
 
       const element = target instanceof Element ? target : target.parentElement;
       const button = element?.closest('button');
-      if (button instanceof HTMLButtonElement && isManagementExportTrigger(button)) {
+      if (button instanceof HTMLButtonElement && isInspectionExportTrigger(button)) {
         event.preventDefault();
         event.stopPropagation();
         if (menuRef.current?.trigger === button) updateMenu(null);
@@ -136,7 +141,12 @@ export function InspectionExportMenuBridge(): ReactElement | null {
         </div>,
         document.body,
       ) : null}
-      <InspectionExportReportModal open={Boolean(modalFormat)} format={modalFormat} onClose={() => setModalFormat(null)} />
+      <InspectionExportReportModal
+        open={Boolean(modalFormat)}
+        format={modalFormat}
+        initialInspectionState={normalizedPath() === '/inspections/history' ? 'closed' : 'all'}
+        onClose={() => setModalFormat(null)}
+      />
     </>
   );
 }

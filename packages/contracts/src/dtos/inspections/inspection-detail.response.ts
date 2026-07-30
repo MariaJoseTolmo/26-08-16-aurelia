@@ -193,4 +193,5 @@ export interface InspectionDetailResponse {
   followups: InspectionDetailFollowupResponse[];
   general: InspectionDetailGeneralResponse;
   checklistResult: InspectionDetailChecklistResultResponse | null;
+  legacy?: InspectionDetailLegacySummaryResponse | null;
 }
