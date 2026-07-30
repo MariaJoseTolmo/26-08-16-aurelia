@@ -4,6 +4,7 @@ import { useInspectionDetail } from '../../../shared/hooks/useInspectionDetail';
 import { InspectionDetailModal, type InspectionDetailModalRecord } from './InspectionDetailModal';
 import { InspectionDetailRealDataModal } from './InspectionDetailRealDataModal';
 import { InspectionHistoryDetailModal } from './InspectionHistoryDetailModal';
+import { InspectionLegacyHistoryDetailModal } from './InspectionLegacyHistoryDetailModal';
 
 type InspectionDetailModalDataBridgeProps = {
   open: boolean;
@@ -59,6 +60,9 @@ export function InspectionDetailModalDataBridge({ open, inspectionId, record, on
   if (!open) return null;
   if (detailQuery.data && record) {
     const detailRecord = buildRecordFromDetail(detailQuery.data, record);
+    if (detailQuery.data.legacy) {
+      return <InspectionLegacyHistoryDetailModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
+    }
     if (isHistoryRoute || isReadOnly) {
       return <InspectionHistoryDetailModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
     }
