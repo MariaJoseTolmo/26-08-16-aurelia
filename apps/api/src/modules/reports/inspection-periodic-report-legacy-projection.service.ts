@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
+  InspectionPeriodicReportCompanyRowResponse,
   InspectionPeriodicReportDistributionRowResponse,
   InspectionPeriodicReportInspectionRowResponse,
   InspectionPeriodicReportResponse,
@@ -11,6 +12,17 @@ import {
   InspectionLegacyMode,
 } from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { InspectionEntity } from '../inspections/entities/inspection.entity';
+
+interface CompanyAccumulator {
+  companyId: string | null;
+  company: string;
+  inspections: Set<string>;
+  openInspections: Set<string>;
+  totalFindings: number;
+  closedFindings: number;
+  pendingFindings: number;
+  overdueFindings: number;
+}
 
 @Injectable()
 export class InspectionPeriodicReportLegacyProjectionService {
@@ -71,6 +83,7 @@ export class InspectionPeriodicReportLegacyProjectionService {
         total: rows.length,
         rows,
       },
+      companiesWithMostPending: this.buildCompanyRows(rows, inspectionById),
     };
   }
 
@@ -104,6 +117,58 @@ export class InspectionPeriodicReportLegacyProjectionService {
       overdueObservations: 0,
       closureRate,
     };
+  }
+
+  private buildCompanyRows(
+    rows: InspectionPeriodicReportInspectionRowResponse[],
+    inspectionById: Map<string, InspectionEntity>,
+  ): InspectionPeriodicReportCompanyRowResponse[] {
+    const accumulators = new Map<string, CompanyAccumulator>();
+
+    for (const row of rows) {
+      const inspection = inspectionById.get(row.inspectionId);
+      const companyId = inspection?.companyId ?? null;
+      const company = row.company.trim() || 'Sin empresa';
+      const key = companyId ?? company.toLocaleLowerCase('es');
+      const current = accumulators.get(key) ?? {
+        companyId,
+        company,
+        inspections: new Set<string>(),
+        openInspections: new Set<string>(),
+        totalFindings: 0,
+        closedFindings: 0,
+        pendingFindings: 0,
+        overdueFindings: 0,
+      };
+
+      current.inspections.add(row.inspectionId);
+      if (row.effectiveStatus === 'open') current.openInspections.add(row.inspectionId);
+      current.totalFindings += row.observationsCount;
+      current.closedFindings += row.closedObservations;
+      current.pendingFindings += row.openObservations + row.executedObservations + row.overdueObservations;
+      current.overdueFindings += row.overdueObservations;
+      accumulators.set(key, current);
+    }
+
+    return Array.from(accumulators.values())
+      .map((row) => ({
+        companyId: row.companyId,
+        company: row.company,
+        inspectionsInPeriod: row.inspections.size,
+        openInspections: row.openInspections.size,
+        pendingFindings: row.pendingFindings,
+        overdueFindings: row.overdueFindings,
+        complianceRate: row.totalFindings > 0
+          ? Number(((row.closedFindings / row.totalFindings) * 100).toFixed(2))
+          : 0,
+      }))
+      .sort((left, right) => (
+        right.pendingFindings - left.pendingFindings
+        || right.overdueFindings - left.overdueFindings
+        || right.inspectionsInPeriod - left.inspectionsInPeriod
+        || left.company.localeCompare(right.company, 'es')
+      ))
+      .slice(0, 5);
   }
 
   private buildDistribution(values: string[]): InspectionPeriodicReportDistributionRowResponse[] {
