@@ -51,6 +51,7 @@ function testIntegrationSources(): void {
   const detail = source('src/modules/inspections/inspection-detail.service.ts');
   const webSheet = source('../web/src/modules/inspections/components/SlaReassignSheet.tsx');
   const webModal = source('../web/src/modules/inspections/components/InspectionDetailRealDataModal.tsx');
+  const webHistoryModal = source('../web/src/modules/inspections/components/InspectionHistoryDetailModal.tsx');
   const mobileModal = source('../mobile-inspecciones/src/modules/inspection/MobileInspectionDetailModal.tsx');
   const closedMobileModal = source('../mobile-inspecciones/src/modules/inspection/MobileNativeClosedInspectionDetailModal.tsx');
 
@@ -84,6 +85,11 @@ function testIntegrationSources(): void {
       && webModal.includes('Nuevo SLA:')
       && webModal.includes('detail.slaReassignments'),
     'Web must render previous/new SLA in Seguimientos',
+  );
+  assert(
+    webHistoryModal.includes('detail.slaReassignments')
+      && webHistoryModal.includes('Observación “${event.findingNumber}” SLA reasignado'),
+    'Web history must preserve SLA reassignment milestones',
   );
   assert(
     mobileModal.includes('Ingrese el motivo de la modificación')
