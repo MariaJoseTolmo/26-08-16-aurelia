@@ -16,11 +16,18 @@ function formatInspectionNumber(value: string) {
   return value.startsWith('#') ? value : `#${value}`;
 }
 
+function buildInspectionHeaderTitle(detail: InspectionDetailResponse, fallback: string): string {
+  const area = detail.general.areaName?.trim();
+  const company = detail.general.companyName?.trim();
+  const areaAndCompany = [area, company].filter((value): value is string => Boolean(value)).join(' · ');
+  return areaAndCompany || detail.header.title?.trim() || fallback;
+}
+
 function buildRecordFromDetail(detail: InspectionDetailResponse, fallback: InspectionDetailModalRecord): InspectionDetailModalRecord {
   return {
     ...fallback,
     id: formatInspectionNumber(detail.header.inspectionNumber),
-    title: detail.header.title || fallback.title,
+    title: buildInspectionHeaderTitle(detail, fallback.title),
     kind: detail.header.kind,
     metadataLine1: detail.header.metadataLine1 || fallback.metadataLine1,
     metadataLine2: detail.header.metadataLine2 ?? fallback.metadataLine2,

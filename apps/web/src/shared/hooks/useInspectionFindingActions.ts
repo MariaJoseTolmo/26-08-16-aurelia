@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { InspectionEvidenceRelationType, InspectionFindingStatus, type UpdateInspectionFindingRequest } from '@aurelia/contracts';
+import {
+  InspectionEvidenceRelationType,
+  InspectionFindingStatus,
+  type UpdateInspectionFindingRequest,
+} from '@aurelia/contracts';
 import { useInspectionCapabilities } from '../auth/inspection-capabilities';
 import {
+  reassignInspectionFindingSla,
   resubmitInspectionFindingEvidence,
   updateInspectionFinding,
 } from '../services/inspection-detail.service';
@@ -23,6 +28,13 @@ type ExecuteFindingWithAfterEvidenceInput = {
 };
 
 type ResubmitRejectedFindingWithAfterEvidenceInput = ExecuteFindingWithAfterEvidenceInput & {
+  reason: string;
+};
+
+type ReassignFindingSlaInput = {
+  inspectionId: string;
+  findingId: string;
+  slaBusinessDays: number;
   reason: string;
 };
 
@@ -70,6 +82,13 @@ export function useInspectionFindingActions() {
       await invalidateInspectionQueries(variables.inspectionId);
     },
   });
+  const slaMutation = useMutation({
+    mutationFn: ({ findingId, slaBusinessDays, reason }: ReassignFindingSlaInput) =>
+      reassignInspectionFindingSla(findingId, { slaBusinessDays, reason }),
+    onSuccess: async (_result, variables) => {
+      await invalidateInspectionQueries(variables.inspectionId);
+    },
+  });
   const executionMutation = useMutation({
     mutationFn: async (input: ExecuteFindingWithAfterEvidenceInput) => {
       const evidence = await createAfterEvidence(input);
@@ -111,7 +130,7 @@ export function useInspectionFindingActions() {
     canExecute: capabilities.execute,
     canReview: capabilities.review,
     canReassign: capabilities.reassign,
-    isPending: mutation.isPending || executionMutation.isPending || resubmissionMutation.isPending,
+    isPending: mutation.isPending || slaMutation.isPending || executionMutation.isPending || resubmissionMutation.isPending,
     executeFinding: (inspectionId: string, findingId: string, executedActionDescription: string | null) => {
       if (!capabilities.execute) return;
       mutation.mutate({
@@ -155,9 +174,14 @@ export function useInspectionFindingActions() {
         payload: buildRejectPayload(rejectionReason),
       });
     },
-    rescheduleFinding: (inspectionId: string, findingId: string, dueAt: string) => {
-      if (!capabilities.reassign) return;
-      mutation.mutate({ inspectionId, findingId, payload: { dueAt } });
+    reassignFindingSla: (
+      inspectionId: string,
+      findingId: string,
+      slaBusinessDays: number,
+      reason: string,
+    ) => {
+      if (!capabilities.reassign) return Promise.reject(deniedCapability('reasignar SLA'));
+      return slaMutation.mutateAsync({ inspectionId, findingId, slaBusinessDays, reason });
     },
     reassignResponsibleUsers: async (inspectionId: string, findingIds: string[], responsibleUserIds: string[]) => {
       if (!capabilities.reassign) throw deniedCapability('reasignar responsables');

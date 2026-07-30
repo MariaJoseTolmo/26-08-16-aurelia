@@ -1,3 +1,3 @@
 export {
-  MobileClosedInspectionDetailModal,
+  MobileNativeClosedInspectionDetailModal as MobileClosedInspectionDetailModal,
 } from './MobileNativeClosedInspectionDetailModal';

@@ -4,6 +4,7 @@ import {
   InspectionFindingStatus,
   type InspectionDetailResponse,
   type InspectionFindingResponse,
+  type InspectionFindingSlaReassignmentResponse,
   type UpdateInspectionFindingRequest,
 } from '@aurelia/contracts';
 import { uploadFile } from '../../../shared/services/api/files.api';
@@ -14,6 +15,7 @@ import {
   fetchInspectionManagementKpis,
   fetchInspectionManagementTable,
   linkInspectionEvidence,
+  reassignInspectionFindingSla,
   resubmitInspectionFindingEvidence,
   updateInspectionFinding,
   type MobileInspectionManagementFilters,
@@ -42,6 +44,13 @@ type FindingMutationInput = {
   inspectionId: string;
   findingId: string;
   payload: UpdateInspectionFindingRequest;
+};
+
+type SlaMutationInput = {
+  inspectionId: string;
+  findingId: string;
+  slaBusinessDays: number;
+  reason: string;
 };
 
 function coordinate(value: string | number | null | undefined): number | undefined {
@@ -111,6 +120,12 @@ export function useMobileInspectionFindingActions() {
     onSuccess: async (_result, input) => invalidate(input.inspectionId),
   });
 
+  const slaMutation = useMutation<InspectionFindingSlaReassignmentResponse, Error, SlaMutationInput>({
+    mutationFn: ({ findingId, slaBusinessDays, reason }) =>
+      reassignInspectionFindingSla(findingId, { slaBusinessDays, reason }),
+    onSuccess: async (_result, input) => invalidate(input.inspectionId),
+  });
+
   const executionMutation = useMutation<unknown, Error, MobileExecuteFindingInput>({
     mutationFn: async (input) => {
       const uploaded = await uploadFile(
@@ -154,8 +169,8 @@ export function useMobileInspectionFindingActions() {
     canExecute: capabilities.execute,
     canReview: capabilities.review,
     canReassign: capabilities.reassign,
-    isPending: findingMutation.isPending || executionMutation.isPending,
-    error: findingMutation.error ?? executionMutation.error,
+    isPending: findingMutation.isPending || slaMutation.isPending || executionMutation.isPending,
+    error: findingMutation.error ?? slaMutation.error ?? executionMutation.error,
     executeWithEvidence: (input: MobileExecuteFindingInput) => {
       if (!capabilities.execute) return Promise.reject(denied('ejecutar hallazgos'));
       return executionMutation.mutateAsync(input);
@@ -180,13 +195,14 @@ export function useMobileInspectionFindingActions() {
         },
       });
     },
-    rescheduleFinding: (inspectionId: string, findingId: string, dueAt: string) => {
+    reassignFindingSla: (
+      inspectionId: string,
+      findingId: string,
+      slaBusinessDays: number,
+      reason: string,
+    ) => {
       if (!capabilities.reassign) return Promise.reject(denied('reasignar SLA'));
-      return findingMutation.mutateAsync({
-        inspectionId,
-        findingId,
-        payload: { dueAt },
-      });
+      return slaMutation.mutateAsync({ inspectionId, findingId, slaBusinessDays, reason });
     },
     reassignResponsibles: async (
       inspectionId: string,
