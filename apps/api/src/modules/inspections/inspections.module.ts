@@ -30,6 +30,7 @@ import { InspectionProcessRequestEntity } from './entities/inspection-process-re
 import { InspectionRiskConsequenceEntity } from './entities/inspection-risk-consequence.entity';
 import { InspectionRiskProbabilityEntity } from './entities/inspection-risk-probability.entity';
 import { InspectionSlaEventEntity } from './entities/inspection-sla-event.entity';
+import { InspectionSlaPolicyEntity } from './entities/inspection-sla-policy.entity';
 import { InspectionStateEntity } from './entities/inspection-state.entity';
 import { InspectionTypeEntity } from './entities/inspection-type.entity';
 import { InspectionEntity } from './entities/inspection.entity';
@@ -84,6 +85,7 @@ import { InspectionsService } from './inspections.service';
       InspectionFindingEntity,
       InspectionFindingResponsibleEntity,
       InspectionFollowupEntity,
+      InspectionSlaPolicyEntity,
       InspectionSlaEventEntity,
       InspectionStateEntity,
       InspectionProcessRequestEntity,
