@@ -23,14 +23,46 @@ function buildInspectionHeaderTitle(detail: InspectionDetailResponse, fallback: 
   return areaAndCompany || detail.header.title?.trim() || fallback;
 }
 
+function formatScheduledDate(value: string | null | undefined): string {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : 'Sin fecha';
+}
+
+function buildFindingMetadata(detail: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  const currentSegments = detail.header.metadataLine1
+    .split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const existingTypeMatch = detail.header.metadataLine2?.match(/^Tipo de hallazgo:\s*(.+)$/i);
+  const projectedType = currentSegments[0] && currentSegments[0].toLowerCase() !== 'hallazgo'
+    ? currentSegments[0]
+    : null;
+  const findingType = existingTypeMatch?.[1]?.trim() || projectedType || 'sin clasificación';
+  const date = currentSegments.find((value) => /^\d{2}-\d{2}-\d{4}$/.test(value))
+    ?? formatScheduledDate(detail.general.scheduledAt);
+  const locationSegments = detail.general.locationLabel
+    ?.split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  const sector = detail.general.sectorName?.trim()
+    || locationSegments[locationSegments.length - 1]
+    || 'Sin ubicación';
+
+  return {
+    metadataLine1: `Hallazgo · ${date} · ${sector}`,
+    metadataLine2: `Tipo de hallazgo: ${findingType}`,
+  };
+}
+
 function buildRecordFromDetail(detail: InspectionDetailResponse, fallback: InspectionDetailModalRecord): InspectionDetailModalRecord {
+  const findingMetadata = detail.header.kind === 'finding' ? buildFindingMetadata(detail) : null;
   return {
     ...fallback,
     id: formatInspectionNumber(detail.header.inspectionNumber),
     title: buildInspectionHeaderTitle(detail, fallback.title),
     kind: detail.header.kind,
-    metadataLine1: detail.header.metadataLine1 || fallback.metadataLine1,
-    metadataLine2: detail.header.metadataLine2 ?? fallback.metadataLine2,
+    metadataLine1: findingMetadata?.metadataLine1 ?? detail.header.metadataLine1 || fallback.metadataLine1,
+    metadataLine2: findingMetadata?.metadataLine2 ?? detail.header.metadataLine2 ?? fallback.metadataLine2,
     progressPercent: detail.header.progressPercent,
     counts: detail.header.counts,
   };
