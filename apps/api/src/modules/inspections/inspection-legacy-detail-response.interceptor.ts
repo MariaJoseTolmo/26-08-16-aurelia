@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  NestInterceptor,
 } from '@nestjs/common';
 import {
   InspectionFindingSeverity,
@@ -154,22 +155,31 @@ export class InspectionLegacyDetailResponseInterceptor implements NestIntercepto
     closedFindings: InspectionDetailFindingItemResponse[],
   ): InspectionDetailFollowupResponse[] {
     const fallbackFindingId = closedFindings[0]?.findingId ?? `legacy-${inspectionId}-summary`;
-    return [...legacy.milestones]
-      .sort((left, right) => left.sequenceNumber - right.sequenceNumber)
-      .map((milestone) => ({
-        followupId: `legacy-followup-${inspectionId}-${milestone.sequenceNumber}`,
+    const milestoneBySequence = new Map(
+      legacy.milestones.map((milestone) => [milestone.sequenceNumber, milestone]),
+    );
+    const highestSequence = Math.max(3, ...Array.from(milestoneBySequence.keys()));
+
+    return Array.from({ length: highestSequence }, (_, index) => {
+      const sequenceNumber = index + 1;
+      const milestone = milestoneBySequence.get(sequenceNumber);
+      return {
+        followupId: `legacy-followup-${inspectionId}-${sequenceNumber}`,
         findingId: fallbackFindingId,
-        sequenceNumber: milestone.sequenceNumber,
-        title: `Seguimiento ${milestone.sequenceNumber}`,
-        description: [
-          `Cerradas en seguimiento: ${milestone.closedIncrement}`,
-          `Pendientes posteriores: ${milestone.pendingAfter}`,
-        ].join(' · '),
-        performedAt: milestone.occurredAt,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        description: milestone
+          ? [
+              `Cerradas en seguimiento: ${milestone.closedIncrement}`,
+              `Pendientes posteriores: ${milestone.pendingAfter}`,
+            ].join(' · ')
+          : '',
+        performedAt: milestone?.occurredAt ?? null,
         performedByUserId: null,
         performedByName: null,
-        completed: Boolean(milestone.occurredAt),
-      }));
+        completed: Boolean(milestone?.occurredAt),
+      };
+    });
   }
 
   private isDetailRequest(
