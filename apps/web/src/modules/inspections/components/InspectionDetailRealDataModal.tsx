@@ -58,6 +58,7 @@ type FollowupStep = {
   date: string;
   summary?: string;
   bullets?: string[];
+  reason?: string;
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -390,8 +391,8 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
     bullets: [
       `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
       `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
-      `Motivo: ${event.reason}`,
     ],
+    reason: event.reason,
     completed: true,
     occurredAt: event.reassignedAt,
   }));
@@ -409,7 +410,7 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
 }
 
 function FollowupTimelineItem({ step, isLast }: { step: FollowupStep; isLast: boolean }) {
-  return <div className="flex w-full gap-[12px]"><div className="flex w-[24px] shrink-0 flex-col items-center self-stretch"><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div><div className={`min-w-0 flex-1 pt-[2px] ${isLast ? '' : 'pb-[16px]'}`}><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-none text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div></div>;
+  return <div className="flex w-full gap-[12px]"><div className="flex w-[24px] shrink-0 flex-col items-center self-stretch"><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div><div className={`min-w-0 flex-1 pt-[2px] ${isLast ? '' : 'pb-[16px]'}`}><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-none text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}{step.reason ? <div className="pt-[2px] text-[11px] leading-[14px] text-[#646464]"><p className="font-['Inter:Bold',sans-serif] font-bold">Motivo:</p><p className="font-['Inter:Regular',sans-serif] font-normal">{step.reason}</p></div> : null}</div></div>;
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {

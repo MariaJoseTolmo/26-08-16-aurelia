@@ -34,6 +34,7 @@ type FollowupStep = {
   date: string;
   summary?: string | null;
   bullets?: string[];
+  reason?: string;
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -279,8 +280,8 @@ function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
     bullets: [
       `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
       `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
-      `Motivo: ${event.reason}`,
     ],
+    reason: event.reason,
     completed: true,
     occurredAt: event.reassignedAt,
   }));
@@ -303,7 +304,7 @@ function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
       <div className="pt-[10px]">{steps.map((step, index) => (
         <div key={step.id} className="flex gap-[12px]">
           <div className="flex w-[24px] flex-col items-center"><span className={`flex size-[24px] items-center justify-center rounded-full text-[10px] ${step.completed ? 'bg-[#6cc24a] text-white' : 'bg-[#e3e3e3] text-[#acacac]'}`}>{step.completed ? '✓' : '○'}</span>{index < steps.length - 1 ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div>
-          <div className={`min-w-0 flex-1 pt-[2px] ${index < steps.length - 1 ? 'pb-[16px]' : ''}`}><p className="text-[12px] font-bold text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pl-[20px] pt-[3px] text-[11px] leading-[15px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}</div>
+          <div className={`min-w-0 flex-1 pt-[2px] ${index < steps.length - 1 ? 'pb-[16px]' : ''}`}><p className="text-[12px] font-bold text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pl-[20px] pt-[3px] text-[11px] leading-[15px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}{step.reason ? <div className="pt-[2px] text-[11px] leading-[15px] text-[#646464]"><p className="font-['Inter:Bold',sans-serif] font-bold">Motivo:</p><p className="font-['Inter:Regular',sans-serif] font-normal">{step.reason}</p></div> : null}</div>
         </div>
       ))}</div>
     </div>
