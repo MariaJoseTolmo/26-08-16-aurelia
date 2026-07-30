@@ -16,14 +16,65 @@ function formatInspectionNumber(value: string) {
   return value.startsWith('#') ? value : `#${value}`;
 }
 
+function buildInspectionHeaderTitle(detail: InspectionDetailResponse, fallback: string): string {
+  const area = detail.general.areaName?.trim();
+  const company = detail.general.companyName?.trim();
+  const areaAndCompany = [area, company].filter((value): value is string => Boolean(value)).join(' · ');
+  return areaAndCompany || detail.header.title?.trim() || fallback;
+}
+
+function formatScheduledDate(value: string | null | undefined): string {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : 'Sin fecha';
+}
+
+function resolveSector(detail: InspectionDetailResponse): string {
+  const locationSegments = detail.general.locationLabel
+    ?.split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  return detail.general.sectorName?.trim()
+    || locationSegments[locationSegments.length - 1]
+    || 'Sin ubicación';
+}
+
+function buildFindingMetadata(detail: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  const currentSegments = detail.header.metadataLine1
+    .split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const existingTypeMatch = detail.header.metadataLine2?.match(/^Tipo de hallazgo:\s*(.+)$/i);
+  const projectedType = currentSegments[0] && currentSegments[0].toLowerCase() !== 'hallazgo'
+    ? currentSegments[0]
+    : null;
+  const findingType = existingTypeMatch?.[1]?.trim() || projectedType || 'sin clasificación';
+  const date = currentSegments.find((value) => /^\d{2}-\d{2}-\d{4}$/.test(value))
+    ?? formatScheduledDate(detail.general.scheduledAt);
+
+  return {
+    metadataLine1: `Hallazgo · ${date} · ${resolveSector(detail)}`,
+    metadataLine2: `Tipo de hallazgo: ${findingType}`,
+  };
+}
+
+function buildChecklistMetadata(detail: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  return {
+    metadataLine1: detail.header.metadataLine1,
+    metadataLine2: `${formatScheduledDate(detail.general.scheduledAt)} · ${resolveSector(detail)}`,
+  };
+}
+
 function buildRecordFromDetail(detail: InspectionDetailResponse, fallback: InspectionDetailModalRecord): InspectionDetailModalRecord {
+  const metadata = detail.header.kind === 'finding'
+    ? buildFindingMetadata(detail)
+    : buildChecklistMetadata(detail);
   return {
     ...fallback,
     id: formatInspectionNumber(detail.header.inspectionNumber),
-    title: detail.header.title || fallback.title,
+    title: buildInspectionHeaderTitle(detail, fallback.title),
     kind: detail.header.kind,
-    metadataLine1: detail.header.metadataLine1 || fallback.metadataLine1,
-    metadataLine2: detail.header.metadataLine2 ?? fallback.metadataLine2,
+    metadataLine1: metadata.metadataLine1 || fallback.metadataLine1,
+    metadataLine2: metadata.metadataLine2 || fallback.metadataLine2,
     progressPercent: detail.header.progressPercent,
     counts: detail.header.counts,
   };

@@ -8,6 +8,7 @@ import {
   InspectionDashboardSummaryResponse,
   InspectionDetailResponse,
   InspectionFindingResponse,
+  InspectionFindingSlaReassignmentResponse,
   InspectionFindingStatus,
   InspectionFollowupResponse,
   InspectionResponse,
@@ -24,6 +25,7 @@ import { CloseInspectionDto } from './dto/close-inspection.dto';
 import { CreateInspectionFindingDto } from './dto/create-inspection-finding.dto';
 import { CreateInspectionFollowupDto } from './dto/create-inspection-followup.dto';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
+import { ReassignInspectionFindingSlaDto } from './dto/reassign-inspection-finding-sla.dto';
 import { UpdateInspectionFindingDto } from './dto/update-inspection-finding.dto';
 import { UpdateInspectionFollowupDto } from './dto/update-inspection-followup.dto';
 import { UpdateInspectionDto } from './dto/update-inspection.dto';
@@ -33,6 +35,7 @@ import { InspectionAccessService } from './inspection-access.service';
 import { InspectionAssignmentEmailService } from './inspection-assignment-email.service';
 import { InspectionDetailService } from './inspection-detail.service';
 import { InspectionRejectionEmailService } from './inspection-rejection-email.service';
+import { InspectionSlaReassignmentService } from './inspection-sla-reassignment.service';
 import { InspectionTransitionPolicyService } from './inspection-transition-policy.service';
 import { InspectionsService } from './inspections.service';
 
@@ -49,6 +52,7 @@ export class InspectionsController {
     private readonly resourceScopeService: ResourceScopeService,
     private readonly assignmentEmails: InspectionAssignmentEmailService,
     private readonly rejectionEmails: InspectionRejectionEmailService,
+    private readonly slaReassignments: InspectionSlaReassignmentService,
     private readonly transitions: InspectionTransitionPolicyService,
   ) {}
 
@@ -260,6 +264,17 @@ export class InspectionsController {
   ): Promise<InspectionFollowupResponse> {
     await this.inspectionAccess.assertFinding(request.user, findingId);
     return this.inspectionsService.createFollowup(findingId, dto, request.user.sub);
+  }
+
+  @RequirePermissions(INSPECTION_CAPABILITIES.reassign)
+  @Post('findings/:findingId/reassign-sla')
+  async reassignFindingSla(
+    @Param('findingId', ParseUUIDPipe) findingId: string,
+    @Body() dto: ReassignInspectionFindingSlaDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<InspectionFindingSlaReassignmentResponse> {
+    await this.inspectionAccess.assertFinding(request.user, findingId);
+    return this.slaReassignments.reassign(findingId, dto, request.user.sub);
   }
 
   @RequireAnyPermissions(

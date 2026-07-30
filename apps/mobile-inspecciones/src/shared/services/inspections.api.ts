@@ -7,12 +7,14 @@ import type {
   InspectionChecklistAnswerResponse,
   InspectionDetailResponse,
   InspectionFindingResponse,
+  InspectionFindingSlaReassignmentResponse,
   InspectionHistoryKpisResponse,
   InspectionManagementKpisResponse,
   InspectionManagementTableResponse,
   InspectionProcessRequestResponse,
   InspectionResponse,
   LinkEvidenceRequest,
+  ReassignInspectionFindingSlaRequest,
   ResubmitInspectionEvidenceRequest,
   UpdateInspectionFindingRequest,
   UpsertInspectionAnswerRequest,
@@ -95,6 +97,65 @@ function normalizeManagementResponse(response: InspectionManagementTableResponse
   };
 }
 
+function formatScheduledDate(value: string | null | undefined): string {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : 'Sin fecha';
+}
+
+function resolveSector(response: InspectionDetailResponse): string {
+  const locationSegments = response.general.locationLabel
+    ?.split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+  return response.general.sectorName?.trim()
+    || locationSegments[locationSegments.length - 1]
+    || 'Sin ubicación';
+}
+
+function buildFindingMetadata(response: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  const currentSegments = response.header.metadataLine1
+    .split(' · ')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const existingTypeMatch = response.header.metadataLine2?.match(/^Tipo de hallazgo:\s*(.+)$/i);
+  const projectedType = currentSegments[0] && currentSegments[0].toLowerCase() !== 'hallazgo'
+    ? currentSegments[0]
+    : null;
+  const findingType = existingTypeMatch?.[1]?.trim() || projectedType || 'sin clasificación';
+  const date = currentSegments.find((value) => /^\d{2}-\d{2}-\d{4}$/.test(value))
+    ?? formatScheduledDate(response.general.scheduledAt);
+
+  return {
+    metadataLine1: `Hallazgo · ${date} · ${resolveSector(response)}`,
+    metadataLine2: `Tipo de hallazgo: ${findingType}`,
+  };
+}
+
+function buildChecklistMetadata(response: InspectionDetailResponse): { metadataLine1: string; metadataLine2: string } {
+  return {
+    metadataLine1: response.header.metadataLine1,
+    metadataLine2: `${formatScheduledDate(response.general.scheduledAt)} · ${resolveSector(response)}`,
+  };
+}
+
+function normalizeInspectionDetail(response: InspectionDetailResponse): InspectionDetailResponse {
+  const area = response.general.areaName?.trim();
+  const company = response.general.companyName?.trim();
+  const title = [area, company].filter((value): value is string => Boolean(value)).join(' · ');
+  const metadata = response.header.kind === 'finding'
+    ? buildFindingMetadata(response)
+    : buildChecklistMetadata(response);
+
+  return {
+    ...response,
+    header: {
+      ...response.header,
+      ...(title ? { title } : {}),
+      ...metadata,
+    },
+  };
+}
+
 export function fetchInspections(): Promise<InspectionResponse[]> {
   return httpGet<InspectionResponse[]>('/inspections');
 }
@@ -118,8 +179,9 @@ export async function fetchInspectionManagementTable(
   return normalizeManagementResponse(response);
 }
 
-export function fetchInspectionDetail(inspectionId: string): Promise<InspectionDetailResponse> {
-  return httpGet<InspectionDetailResponse>(`/inspections/${encodeURIComponent(inspectionId)}/detail`);
+export async function fetchInspectionDetail(inspectionId: string): Promise<InspectionDetailResponse> {
+  const response = await httpGet<InspectionDetailResponse>(`/inspections/${encodeURIComponent(inspectionId)}/detail`);
+  return normalizeInspectionDetail(response);
 }
 
 export function submitInspection(payload: CreateInspectionRequest): Promise<InspectionResponse> {
@@ -144,6 +206,16 @@ export function updateInspectionFinding(
 ): Promise<InspectionFindingResponse> {
   return httpPatch<UpdateInspectionFindingRequest, InspectionFindingResponse>(
     `/inspections/findings/${encodeURIComponent(findingId)}`,
+    payload,
+  );
+}
+
+export function reassignInspectionFindingSla(
+  findingId: string,
+  payload: ReassignInspectionFindingSlaRequest,
+): Promise<InspectionFindingSlaReassignmentResponse> {
+  return httpPost<ReassignInspectionFindingSlaRequest, InspectionFindingSlaReassignmentResponse>(
+    `/inspections/findings/${encodeURIComponent(findingId)}/reassign-sla`,
     payload,
   );
 }
