@@ -9,6 +9,7 @@ import { RequirePermissions } from '../auth/require-permissions.decorator';
 import { InspectionAccessService } from './inspection-access.service';
 import type { InspectionDataScope, ManagementTableQuery } from './inspection-dashboard.service';
 import { InspectionHistoryService } from './inspection-history.service';
+import { normalizeInspectionTableQuery } from './inspection-table-query-normalizer';
 
 @RequirePermissions(INSPECTION_CAPABILITIES.read)
 @Controller('inspections/history')
@@ -30,7 +31,10 @@ export class InspectionHistoryController {
     @Req() request: AuthenticatedRequest,
     @Query() query: ManagementTableQuery,
   ): Promise<InspectionManagementTableResponse> {
-    return this.inspectionHistoryService.getHistoryTable(query, await this.resolveScope(request));
+    return this.inspectionHistoryService.getHistoryTable(
+      normalizeInspectionTableQuery(query),
+      await this.resolveScope(request),
+    );
   }
 
   private resolveScope(request: AuthenticatedRequest): Promise<InspectionDataScope> {

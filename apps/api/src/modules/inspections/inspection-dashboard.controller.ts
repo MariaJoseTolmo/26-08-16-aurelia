@@ -20,6 +20,7 @@ import {
   type ManagementTableQuery,
 } from './inspection-dashboard.service';
 import type { DashboardQuery } from './inspection-dashboard-period';
+import { normalizeInspectionTableQuery } from './inspection-table-query-normalizer';
 
 @RequirePermissions('inspections:read')
 @Controller('inspections/dashboard')
@@ -42,7 +43,10 @@ export class InspectionDashboardController {
     @Query() query: ManagementTableQuery,
     @Req() request: AuthenticatedRequest,
   ): Promise<InspectionManagementTableResponse> {
-    return this.inspectionDashboardService.getManagementTable(query, await this.resolveScope(request));
+    return this.inspectionDashboardService.getManagementTable(
+      normalizeInspectionTableQuery(query),
+      await this.resolveScope(request),
+    );
   }
 
   @Get('management-table/xlsx')
@@ -52,8 +56,9 @@ export class InspectionDashboardController {
     @Res() response: Response,
   ): Promise<void> {
     const scope = await this.resolveScope(request);
+    const normalizedQuery = normalizeInspectionTableQuery(query);
     const firstPage = await this.inspectionDashboardService.getManagementTable({
-      ...query,
+      ...normalizedQuery,
       page: '1',
       pageSize: '50',
     }, scope);
@@ -61,7 +66,7 @@ export class InspectionDashboardController {
 
     for (let page = 2; page <= firstPage.totalPages; page += 1) {
       const result = await this.inspectionDashboardService.getManagementTable({
-        ...query,
+        ...normalizedQuery,
         page: String(page),
         pageSize: '50',
       }, scope);
