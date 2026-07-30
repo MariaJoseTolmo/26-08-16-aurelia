@@ -97,6 +97,20 @@ function normalizeManagementResponse(response: InspectionManagementTableResponse
   };
 }
 
+function normalizeInspectionDetail(response: InspectionDetailResponse): InspectionDetailResponse {
+  const area = response.general.areaName?.trim();
+  const company = response.general.companyName?.trim();
+  const title = [area, company].filter((value): value is string => Boolean(value)).join(' · ');
+  if (!title) return response;
+  return {
+    ...response,
+    header: {
+      ...response.header,
+      title,
+    },
+  };
+}
+
 export function fetchInspections(): Promise<InspectionResponse[]> {
   return httpGet<InspectionResponse[]>('/inspections');
 }
@@ -120,8 +134,9 @@ export async function fetchInspectionManagementTable(
   return normalizeManagementResponse(response);
 }
 
-export function fetchInspectionDetail(inspectionId: string): Promise<InspectionDetailResponse> {
-  return httpGet<InspectionDetailResponse>(`/inspections/${encodeURIComponent(inspectionId)}/detail`);
+export async function fetchInspectionDetail(inspectionId: string): Promise<InspectionDetailResponse> {
+  const response = await httpGet<InspectionDetailResponse>(`/inspections/${encodeURIComponent(inspectionId)}/detail`);
+  return normalizeInspectionDetail(response);
 }
 
 export function submitInspection(payload: CreateInspectionRequest): Promise<InspectionResponse> {
