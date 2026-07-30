@@ -27,8 +27,8 @@ export class InspectionPeriodicReportExportService {
     user: AccessTokenPayload,
   ): Promise<InspectionPeriodicReportResponse> {
     const report = await this.reports.build(request, user);
-    const projected = await this.legacyProjection.project(report);
-    return this.classifications.normalize(projected);
+    const normalized = await this.classifications.normalize(report);
+    return this.legacyProjection.project(normalized);
   }
 
   async renderPdf(
