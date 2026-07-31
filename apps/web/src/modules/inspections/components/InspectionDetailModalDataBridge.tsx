@@ -9,6 +9,8 @@ type InspectionDetailModalDataBridgeProps = {
   open: boolean;
   inspectionId: string | null;
   record: InspectionDetailModalRecord | null;
+  preferredFindingId?: string | null;
+  preferredGroup?: string | null;
   onClose: () => void;
 };
 
@@ -102,18 +104,28 @@ function StatusShell({ record, title, message, onClose }: { record: InspectionDe
   );
 }
 
-export function InspectionDetailModalDataBridge({ open, inspectionId, record, onClose }: InspectionDetailModalDataBridgeProps) {
+export function InspectionDetailModalDataBridge({ open, inspectionId, record, preferredFindingId, preferredGroup, onClose }: InspectionDetailModalDataBridgeProps) {
   const detailQuery = useInspectionDetail(inspectionId, open && Boolean(record));
   const capabilities = useInspectionCapabilities();
   const isHistoryRoute = typeof window !== 'undefined' && window.location.pathname.includes('/inspections/history');
   const isReadOnly = !capabilities.execute && !capabilities.review && !capabilities.reassign;
+  const forceRealDetailModal = Boolean(preferredFindingId || preferredGroup);
   if (!open) return null;
   if (detailQuery.data && record) {
     const detailRecord = buildRecordFromDetail(detailQuery.data, record);
-    if (isHistoryRoute || isReadOnly) {
+    if ((isHistoryRoute || isReadOnly) && !forceRealDetailModal) {
       return <InspectionHistoryDetailModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
     }
-    return <InspectionDetailRealDataModal open={open} record={detailRecord} detail={detailQuery.data} onClose={onClose} />;
+    return (
+      <InspectionDetailRealDataModal
+        open={open}
+        record={detailRecord}
+        detail={detailQuery.data}
+        preferredFindingId={preferredFindingId ?? null}
+        preferredGroup={preferredGroup ?? null}
+        onClose={onClose}
+      />
+    );
   }
   if (detailQuery.isError) return <StatusShell record={record} title="No fue posible cargar el detalle real" message="Revisa Network para la llamada /api/inspections/:id/detail. Ya no se muestra el mock como fallback cuando esa llamada falla." onClose={onClose} />;
   if (record) return <StatusShell record={record} title="Cargando detalle real" message="Obteniendo observaciones, evidencias, seguimientos y datos generales desde API." onClose={onClose} />;
