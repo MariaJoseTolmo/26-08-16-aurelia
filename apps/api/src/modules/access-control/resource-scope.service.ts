@@ -21,6 +21,7 @@ interface UserScope {
 
 interface AccessOptions {
   ignoreCompanyScope?: boolean;
+  ignoreAreaScope?: boolean;
 }
 
 @Injectable()
@@ -31,8 +32,21 @@ export class ResourceScopeService {
   ) {}
 
   async assertCanAccess(user: AccessTokenPayload, resource: ScopedResource): Promise<void> {
-    const allowed = await this.canAccess(user, resource);
-    if (!allowed) throw new Error('Forbidden resource scope');
+    if (!(await this.canAccess(user, resource))) {
+      throw new ForbiddenException('Resource is outside the user scope');
+    }
+  }
+
+  async assertCanAccessInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<void> {
+    if (!(await this.canAccessInspection(user, resource))) {
+      throw new ForbiddenException('Inspection is outside the user scope');
+    }
+  }
+
+  async assertCanCreateInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<void> {
+    if (!(await this.canCreateInspection(user, resource))) {
+      throw new ForbiddenException('Inspection creation is outside the user company scope');
+    }
   }
 
   async canAccess(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
@@ -42,7 +56,30 @@ export class ResourceScopeService {
 
   async canAccessInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
     const scope = await this.getUserScope(user);
-    return this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser });
+    return this.isAllowed(scope, resource, {
+      ignoreCompanyScope: scope.isPrincipalCompanyUser,
+      ignoreAreaScope: true,
+    });
+  }
+
+  async canCreateInspection(user: AccessTokenPayload, resource: ScopedResource): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.isPrincipalCompanyUser) return true;
+    if (!scope.primaryCompany || scope.companyIds.size === 0) return false;
+    if (!resource.companyId) return true;
+    return scope.companyIds.has(resource.companyId);
+  }
+
+  async canAccessArea(user: AccessTokenPayload, areaId: string | null | undefined): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.areaIds.size === 0) return true;
+    return Boolean(areaId && scope.areaIds.has(areaId));
+  }
+
+  async canAccessCompany(user: AccessTokenPayload, companyId: string | null | undefined): Promise<boolean> {
+    const scope = await this.getUserScope(user);
+    if (scope.isAdmin || scope.isPrincipalCompanyUser) return true;
+    return Boolean(companyId && scope.companyIds.has(companyId));
   }
 
   async canReviewInspectionFindings(user: AccessTokenPayload): Promise<boolean> {
@@ -60,10 +97,16 @@ export class ResourceScopeService {
     };
   }
 
-  async resolveInspectionAssignmentCompany(user: AccessTokenPayload, requestedCompanyId: string | null | undefined): Promise<string | null> {
+  async resolveInspectionAssignmentCompany(
+    user: AccessTokenPayload,
+    requestedCompanyId: string | null | undefined,
+  ): Promise<string | null> {
     const scope = await this.getUserScope(user);
     if (scope.isAdmin || scope.isPrincipalCompanyUser) return requestedCompanyId ?? null;
     if (!scope.primaryCompany) throw new ForbiddenException('The user has no company assigned for inspection findings');
+    if (requestedCompanyId && !scope.companyIds.has(requestedCompanyId)) {
+      throw new ForbiddenException('The requested company is outside the user scope');
+    }
     return scope.primaryCompany.id;
   }
 
@@ -74,13 +117,26 @@ export class ResourceScopeService {
 
   async filterAllowedInspections<T extends ScopedResource>(user: AccessTokenPayload, resources: T[]): Promise<T[]> {
     const scope = await this.getUserScope(user);
-    return resources.filter((resource) => this.isAllowed(scope, resource, { ignoreCompanyScope: scope.isPrincipalCompanyUser }));
+    return resources.filter((resource) =>
+      this.isAllowed(scope, resource, {
+        ignoreCompanyScope: scope.isPrincipalCompanyUser,
+        ignoreAreaScope: true,
+      }),
+    );
   }
 
   private isAllowed(scope: UserScope, resource: ScopedResource, options: AccessOptions = {}): boolean {
     if (scope.isAdmin) return true;
-    if (!options.ignoreCompanyScope && resource.companyId && scope.companyIds.size > 0 && !scope.companyIds.has(resource.companyId)) return false;
-    if (resource.areaId && scope.areaIds.size > 0 && !scope.areaIds.has(resource.areaId)) return false;
+
+    if (!options.ignoreCompanyScope) {
+      if (scope.companyIds.size === 0) return false;
+      if (!resource.companyId || !scope.companyIds.has(resource.companyId)) return false;
+    }
+
+    if (!options.ignoreAreaScope && scope.areaIds.size > 0) {
+      if (!resource.areaId || !scope.areaIds.has(resource.areaId)) return false;
+    }
+
     return true;
   }
 
@@ -99,6 +155,10 @@ export class ResourceScopeService {
       },
     });
 
+    if (!row && !isAdmin) {
+      throw new ForbiddenException('The authenticated user is not active');
+    }
+
     const companyIds = new Set<string>();
     const areaIds = new Set<string>();
     const companies = [row?.company, ...(row?.userCompanies ?? []).map((userCompany) => userCompany.company)].filter(
@@ -113,7 +173,8 @@ export class ResourceScopeService {
 
     return {
       isAdmin,
-      isPrincipalCompanyUser: uniqueCompanies.some((company) => this.isPrincipalCompany(company)) || user.email.toLowerCase().endsWith('@goldfields.com'),
+      isPrincipalCompanyUser: uniqueCompanies.some((company) => this.isPrincipalCompany(company))
+        || user.email.toLowerCase().endsWith('@goldfields.com'),
       companyIds,
       areaIds,
       primaryCompany: row?.company ?? uniqueCompanies[0] ?? null,

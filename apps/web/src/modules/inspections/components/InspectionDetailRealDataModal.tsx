@@ -12,6 +12,7 @@ import { env } from '../../../shared/config/env';
 import { useInspectionFindingActions } from '../../../shared/hooks/useInspectionFindingActions';
 import { getCompanyUsers } from '../../../shared/services/inspections.service';
 import { FindingExecutionModeView } from './FindingExecutionModeView';
+import { InspectionChecklistResultPanel } from './InspectionChecklistResultPanel';
 import { FindingRejectDialog, ObservationRejectedToast } from './FindingRejectDialog';
 import {
   InspectionDetailApproveIcon,
@@ -52,9 +53,12 @@ type TabConfig = {
 
 type FollowupStep = {
   id: string;
+  sequenceNumber?: number;
   title: string;
   date: string;
   summary?: string;
+  bullets?: string[];
+  reason?: string;
   completed: boolean;
   occurredAt?: string | null;
 };
@@ -77,6 +81,7 @@ type DetailRowsProps = {
   actions: ReturnType<typeof useInspectionFindingActions>;
   onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void;
   onRequestReject: (item: InspectionDetailFindingItemResponse) => void;
+  onSlaSuccess: () => void;
 };
 
 type FindingObservationCardProps = {
@@ -86,6 +91,7 @@ type FindingObservationCardProps = {
   index: number;
   onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void;
   onRequestReject: (item: InspectionDetailFindingItemResponse) => void;
+  onSlaSuccess: () => void;
 };
 
 const API_URL = env.apiUrl;
@@ -133,18 +139,25 @@ function formatDateTime(value: string | null | undefined) {
   return `${day}-${month}-${date.getFullYear()} · ${hours}:${minutes}`;
 }
 
-function daysLabel(value: string | null | undefined, fallback = 'XX días') {
-  if (!value) return fallback;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return fallback;
-  const days = Math.max(0, Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-  return `${days} días`;
+function businessDaysUntil(value: string | null | undefined) {
+  if (!value) return null;
+  const target = new Date(value);
+  if (Number.isNaN(target.getTime())) return null;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  let days = 0;
+  while (cursor.getTime() < target.getTime()) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (cursor.getDay() !== 0 && cursor.getDay() !== 6) days += 1;
+  }
+  return days;
 }
 
-function dueDateFromDays(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString();
+function daysLabel(value: string | null | undefined, fallback = 'XX días') {
+  const days = businessDaysUntil(value);
+  if (days === null) return fallback;
+  return `${days} ${days === 1 ? 'día hábil' : 'días hábiles'}`;
 }
 
 function toTimestamp(value: string | null | undefined) {
@@ -251,7 +264,7 @@ function EvidencePreview({ title, evidences, afterClosed = false, emptyLabel = '
   return <div className="flex h-[91px] min-w-0 flex-1 flex-col overflow-hidden rounded-[6px] border border-[#e3e3e3] bg-white p-px"><div className="flex h-[20px] items-center bg-[#001e39] px-[8px] py-[4px]"><p className="text-[9px] font-bold uppercase leading-none text-[rgba(255,255,255,0.7)]">{title}</p></div><div className={`flex min-h-0 flex-1 items-center justify-center overflow-hidden ${afterClosed ? 'bg-[#dafccb]' : 'bg-gradient-to-br from-[#e8f4fd] to-[#c8e6f0]'}`}>{firstEvidence && firstUrl ? <img className="h-full w-full object-cover" src={firstUrl} alt={evidenceLabel(firstEvidence, 0)} /> : evidences.length > 0 ? <InspectionDetailImageIcon tone={afterClosed ? '#2a5c16' : '#24588b'} /> : <p className="text-[11px] font-normal leading-none text-[#acacac]">{emptyLabel}</p>}</div></div>;
 }
 
-function FindingObservationCard({ inspectionId, item, actions, index, onRequestExecutionMode, onRequestReject }: FindingObservationCardProps) {
+function FindingObservationCard({ inspectionId, item, actions, index, onRequestExecutionMode, onRequestReject, onSlaSuccess }: FindingObservationCardProps) {
   const [slaSheetOpen, setSlaSheetOpen] = useState(false);
   const config = statusConfigByKey[item.statusGroup];
   const status = item.statusGroup;
@@ -260,53 +273,144 @@ function FindingObservationCard({ inspectionId, item, actions, index, onRequestE
     if (!window.confirm('¿Aprobar cierre de esta observación?')) return;
     actions.approveFinding(inspectionId, item.findingId);
   }
-  function reschedule(label: string) {
-    const days = Number(label.match(/(\d+)/)?.[1]);
-    if (!Number.isFinite(days) || days < 0) return;
-    actions.rescheduleFinding(inspectionId, item.findingId, dueDateFromDays(days));
+  async function reschedule(days: number, reason: string) {
+    await actions.reassignFindingSla(inspectionId, item.findingId, days, reason);
     setSlaSheetOpen(false);
+    onSlaSuccess();
   }
-  return <div className="rounded-[10px] border-[1.5px] border-[#e3e3e3] bg-[#f7f7f7] p-[13.5px] shadow-[0px_1px_1.5px_rgba(0,0,0,0.06)]"><div className="flex items-center justify-between"><div className="flex min-w-0 items-center gap-[8px]"><FindingPill className="bg-[#e6f3ff] text-[#24588b]">{`Obs. ${index + 1}`}</FindingPill><FindingPill className={severityClassName(item.severityLabel)}>{item.severityLabel}</FindingPill></div><span className={`inline-flex h-[19px] items-center gap-[4px] rounded-[6px] px-[8px] py-[4px] text-[10px] font-bold leading-none ${config.chipClass}`}><InspectionDetailStatusChipIcon status={status} />{config.itemLabel}</span></div><div className="flex flex-col gap-[4px] pt-[12px]"><FindingTextBlock title="Condición detectada" bordered>{item.condition ?? ''}</FindingTextBlock><FindingTextBlock title="Medida correctiva propuesta">{item.proposedCorrectiveAction ?? ''}</FindingTextBlock>{status !== 'open' ? <FindingTextBlock title="Descripción de la acción tomada">{item.executedActionDescription ?? ''}</FindingTextBlock> : null}{status === 'rejected' ? <FindingTextBlock title="Motivo de rechazo">{item.rejectionReason ?? ''}</FindingTextBlock> : null}<div className="flex gap-[4px] pt-[8px]"><EvidencePreview title="Antes" evidences={item.beforeEvidence} emptyLabel="Pendiente" /><EvidencePreview title="Después" evidences={item.afterEvidence} afterClosed={status === 'closed' || status === 'executed' || status === 'rejected'} /></div>{status === 'open' ? <div className="mt-[4px] flex min-h-[64px] items-center justify-between rounded-[10px] border-[1.5px] border-[#d1d1d1] bg-[#f7f7f7] p-[15.5px]"><div><p className="w-[78px] text-[9px] font-bold uppercase leading-none tracking-[0.63px] text-[#333]">SLA calculado</p><p className="pt-[2px] text-[20px] font-bold leading-[20px] text-[#532a0e]">{daysLabel(item.dueAt, 'X Días')}</p></div><button type="button" className="flex h-[40px] items-center justify-center rounded-[8px] border-[1.5px] border-[#d1d1d1] bg-white px-[15.5px] py-[1.5px] text-[13px] font-semibold text-[#333] disabled:opacity-50" disabled={actionDisabled} onClick={() => setSlaSheetOpen(true)}>Reasignar SLA</button></div> : null}{status === 'executed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div><div className="flex items-center gap-[8px] rounded-[8px] bg-white px-[12px] py-[9px]"><button type="button" className="flex h-[40px] items-center justify-center gap-[5px] rounded-[9px] border-2 border-[#c4365a] bg-white px-[16px] py-[2px] text-[12px] font-bold text-[#570b1d] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestReject(item)}><InspectionDetailRejectIcon />Rechazar</button><button type="button" className="flex h-[40px] min-w-0 flex-1 items-center justify-center gap-[5px] rounded-[9px] bg-[#3a9b3a] px-[12px] text-[12px] font-bold text-white disabled:opacity-50" disabled={actionDisabled} onClick={approve}><InspectionDetailApproveIcon />Aprobar cierre</button></div></> : null}{status === 'closed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA cerrado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="open" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#532a0e]">{daysLabel(item.dueAt)}</p></div></div><div className="flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">Fecha de cierre</p><p className="text-right text-[11px] font-bold leading-none text-[#646464]">{formatDate(item.closedAt)}</p></div></> : null}{status === 'rejected' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div><button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación rechazada</button></> : null}{status === 'open' ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación</button> : null}</div><SlaReassignSheet visible={slaSheetOpen} calculatedLabel={daysLabel(item.dueAt, 'X Días')} severityLabel={item.severityLabel} onClose={() => setSlaSheetOpen(false)} onApply={reschedule} /></div>;
+  return <div className="rounded-[10px] border-[1.5px] border-[#e3e3e3] bg-[#f7f7f7] p-[13.5px] shadow-[0px_1px_1.5px_rgba(0,0,0,0.06)]"><div className="flex items-center justify-between"><div className="flex min-w-0 items-center gap-[8px]"><FindingPill className="bg-[#e6f3ff] text-[#24588b]">{`Obs. ${index + 1}`}</FindingPill><FindingPill className={severityClassName(item.severityLabel)}>{item.severityLabel}</FindingPill></div><span className={`inline-flex h-[19px] items-center gap-[4px] rounded-[6px] px-[8px] py-[4px] text-[10px] font-bold leading-none ${config.chipClass}`}><InspectionDetailStatusChipIcon status={status} />{config.itemLabel}</span></div><div className="flex flex-col gap-[4px] pt-[12px]"><FindingTextBlock title="Condición detectada" bordered>{item.condition ?? ''}</FindingTextBlock><FindingTextBlock title="Medida correctiva propuesta">{item.proposedCorrectiveAction ?? ''}</FindingTextBlock>{status !== 'open' ? <FindingTextBlock title="Descripción de la acción tomada">{item.executedActionDescription ?? ''}</FindingTextBlock> : null}{status === 'rejected' ? <FindingTextBlock title="Motivo de rechazo">{item.rejectionReason ?? ''}</FindingTextBlock> : null}<div className="flex gap-[4px] pt-[8px]"><EvidencePreview title="Antes" evidences={item.beforeEvidence} emptyLabel="Pendiente" /><EvidencePreview title="Después" evidences={item.afterEvidence} afterClosed={status === 'closed' || status === 'executed' || status === 'rejected'} /></div>{status === 'open' ? <div className="mt-[4px] flex min-h-[64px] items-center justify-between rounded-[10px] border-[1.5px] border-[#d1d1d1] bg-[#f7f7f7] p-[15.5px]"><div><p className="w-[78px] text-[9px] font-bold uppercase leading-none tracking-[0.63px] text-[#333]">SLA calculado</p><p className="pt-[2px] text-[20px] font-bold leading-[20px] text-[#532a0e]">{daysLabel(item.dueAt, 'X Días')}</p></div>{actions.canReassign ? <button type="button" className="flex h-[40px] items-center justify-center rounded-[8px] border-[1.5px] border-[#d1d1d1] bg-white px-[15.5px] py-[1.5px] text-[13px] font-semibold text-[#333] disabled:opacity-50" disabled={actionDisabled} onClick={() => setSlaSheetOpen(true)}>Reasignar SLA</button> : null}</div> : null}{status === 'executed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div>{actions.canReview ? <div className="flex items-center gap-[8px] rounded-[8px] bg-white px-[12px] py-[9px]"><button type="button" className="flex h-[40px] items-center justify-center gap-[5px] rounded-[9px] border-2 border-[#c4365a] bg-white px-[16px] py-[2px] text-[12px] font-bold text-[#570b1d] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestReject(item)}><InspectionDetailRejectIcon />Rechazar</button><button type="button" className="flex h-[40px] min-w-0 flex-1 items-center justify-center gap-[5px] rounded-[9px] bg-[#3a9b3a] px-[12px] text-[12px] font-bold text-white disabled:opacity-50" disabled={actionDisabled} onClick={approve}><InspectionDetailApproveIcon />Aprobar cierre</button></div> : <div className="rounded-[8px] bg-white px-[12px] py-[10px]"><p className="text-center text-[11px] font-semibold text-[#646464]">En espera de revisión Gold Fields</p></div>}</> : null}{status === 'closed' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA cerrado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="open" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#532a0e]">{daysLabel(item.dueAt)}</p></div></div><div className="flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">Fecha de cierre</p><p className="text-right text-[11px] font-bold leading-none text-[#646464]">{formatDate(item.closedAt)}</p></div></> : null}{status === 'rejected' ? <><div className="mt-[4px] flex h-[33px] items-center justify-between rounded-[8px] bg-white px-[12px] py-[9px]"><p className="text-[12px] font-medium leading-none text-[#646464]">SLA calculado</p><div className="flex items-center gap-[3px]"><InspectionDetailStatusRowIcon status="executed" className="h-[9px] w-[11.25px]" /><p className="text-[11px] font-bold leading-none text-[#570b1d]">{daysLabel(item.dueAt)}</p></div></div>{actions.canExecute ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_5px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación rechazada</button> : null}</> : null}{status === 'open' && actions.canExecute ? <button type="button" className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] text-[15px] font-bold text-white shadow-[0px_2px_rgba(200,160,100,0.3)] disabled:opacity-50" disabled={actionDisabled} onClick={() => onRequestExecutionMode(item, index)}>Ejecutar observación</button> : null}</div><SlaReassignSheet visible={slaSheetOpen} calculatedLabel={daysLabel(item.dueAt, 'X Días')} pending={actions.isPending} onClose={() => setSlaSheetOpen(false)} onApply={reschedule} /></div>;
 }
 
-function FindingObservationsPanel({ inspectionId, items, actions, onRequestExecutionMode, onRequestReject }: { inspectionId: string; items: InspectionDetailFindingItemResponse[]; actions: ReturnType<typeof useInspectionFindingActions>; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void }) {
-  return <div className="flex shrink-0 flex-col gap-[24px] bg-white px-[14px] pb-[24px] pt-[14px]">{items.map((item, index) => <FindingObservationCard key={item.findingId} inspectionId={inspectionId} item={item} actions={actions} index={index} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} />)}</div>;
+function FindingObservationsPanel({ inspectionId, items, actions, onRequestExecutionMode, onRequestReject, onSlaSuccess }: { inspectionId: string; items: InspectionDetailFindingItemResponse[]; actions: ReturnType<typeof useInspectionFindingActions>; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void; onSlaSuccess: () => void }) {
+  return <div className="flex shrink-0 flex-col gap-[24px] bg-white px-[14px] pb-[24px] pt-[14px]">{items.map((item, index) => <FindingObservationCard key={item.findingId} inspectionId={inspectionId} item={item} actions={actions} index={index} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} />)}</div>;
 }
 
-function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutionMode, onRequestReject }: DetailRowsProps) {
+function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutionMode, onRequestReject, onSlaSuccess }: DetailRowsProps) {
   const [expandedStatus, setExpandedStatus] = useState<StatusKey | null>(null);
   useEffect(() => {
     setExpandedStatus(null);
   }, [inspectionId]);
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const items = findings[config.key] ?? []; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
-}
-
-function ChecklistResultPanel() {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white" />;
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const items = findings[config.key] ?? []; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
 }
 
 function FollowupTimelineMarker({ completed }: { completed: boolean }) {
-  return <div className={`flex size-[24px] shrink-0 items-center justify-center rounded-[12px] text-[10px] font-normal leading-none ${completed ? 'bg-[#6cc24a] text-white' : 'bg-[#e3e3e3] text-[#acacac]'}`}>{completed ? '✓' : '○'}</div>;
+  if (completed) {
+    return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#6cc24a]"><svg className="h-[9px] w-[12px]" width="12" height="9" viewBox="0 0 12 9" fill="none" aria-hidden="true"><path d="M1.4 4.7L4.45 7.55L10.55 1.45" stroke="white" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" /></svg></div>;
+  }
+  return <div className="flex size-[24px] shrink-0 items-center justify-center rounded-[12px] bg-[#e3e3e3]"><svg className="size-[10px]" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><circle cx="5" cy="5" r="3.5" stroke="#acacac" strokeWidth="1.2" /></svg></div>;
 }
 
 function buildFollowupSteps(detail: InspectionDetailResponse): FollowupStep[] {
-  const observedCount = allFindings(detail).length;
-  const events: FollowupStep[] = [];
-  detail.followups.forEach((step) => {
-    events.push({ id: `followup-${step.followupId}`, title: step.title || `Seguimiento ${step.sequenceNumber}`, date: formatDate(step.performedAt), summary: step.description, completed: step.completed, occurredAt: step.performedAt });
+  const findings = allFindings(detail);
+  const total = findings.length;
+  const percent = (value: number) => total === 0 ? 0 : Math.round((value / total) * 100);
+  const bulletsAt = (occurredAt: string | null) => {
+    const closed = occurredAt
+      ? findings.filter((item) => item.closedAt && toTimestamp(item.closedAt) <= toTimestamp(occurredAt)).length
+      : detail.header.counts.closed;
+    const normalizedClosed = Math.max(0, Math.min(total, closed));
+    const pending = Math.max(0, total - normalizedClosed);
+    return [
+      `Observaciones cerradas: ${normalizedClosed} obs / ${percent(normalizedClosed)}%`,
+      `Observaciones pendientes: ${pending} obs / ${percent(pending)}%`,
+    ];
+  };
+
+  const followupsBySequence = new Map<number, typeof detail.followups>();
+  detail.followups.forEach((followup) => {
+    const current = followupsBySequence.get(followup.sequenceNumber) ?? [];
+    current.push(followup);
+    followupsBySequence.set(followup.sequenceNumber, current);
   });
-  allFindings(detail).forEach((item, index) => {
-    const observationLabel = `Obs. ${index + 1}`;
-    if (item.executedAt) events.push({ id: `executed-${item.findingId}`, title: `${observationLabel} ejecutada`, date: formatDate(item.executedAt), summary: item.executedActionDescription ?? 'Observación marcada como ejecutada', completed: true, occurredAt: item.executedAt });
-    if (item.rejectedAt) events.push({ id: `rejected-${item.findingId}`, title: `${observationLabel} rechazada`, date: formatDate(item.rejectedAt), summary: item.rejectionReason ?? 'Observación rechazada y devuelta a corrección', completed: true, occurredAt: item.rejectedAt });
-    if (item.closedAt) events.push({ id: `closed-${item.findingId}`, title: `${observationLabel} cerrada`, date: formatDate(item.closedAt), summary: 'Cierre aprobado por Admin GF HSE', completed: true, occurredAt: item.closedAt });
+
+  let recordedSteps: FollowupStep[] = Array.from(followupsBySequence.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([sequenceNumber, records]) => {
+      const dates = records
+        .map((record) => record.performedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => toTimestamp(left) - toTimestamp(right));
+      const occurredAt = dates.at(-1) ?? null;
+      const completed = records.some((record) => record.completed);
+      return {
+        id: `followup-${sequenceNumber}`,
+        sequenceNumber,
+        title: `Seguimiento ${sequenceNumber}`,
+        date: completed ? formatDate(occurredAt) : '—',
+        bullets: completed ? bulletsAt(occurredAt) : undefined,
+        completed,
+        occurredAt,
+      };
+    });
+
+  if (recordedSteps.length === 0) {
+    const latestActivityByDate = new Map<string, string>();
+    findings.forEach((item) => {
+      [item.executedAt, item.rejectedAt, item.closedAt].forEach((value) => {
+        if (!value) return;
+        const timestamp = toTimestamp(value);
+        if (timestamp === Number.MAX_SAFE_INTEGER) return;
+        const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+        const current = latestActivityByDate.get(dateKey);
+        if (!current || toTimestamp(value) > toTimestamp(current)) latestActivityByDate.set(dateKey, value);
+      });
+    });
+    recordedSteps = Array.from(latestActivityByDate.values())
+      .sort((left, right) => toTimestamp(left) - toTimestamp(right))
+      .slice(0, 3)
+      .map((occurredAt, index) => ({
+        id: `derived-followup-${index + 1}`,
+        sequenceNumber: index + 1,
+        title: `Seguimiento ${index + 1}`,
+        date: formatDate(occurredAt),
+        bullets: bulletsAt(occurredAt),
+        completed: true,
+        occurredAt,
+      }));
+  }
+
+  const stepBySequence = new Map(recordedSteps.map((step, index) => [step.sequenceNumber ?? index + 1, step]));
+  const highestSequence = Math.max(3, ...Array.from(stepBySequence.keys()));
+  const followupSteps = Array.from({ length: highestSequence }, (_, index) => {
+    const sequenceNumber = index + 1;
+    return stepBySequence.get(sequenceNumber) ?? {
+      id: `pending-followup-${sequenceNumber}`,
+      sequenceNumber,
+      title: `Seguimiento ${sequenceNumber}`,
+      date: '—',
+      completed: false,
+      occurredAt: null,
+    };
   });
-  const sortedEvents = events.sort((left, right) => toTimestamp(left.occurredAt) - toTimestamp(right.occurredAt));
-  return [{ id: 'initial', title: 'Inspección inicial', date: formatDate(detail.general.scheduledAt), summary: `${observedCount} observaciones detectadas`, completed: true, occurredAt: detail.general.scheduledAt }, ...sortedEvents];
+  const completedFollowups = followupSteps.filter((step) => step.completed);
+  const pendingFollowups = followupSteps.filter((step) => !step.completed);
+  const slaSteps: FollowupStep[] = (detail.slaReassignments ?? []).map((event) => ({
+    id: `sla-${event.id}`,
+    title: `Observación “${event.findingNumber}” SLA reasignado`,
+    date: formatDate(event.reassignedAt),
+    bullets: [
+      `SLA anterior: ${event.previousSlaBusinessDays} ${event.previousSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
+      `Nuevo SLA: ${event.newSlaBusinessDays} ${event.newSlaBusinessDays === 1 ? 'día hábil' : 'días hábiles'}`,
+    ],
+    reason: event.reason,
+    completed: true,
+    occurredAt: event.reassignedAt,
+  }));
+  const activities = [...completedFollowups, ...slaSteps]
+    .sort((left, right) => toTimestamp(left.occurredAt) - toTimestamp(right.occurredAt));
+
+  return [{
+    id: 'initial',
+    title: 'Inspección inicial',
+    date: formatDate(detail.general.scheduledAt),
+    summary: total === 1 ? '1 observación detectada' : `${total} observaciones detectadas`,
+    completed: true,
+    occurredAt: detail.general.scheduledAt,
+  }, ...activities, ...pendingFollowups];
 }
 
 function FollowupTimelineItem({ step, isLast }: { step: FollowupStep; isLast: boolean }) {
-  return <div className={`relative flex w-full gap-[12px] ${isLast ? '' : 'pb-[16px]'}`}><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="absolute left-[11px] top-[24px] h-[23px] w-[2px] bg-[#e3e3e3]" /> : null}<div className="min-w-0 flex-1 pt-[2px]"><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-[15px] text-[#646464]">{step.summary}</p> : null}</div></div>;
+  return <div className="flex w-full gap-[12px]"><div className="flex w-[24px] shrink-0 flex-col items-center self-stretch"><FollowupTimelineMarker completed={step.completed} />{!isLast ? <div className="min-h-[16px] w-[2px] flex-1 bg-[#e3e3e3]" /> : null}</div><div className={`min-w-0 flex-1 pt-[2px] ${isLast ? '' : 'pb-[16px]'}`}><p className="text-[12px] font-bold leading-none text-[#131313]">{step.title}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{step.date}</p>{step.summary ? <p className="pt-[5px] text-[11px] font-normal leading-none text-[#646464]">{step.summary}</p> : null}{step.bullets ? <ul className="list-disc pt-[4px] pl-[20px] text-[11px] font-normal leading-[14px] text-[#646464]">{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}{step.reason ? <div className="pt-[2px] text-[11px] leading-[14px] text-[#646464]"><p className="font-['Inter:Bold',sans-serif] font-bold">Motivo:</p><p className="font-['Inter:Regular',sans-serif] font-normal">{step.reason}</p></div> : null}</div></div>;
 }
 
 function FollowupsPanel({ detail }: { detail: InspectionDetailResponse }) {
@@ -340,13 +444,13 @@ function ResponsibleRow({ responsible, isLast, index }: { responsible: Inspectio
   return <div className={`flex items-center gap-[10px] px-[12px] py-[10px] ${isLast ? '' : 'border-b border-[#e3e3e3]'}`}>{initialsAvatar(responsible.fullName, index)}<div className="min-w-0 flex-1"><p className="truncate text-[12px] font-bold leading-none text-[#131313]">{responsible.fullName}</p><p className="pt-[4px] text-[11px] font-normal leading-none text-[#646464]">{responsible.position ?? 'Sin cargo'}</p></div>{responsible.currentUser ? <span className="inline-flex h-[16px] items-center rounded-[5px] bg-[#c5fff6] px-[7px] text-[10px] font-bold leading-none text-[#00b398]">Tú</span> : null}</div>;
 }
 
-function GeneralResponsiblesSection({ detail, onReassignClick }: { detail: InspectionDetailResponse; onReassignClick: () => void }) {
+function GeneralResponsiblesSection({ detail, onReassignClick, canReassign }: { detail: InspectionDetailResponse; onReassignClick: () => void; canReassign: boolean }) {
   const companyName = primaryResponsibleCompany(detail);
   const responsibles = detail.general.responsibles;
-  return <GeneralSection icon={<InspectionDetailPersonIcon />} title="Responsables"><GeneralInfoRows rows={[{ label: 'EECC', value: companyName }]} /><div className="border-t border-[#e3e3e3]">{responsibles.map((responsible, index) => <ResponsibleRow key={responsible.userId} responsible={responsible} index={index} isLast={index === responsibles.length - 1} />)}</div><div className="border-t border-[#e3e3e3] px-[12px] py-[9px]"><button type="button" onClick={onReassignClick} className="flex h-[42px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] bg-[#f7f7f7] px-[2px] text-[12px] font-semibold leading-none text-[#24588b]"><InspectionDetailAssignIcon />Reasignar a otro compañero {companyName}</button></div></GeneralSection>;
+  return <GeneralSection icon={<InspectionDetailPersonIcon />} title="Responsables"><GeneralInfoRows rows={[{ label: 'EECC', value: companyName }]} /><div className="border-t border-[#e3e3e3]">{responsibles.map((responsible, index) => <ResponsibleRow key={responsible.userId} responsible={responsible} index={index} isLast={index === responsibles.length - 1} />)}</div>{canReassign ? <div className="border-t border-[#e3e3e3] px-[12px] py-[9px]"><button type="button" onClick={onReassignClick} className="flex h-[42px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] bg-[#f7f7f7] px-[2px] text-[12px] font-semibold leading-none text-[#24588b]"><InspectionDetailAssignIcon />Reasignar a otro compañero {companyName}</button></div> : null}</GeneralSection>;
 }
 
-function GeneralPanel({ detail, onOpenReassign }: { detail: InspectionDetailResponse; onOpenReassign: () => void }) {
+function GeneralPanel({ detail, onOpenReassign, canReassign }: { detail: InspectionDetailResponse; onOpenReassign: () => void; canReassign: boolean }) {
   const general = detail.general;
   const items = allFindings(detail);
   const locationRows: GeneralInfoRow[] = [
@@ -355,7 +459,7 @@ function GeneralPanel({ detail, onOpenReassign }: { detail: InspectionDetailResp
     { label: 'Tipo', value: detail.header.kind === 'checklist' ? 'Checklist normativo' : 'Hallazgo' },
     { label: 'Ubicación UTM', value: general.latitude && general.longitude ? `${general.latitude} · ${general.longitude}` : general.locationLabel ?? '—', mono: true },
   ];
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-[14px] pt-[14px] pb-[20px]"><div className="flex flex-col gap-[12px]"><GeneralSection icon={<InspectionDetailPersonIcon />} title="Quién realizó la inspección"><GeneralInfoRows rows={[{ label: 'Nombre', value: general.inspectorName ?? '—' }, { label: 'Empresa', value: general.inspectorCompanyName ?? general.companyName ?? '—' }]} /></GeneralSection><GeneralSection icon={<InspectionDetailLocationIcon />} title="Donde y cuándo"><GeneralInfoRows rows={locationRows} /></GeneralSection><GeneralSection icon={<InspectionDetailCameraIcon />} title="Fotografía general de la inspección"><div className="px-[12px] py-[9px]"><EvidenceGallery evidences={general.generalEvidence} /></div></GeneralSection><GeneralObservationSummary items={items} /><GeneralResponsiblesSection detail={detail} onReassignClick={onOpenReassign} /></div></div>;
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-[14px] pt-[14px] pb-[20px]"><div className="flex flex-col gap-[12px]"><GeneralSection icon={<InspectionDetailPersonIcon />} title="Quién realizó la inspección"><GeneralInfoRows rows={[{ label: 'Nombre', value: general.inspectorName ?? '—' }, { label: 'Empresa', value: general.inspectorCompanyName ?? general.companyName ?? '—' }]} /></GeneralSection><GeneralSection icon={<InspectionDetailLocationIcon />} title="Donde y cuándo"><GeneralInfoRows rows={locationRows} /></GeneralSection><GeneralSection icon={<InspectionDetailCameraIcon />} title="Fotografía general de la inspección"><div className="px-[12px] py-[9px]"><EvidenceGallery evidences={general.generalEvidence} /></div></GeneralSection><GeneralObservationSummary items={items} /><GeneralResponsiblesSection detail={detail} onReassignClick={onOpenReassign} canReassign={canReassign} /></div></div>;
 }
 
 function ReassignSelectionControl({ selected }: { selected: boolean }) {
@@ -372,15 +476,20 @@ function ReassignPrompt({ open, candidates, selectedIds, onToggle, onCancel, onC
   return <div className="absolute inset-0 z-20 flex items-center justify-center px-[14px]" role="presentation"><div className="w-[332px] max-w-full overflow-hidden rounded-[16px] bg-white px-[14px] pb-[24px] pt-[12px] shadow-[0_4px_14px_rgba(19,19,19,0.24)]" role="dialog" aria-modal="true" aria-labelledby="reassign-title"><p id="reassign-title" className="text-[14px] font-bold leading-none text-[#131313]">Reasignar hallazgo · {companyName}</p><div className="mt-[24px] flex max-h-[280px] flex-col overflow-hidden">{candidates.map((option, index) => <ReassignOptionRow key={option.userId} option={option} selected={selectedIds.includes(option.userId)} isLast={index === candidates.length - 1} onToggle={() => onToggle(option.userId)} index={index} />)}</div><div className="mt-[24px] flex gap-[8px]"><button type="button" className="flex h-[44px] min-w-0 flex-1 items-center justify-center rounded-[14px] border-2 border-[#c8a064] bg-white px-[20px] py-[2px] text-[13px] font-bold leading-none text-[#c8a064]" onClick={onCancel}>Cancelar</button><button type="button" className="flex h-[44px] min-w-0 flex-1 items-center justify-center rounded-[14px] bg-[#c8a064] px-[12px] py-[13px] text-[15px] font-bold leading-none text-white shadow-[0_2px_5px_rgba(200,160,100,0.3)]" onClick={onConfirm}>Reasignar</button></div></div></div>;
 }
 
+function SlaModifiedToast({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  if (!visible) return null;
+  return <button type="button" onClick={onClose} className="absolute bottom-[68px] left-[14px] right-[14px] z-40 flex min-h-[58px] items-center gap-[10px] rounded-[8px] bg-[#4ca52f] px-[14px] py-[12px] text-left text-[13px] font-bold leading-[18px] text-white shadow-lg"><span className="flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 border-white">✓</span>SLA modificado. El motivo se ha registrado en la tab “Seguimiento”.</button>;
+}
+
 function EmptyDetailPanel() {
   return <div className="min-h-0 flex-1 bg-white" />;
 }
 
-function DetailContent({ activeTab, detail, actions, onOpenReassign, onRequestExecutionMode, onRequestReject }: { activeTab: DetailTab; detail: InspectionDetailResponse; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void }) {
+function DetailContent({ activeTab, detail, actions, onOpenReassign, onRequestExecutionMode, onRequestReject, onSlaSuccess }: { activeTab: DetailTab; detail: InspectionDetailResponse; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void; onSlaSuccess: () => void }) {
   if (activeTab === 'followups') return <FollowupsPanel detail={detail} />;
-  if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} />;
-  if (activeTab === 'result' && detail.header.kind === 'checklist') return <ChecklistResultPanel />;
-  if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} />;
+  if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} canReassign={actions.canReassign} />;
+  if (activeTab === 'result' && detail.header.kind === 'checklist') return <InspectionChecklistResultPanel result={detail.checklistResult} />;
+  if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} />;
   return <EmptyDetailPanel />;
 }
 
@@ -394,6 +503,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
   const [executionTarget, setExecutionTarget] = useState<ExecutionTarget | null>(null);
   const [rejectTarget, setRejectTarget] = useState<InspectionDetailFindingItemResponse | null>(null);
   const [rejectedToastVisible, setRejectedToastVisible] = useState(false);
+  const [slaToastVisible, setSlaToastVisible] = useState(false);
   const currentResponsibleIds = detail.general.responsibles.map((responsible) => responsible.userId);
   const currentResponsibleIdsKey = currentResponsibleIds.join('|');
   const [selectedReassignIds, setSelectedReassignIds] = useState<string[]>(currentResponsibleIds);
@@ -419,9 +529,16 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     return () => window.clearTimeout(timer);
   }, [rejectedToastVisible]);
 
+  useEffect(() => {
+    if (!slaToastVisible) return;
+    const timer = window.setTimeout(() => setSlaToastVisible(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [slaToastVisible]);
+
   if (!open) return null;
   const toggleReassignOption = (id: string) => setSelectedReassignIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const openReassignPrompt = () => {
+    if (!actions.canReassign) return;
     setSelectedReassignIds(currentResponsibleIds);
     setReassignOpen(true);
   };
@@ -431,7 +548,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     setReassignOpen(false);
   };
   const closeExecutionMode = () => setExecutionTarget(null);
-  const openExecutionMode = (item: InspectionDetailFindingItemResponse, index: number) => setExecutionTarget({ item, index });
+  const openExecutionMode = (item: InspectionDetailFindingItemResponse, index: number) => { if (actions.canExecute) setExecutionTarget({ item, index }); };
   const executeSelectedFinding = () => {
     if (!executionTarget) return;
     const value = window.prompt('Describe la acción ejecutada', executionTarget.item.proposedCorrectiveAction ?? '')?.trim();
@@ -451,7 +568,7 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     });
     setExecutionTarget(null);
   };
-  const openRejectPrompt = (item: InspectionDetailFindingItemResponse) => setRejectTarget(item);
+  const openRejectPrompt = (item: InspectionDetailFindingItemResponse) => { if (actions.canReview) setRejectTarget(item); };
   const closeRejectPrompt = () => setRejectTarget(null);
   const confirmRejectPrompt = async (reason: string) => {
     if (!rejectTarget) return;
@@ -460,5 +577,5 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     setRejectedToastVisible(true);
   };
 
-  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget)} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} />{executionTarget ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
+  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} onSlaSuccess={() => setSlaToastVisible(true)} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen && actions.canReassign} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget) && actions.canReview} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} /><SlaModifiedToast visible={slaToastVisible} onClose={() => setSlaToastVisible(false)} />{executionTarget && actions.canExecute ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} inspectionLabel={`${record.id} · ${record.title} · ${executionLocationLabel(detail)}`} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
 }

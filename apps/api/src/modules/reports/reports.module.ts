@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FilesModule } from '../files/files.module';
+import { InspectionLegacyImportEntity } from '../inspection-legacy-import/entities/inspection-legacy-import.entity';
 import { InspectionFindingEntity } from '../inspections/entities/inspection-finding.entity';
 import { InspectionTypeEntity } from '../inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../inspections/entities/inspection.entity';
@@ -18,6 +19,7 @@ import { InspectionDetailReportPdfTranslatedService } from './inspection-detail-
 import { InspectionPeriodicReportClassificationService } from './inspection-periodic-report-classification.service';
 import { InspectionPeriodicReportController } from './inspection-periodic-report.controller';
 import { InspectionPeriodicReportExportService } from './inspection-periodic-report-export.service';
+import { InspectionPeriodicReportLegacyProjectionService } from './inspection-periodic-report-legacy-projection.service';
 import { InspectionPeriodicReportPdfAlertIconFidelityService } from './inspection-periodic-report-pdf-alert-icon-fidelity.service';
 import { InspectionPeriodicReportPdfService } from './inspection-periodic-report-pdf.service';
 import { InspectionPeriodicReportService } from './inspection-periodic-report.service';
@@ -37,6 +39,7 @@ import { XlsxWorkbookService } from './xlsx-workbook.service';
     TypeOrmModule.forFeature([
       InspectionEntity,
       InspectionFindingEntity,
+      InspectionLegacyImportEntity,
       InspectionTypeEntity,
       CompanyEntity,
       AreaEntity,
@@ -54,6 +57,7 @@ import { XlsxWorkbookService } from './xlsx-workbook.service';
     ReportTranslationService,
     XlsxWorkbookService,
     InspectionPeriodicReportService,
+    InspectionPeriodicReportLegacyProjectionService,
     InspectionPeriodicReportClassificationService,
     InspectionPeriodicReportPdfAlertIconFidelityService,
     {

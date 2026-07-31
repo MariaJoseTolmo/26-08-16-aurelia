@@ -25,6 +25,7 @@ import { IncidentTimelineEventEntity } from '../modules/incidents/entities/incid
 import { IncidentTypeEntity } from '../modules/incidents/entities/incident-type.entity';
 import { IncidentValidationEntity } from '../modules/incidents/entities/incident-validation.entity';
 import { IncidentEntity } from '../modules/incidents/entities/incident.entity';
+import { InspectionAiAssessmentEntity } from '../modules/inspections/entities/inspection-ai-assessment.entity';
 import { InspectionFindingEntity } from '../modules/inspections/entities/inspection-finding.entity';
 import { InspectionFindingResponsibleEntity } from '../modules/inspections/entities/inspection-finding-responsible.entity';
 import { InspectionFindingSeverityEntity } from '../modules/inspections/entities/inspection-finding-severity.entity';
@@ -34,11 +35,18 @@ import { InspectionFormItemEntity } from '../modules/inspections/entities/inspec
 import { InspectionFormSectionEntity } from '../modules/inspections/entities/inspection-form-section.entity';
 import { InspectionFormTemplateEntity } from '../modules/inspections/entities/inspection-form-template.entity';
 import { InspectionItemResponseEntity } from '../modules/inspections/entities/inspection-item-response.entity';
+import { InspectionProcessRequestEntity } from '../modules/inspections/entities/inspection-process-request.entity';
 import { InspectionRiskConsequenceEntity } from '../modules/inspections/entities/inspection-risk-consequence.entity';
 import { InspectionRiskProbabilityEntity } from '../modules/inspections/entities/inspection-risk-probability.entity';
+import { InspectionSlaEventEntity } from '../modules/inspections/entities/inspection-sla-event.entity';
+import { InspectionSlaPolicyEntity } from '../modules/inspections/entities/inspection-sla-policy.entity';
 import { InspectionStateEntity } from '../modules/inspections/entities/inspection-state.entity';
 import { InspectionTypeEntity } from '../modules/inspections/entities/inspection-type.entity';
 import { InspectionEntity } from '../modules/inspections/entities/inspection.entity';
+import { InspectionLegacyImportEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { InspectionLegacyMilestoneEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-milestone.entity';
+import { InspectionLegacyParticipantEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-participant.entity';
+import { InspectionLegacySectorLinkEntity } from '../modules/inspection-legacy-import/entities/inspection-legacy-sector-link.entity';
 import { ControlAreaAssignmentEntity } from '../modules/mue/entities/control-area-assignment.entity';
 import { ControlEvidenceEntity } from '../modules/mue/entities/control-evidence.entity';
 import { ControlSelfAssessmentAnswerEntity } from '../modules/mue/entities/control-self-assessment-answer.entity';
@@ -46,6 +54,7 @@ import { ControlSelfAssessmentEntity } from '../modules/mue/entities/control-sel
 import { ControlVerificationItemEntity } from '../modules/mue/entities/control-verification-item.entity';
 import { CriticalControlEntity } from '../modules/mue/entities/critical-control.entity';
 import { MueEntity } from '../modules/mue/entities/mue.entity';
+import { NotificationDeliveryEntity } from '../modules/notifications/entities/notification-delivery.entity';
 import { NotificationRecipientEntity } from '../modules/notifications/entities/notification-recipient.entity';
 import { NotificationEntity } from '../modules/notifications/entities/notification.entity';
 import { AreaEntity } from '../modules/organization/entities/area.entity';
@@ -72,6 +81,18 @@ import { UserAreaEntity } from '../modules/users/entities/user-area.entity';
 import { UserCompanyEntity } from '../modules/users/entities/user-company.entity';
 import { UserRoleEntity } from '../modules/users/entities/user-role.entity';
 import { UserEntity } from '../modules/users/entities/user.entity';
+import { WasteInventoryMovementEntity } from '../modules/waste/entities/waste-inventory-movement.entity';
+import { WasteLotEntity } from '../modules/waste/entities/waste-lot.entity';
+import { WasteOperationalCategoryEntity } from '../modules/waste/entities/waste-operational-category.entity';
+import { WasteReceiptEntity } from '../modules/waste/entities/waste-receipt.entity';
+import { WasteSidrepRecordEntity } from '../modules/waste/entities/waste-sidrep-record.entity';
+import { WasteSinaderPeriodLineEntity } from '../modules/waste/entities/waste-sinader-period-line.entity';
+import { WasteSinaderPeriodEntity } from '../modules/waste/entities/waste-sinader-period.entity';
+import { WasteTypeEntity } from '../modules/waste/entities/waste-type.entity';
+import { WasteUnitEntity } from '../modules/waste/entities/waste-unit.entity';
+import { WasteWarehouseEntity } from '../modules/waste/entities/waste-warehouse.entity';
+import { WasteWithdrawalItemEntity } from '../modules/waste/entities/waste-withdrawal-item.entity';
+import { WasteWithdrawalRequestEntity } from '../modules/waste/entities/waste-withdrawal-request.entity';
 import { WorkflowDefinitionStepEntity } from '../modules/workflows/entities/workflow-definition-step.entity';
 import { WorkflowDefinitionEntity } from '../modules/workflows/entities/workflow-definition.entity';
 import { WorkflowInstanceStepEntity } from '../modules/workflows/entities/workflow-instance-step.entity';
@@ -112,6 +133,7 @@ export const AppDataSource = new DataSource({
     AuditLogEntity,
     NotificationEntity,
     NotificationRecipientEntity,
+    NotificationDeliveryEntity,
     MueEntity,
     CriticalControlEntity,
     ControlVerificationItemEntity,
@@ -137,6 +159,14 @@ export const AppDataSource = new DataSource({
     InspectionRiskProbabilityEntity,
     InspectionRiskConsequenceEntity,
     InspectionStateEntity,
+    InspectionProcessRequestEntity,
+    InspectionSlaPolicyEntity,
+    InspectionSlaEventEntity,
+    InspectionAiAssessmentEntity,
+    InspectionLegacyImportEntity,
+    InspectionLegacyMilestoneEntity,
+    InspectionLegacyParticipantEntity,
+    InspectionLegacySectorLinkEntity,
     IncidentTypeEntity,
     IncidentLevelEntity,
     IncidentEntity,
@@ -164,7 +194,21 @@ export const AppDataSource = new DataSource({
     SprCycleSacSubmissionEntity,
     SprCycleSignatureEntity,
     SprCycleValidationEntity,
+    WasteUnitEntity,
+    WasteOperationalCategoryEntity,
+    WasteTypeEntity,
+    WasteWarehouseEntity,
+    WasteReceiptEntity,
+    WasteLotEntity,
+    WasteInventoryMovementEntity,
+    WasteWithdrawalRequestEntity,
+    WasteWithdrawalItemEntity,
+    WasteSidrepRecordEntity,
+    WasteSinaderPeriodEntity,
+    WasteSinaderPeriodLineEntity,
   ],
-  migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
+  // Only timestamp-prefixed, versioned migrations are executable. This deliberately
+  // ignores stale generated-auto-schema-sync artifacts that may survive an overlay deployment.
+  migrations: [__dirname + '/migrations/[0-9]*-*{.ts,.js}'],
   synchronize: env.database.synchronize,
 });

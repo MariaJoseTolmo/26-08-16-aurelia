@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { connect as connectTcp, Socket } from 'node:net';
 import { connect as connectTls, TLSSocket } from 'node:tls';
+import { readSmtpEnv, SmtpRuntimeConfiguration } from '../../config/smtp';
 import {
   EmailDeliveryResult,
   EmailRecipient,
@@ -22,6 +23,7 @@ type SmtpConfiguration = {
   host: string;
   port: number;
   secure: boolean;
+  requireTls: boolean;
   user: string | null;
   pass: string | null;
   from: string;
@@ -220,6 +222,7 @@ export class SmtpEmailTransport implements EmailTransport {
       ? connectTls({ host: smtp.host, port: smtp.port, servername: smtp.host, rejectUnauthorized: true })
       : connectTcp({ host: smtp.host, port: smtp.port });
     const session = new SmtpSession(socket, smtp.timeoutMs);
+    let tlsActive = smtp.secure;
 
     try {
       await this.waitForConnection(socket, smtp.secure);
@@ -228,14 +231,22 @@ export class SmtpEmailTransport implements EmailTransport {
       let capabilities = await session.command(`EHLO ${hostname() || 'aurelia.local'}`);
       this.expect(capabilities, [250], 'EHLO');
 
-      if (!smtp.secure && this.supportsCapability(capabilities, 'STARTTLS')) {
-        this.expect(await session.command('STARTTLS'), [220], 'STARTTLS');
-        await session.upgradeToTls(smtp.host);
-        capabilities = await session.command(`EHLO ${hostname() || 'aurelia.local'}`);
-        this.expect(capabilities, [250], 'EHLO after STARTTLS');
+      if (!smtp.secure) {
+        if (this.supportsCapability(capabilities, 'STARTTLS')) {
+          this.expect(await session.command('STARTTLS'), [220], 'STARTTLS');
+          await session.upgradeToTls(smtp.host);
+          tlsActive = true;
+          capabilities = await session.command(`EHLO ${hostname() || 'aurelia.local'}`);
+          this.expect(capabilities, [250], 'EHLO after STARTTLS');
+        } else if (smtp.requireTls) {
+          throw new Error('SMTP server did not advertise STARTTLS');
+        }
       }
 
-      if (smtp.user && smtp.pass) await this.authenticate(session, capabilities, smtp.user, smtp.pass);
+      if (smtp.user && smtp.pass) {
+        if (!tlsActive) throw new Error('SMTP authentication requires a TLS-protected connection');
+        await this.authenticate(session, capabilities, smtp.user, smtp.pass);
+      }
 
       const envelopeFrom = this.extractEmailAddress(smtp.from);
       this.expect(await session.command(`MAIL FROM:<${envelopeFrom}>`), [250], 'MAIL FROM');
@@ -264,7 +275,7 @@ export class SmtpEmailTransport implements EmailTransport {
         rejected,
       };
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = this.redactError(error, smtp);
       this.logger.error(`SMTP delivery failed: ${detail}`);
       throw error;
     } finally {
@@ -273,30 +284,32 @@ export class SmtpEmailTransport implements EmailTransport {
   }
 
   private readConfiguration(): SmtpConfiguration {
-    const host = this.optional('SMTP_HOST');
-    const from = this.optional('SMTP_FROM');
-    if (!host || this.isPlaceholder(host) || !from || this.isPlaceholder(from)) {
+    const namespaced = this.config.get<SmtpRuntimeConfiguration>('smtp');
+    const runtime = namespaced ?? readSmtpEnv({
+      NODE_ENV: 'development',
+      SMTP_HOST: this.config.get<string>('SMTP_HOST'),
+      SMTP_PORT: this.config.get<string>('SMTP_PORT'),
+      SMTP_SECURE: this.config.get<string>('SMTP_SECURE'),
+      SMTP_REQUIRE_TLS: this.config.get<string>('SMTP_REQUIRE_TLS'),
+      SMTP_USER: this.config.get<string>('SMTP_USER'),
+      SMTP_PASS: this.config.get<string>('SMTP_PASS'),
+      SMTP_FROM: this.config.get<string>('SMTP_FROM'),
+      SMTP_TIMEOUT_MS: this.config.get<string>('SMTP_TIMEOUT_MS'),
+    });
+
+    if (!runtime.enabled || !runtime.host || !runtime.from) {
       throw new ServiceUnavailableException('SMTP is not configured. Define SMTP_HOST and SMTP_FROM.');
     }
 
-    const user = this.optional('SMTP_USER');
-    const pass = this.optional('SMTP_PASS');
-    const normalizedUser = user && !this.isPlaceholder(user) ? user : null;
-    const normalizedPass = pass && !this.isPlaceholder(pass) ? pass : null;
-    if (Boolean(normalizedUser) !== Boolean(normalizedPass)) {
-      throw new ServiceUnavailableException('SMTP_USER and SMTP_PASS must be configured together.');
-    }
-
-    const port = this.positiveInteger('SMTP_PORT', 587);
-    const timeoutMs = this.positiveInteger('SMTP_TIMEOUT_MS', 15_000);
     return {
-      host,
-      from,
-      port,
-      timeoutMs,
-      secure: this.boolean('SMTP_SECURE', false),
-      user: normalizedUser,
-      pass: normalizedPass,
+      host: runtime.host,
+      port: runtime.port,
+      secure: runtime.secure,
+      requireTls: runtime.requireTls,
+      user: runtime.user,
+      pass: runtime.pass,
+      from: runtime.from,
+      timeoutMs: runtime.timeoutMs,
     };
   }
 
@@ -434,30 +447,18 @@ export class SmtpEmailTransport implements EmailTransport {
     });
   }
 
-  private optional(name: string): string | null {
-    const value = this.config.get<string>(name)?.trim();
-    return value || null;
-  }
-
-  private positiveInteger(name: string, defaultValue: number): number {
-    const raw = this.optional(name);
-    if (!raw) return defaultValue;
-    const value = Number.parseInt(raw, 10);
-    if (!Number.isFinite(value) || value <= 0) {
-      throw new ServiceUnavailableException(`${name} must be a positive integer.`);
-    }
-    return value;
-  }
-
-  private boolean(name: string, defaultValue: boolean): boolean {
-    const raw = this.optional(name);
-    if (!raw) return defaultValue;
-    if (raw === 'true') return true;
-    if (raw === 'false') return false;
-    throw new ServiceUnavailableException(`${name} must be true or false.`);
-  }
-
-  private isPlaceholder(value: string): boolean {
-    return value.startsWith('DEFINIR_') || value === 'changeme';
+  private redactError(error: unknown, smtp: SmtpConfiguration): string {
+    let detail = error instanceof Error ? error.message : String(error);
+    const secrets = [
+      smtp.user,
+      smtp.pass,
+      smtp.user ? Buffer.from(smtp.user, 'utf8').toString('base64') : null,
+      smtp.pass ? Buffer.from(smtp.pass, 'utf8').toString('base64') : null,
+      smtp.user && smtp.pass
+        ? Buffer.from(`\u0000${smtp.user}\u0000${smtp.pass}`, 'utf8').toString('base64')
+        : null,
+    ].filter((value): value is string => Boolean(value));
+    for (const secret of secrets) detail = detail.split(secret).join('[REDACTED]');
+    return detail;
   }
 }

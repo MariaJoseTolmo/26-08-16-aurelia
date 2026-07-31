@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { InspectionAnswerValue, InspectionType } from '@aurelia/contracts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, fontSize, fontWeight } from '../../theme/tokens';
+import { useManualInspectionDraft } from '../../../modules/inspection/manualInspection.store';
 import { SparklesMark } from '../icons/SparklesMark';
 
 export const STEP_LABELS = [
@@ -23,9 +25,49 @@ interface Props {
   agentStatus?: 'active' | 'thinking';
 }
 
+function useCanonicalChecklistStep(currentStep: number): number {
+  const inspectionType = useManualInspectionDraft((state) => state.inspectionType);
+  const inspectionTypeSelected = useManualInspectionDraft((state) => state.inspectionTypeSelected);
+  const inspectionDateSelected = useManualInspectionDraft((state) => state.inspectionDateSelected);
+  const locationCaptured = useManualInspectionDraft((state) => state.locationCaptured);
+  const templateId = useManualInspectionDraft((state) => state.templateId);
+  const templateItemsCount = useManualInspectionDraft((state) => state.templateItemsCount);
+  const generalPhoto = useManualInspectionDraft((state) => state.generalPhoto);
+  const answersByItemId = useManualInspectionDraft((state) => state.answersByItemId);
+  const detailsByItemId = useManualInspectionDraft((state) => state.detailsByItemId);
+  const findingCompanyId = useManualInspectionDraft((state) => state.findingCompanyId);
+  const findingResponsibleIds = useManualInspectionDraft((state) => state.findingResponsibleIds);
+
+  if (inspectionType !== InspectionType.REGULATORY) return currentStep;
+  if (!inspectionTypeSelected || !inspectionDateSelected || !locationCaptured) return 0;
+
+  const answers = Object.entries(answersByItemId);
+  const answeredCount = answers.length;
+  const hasIncompleteNo = answers.some(([itemId, answer]) => {
+    if (answer !== InspectionAnswerValue.NOT_COMPLIANT) return false;
+    const detail = detailsByItemId[itemId];
+    return !detail?.detectedCondition?.trim() || !detail.correctiveAction?.trim() || !detail.evidence;
+  });
+
+  if (
+    !templateId ||
+    !generalPhoto ||
+    hasIncompleteNo ||
+    (templateItemsCount !== null && answeredCount < templateItemsCount)
+  ) {
+    return 1;
+  }
+
+  const hasFindings = answers.some(([, answer]) => answer === InspectionAnswerValue.NOT_COMPLIANT);
+  if (hasFindings && (!findingCompanyId || findingResponsibleIds.length === 0)) return 4;
+  if (currentStep >= 5) return currentStep;
+  return 5;
+}
+
 export function ChatHeader({ currentStep, agentStatus = 'active' }: Props) {
   const insets = useSafeAreaInsets();
-  const safeStep = Math.min(currentStep, STEP_LABELS.length - 1);
+  const canonicalStep = useCanonicalChecklistStep(currentStep);
+  const safeStep = Math.max(0, Math.min(canonicalStep, STEP_LABELS.length - 1));
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}> 

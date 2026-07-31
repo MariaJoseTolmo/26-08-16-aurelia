@@ -1,0 +1,180 @@
+import { InspectionStatus } from '@aurelia/contracts';
+import { resolve } from 'node:path';
+import { InspectionLegacyMode } from '../modules/inspection-legacy-import/entities/inspection-legacy-import.entity';
+import { LegacyInspectionWarningCode } from '../modules/inspection-legacy-import/inspection-legacy-import.types';
+import { InspectionLegacyNormalizerService } from '../modules/inspection-legacy-import/inspection-legacy-normalizer.service';
+import { InspectionLegacySourceManifestService } from '../modules/inspection-legacy-import/inspection-legacy-source-manifest.service';
+import { InspectionLegacyXlsxReaderService } from '../modules/inspection-legacy-import/inspection-legacy-xlsx-reader.service';
+
+const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
+const DAY_IN_MS = 86_400_000;
+
+function assert(condition: boolean, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
+
+function argumentValue(name: string): string | null {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv.at(index + 1) ?? null : null;
+}
+
+function legacyDateYear(value: unknown): number | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.getUTCFullYear();
+  }
+
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value.trim())
+      ? Number(value.trim())
+      : null;
+
+  if (numeric !== null && Number.isFinite(numeric) && numeric > 0) {
+    const date = new Date(EXCEL_EPOCH_UTC + Math.floor(numeric) * DAY_IN_MS);
+    return Number.isNaN(date.getTime()) ? null : date.getUTCFullYear();
+  }
+
+  const text = typeof value === 'string' ? value.trim() : '';
+  const isoMatch = /^(\d{4})[-/]/.exec(text);
+  if (isoMatch) return Number(isoMatch[1]);
+
+  const localMatch = /^\d{1,2}[-/]\d{1,2}[-/](\d{4})$/.exec(text);
+  return localMatch ? Number(localMatch[1]) : null;
+}
+
+function isLegacy1900Placeholder(value: unknown): boolean {
+  const year = legacyDateYear(value);
+  return year !== null && year <= 1900;
+}
+
+async function main(): Promise<void> {
+  const input = argumentValue('--file') ?? process.env.LEGACY_INSPECTIONS_XLSX ?? null;
+  if (!input) {
+    throw new Error('Indique --file <Planilla de inspecciones Medio Ambiente.xlsx> o LEGACY_INSPECTIONS_XLSX');
+  }
+
+  const sourceManifest = new InspectionLegacySourceManifestService();
+  const reader = new InspectionLegacyXlsxReaderService(sourceManifest);
+  const normalizer = new InspectionLegacyNormalizerService();
+  const workbook = await reader.read(resolve(input));
+  const rows = normalizer.normalizeMany(workbook.rows, workbook.firstDataRow);
+  const manifest = sourceManifest.manifest;
+  const expected = manifest.expectedNormalizedTotals;
+  const knownChronologyKeys = new Set(
+    manifest.knownChronologyWarnings.map(
+      (known) => `${known.legacyYear}:${known.legacyNumber}`,
+    ),
+  );
+  const legacyKeys = new Set(
+    rows
+      .filter((row) => row.legacyYear && row.legacyNumber)
+      .map((row) => `${row.legacyYear}:${row.legacyNumber}`),
+  );
+
+  const chronologyRows = new Set<string>();
+  const chronologyWarningCounts: Partial<Record<LegacyInspectionWarningCode, number>> = {};
+  let legacy1900PlaceholderWarnings = 0;
+  const totals = rows.reduce((summary, row) => {
+    summary.findings += row.findingsCount ?? 0;
+    summary.closed += row.closedFindingsCount ?? 0;
+    summary.open += row.openFindingsCount ?? 0;
+    summary.findingMode += row.mode === InspectionLegacyMode.FINDING ? 1 : 0;
+    summary.checklistMode += row.mode === InspectionLegacyMode.CHECKLIST ? 1 : 0;
+    summary.closedRows += row.status === InspectionStatus.CLOSED ? 1 : 0;
+    summary.openRows += row.status === InspectionStatus.IN_PROGRESS ? 1 : 0;
+    summary.quarantine += row.disposition === 'QUARANTINE' ? 1 : 0;
+    row.milestones.forEach((milestone) => {
+      if (milestone.sequenceNumber === 1) summary.s1 += 1;
+      if (milestone.sequenceNumber === 2) summary.s2 += 1;
+      if (milestone.sequenceNumber === 3) summary.s3 += 1;
+    });
+    row.warnings.forEach((warning) => {
+      if (
+        warning.code !== LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+        && warning.code !== LegacyInspectionWarningCode.MILESTONE_OUT_OF_SEQUENCE
+      ) {
+        return;
+      }
+
+      chronologyWarningCounts[warning.code] = (chronologyWarningCounts[warning.code] ?? 0) + 1;
+      const rowKey = `${row.legacyYear}:${row.legacyNumber}`;
+      const isPlaceholder = warning.code === LegacyInspectionWarningCode.MILESTONE_BEFORE_INSPECTION
+        && isLegacy1900Placeholder(warning.rawValue);
+
+      if (isPlaceholder) {
+        legacy1900PlaceholderWarnings += 1;
+        if (!knownChronologyKeys.has(rowKey)) return;
+      }
+
+      chronologyRows.add(rowKey);
+    });
+    return summary;
+  }, {
+    findings: 0,
+    closed: 0,
+    open: 0,
+    findingMode: 0,
+    checklistMode: 0,
+    closedRows: 0,
+    openRows: 0,
+    quarantine: 0,
+    s1: 0,
+    s2: 0,
+    s3: 0,
+  });
+
+  const diagnostics = {
+    source: input,
+    rows: rows.length,
+    uniqueLegacyKeys: legacyKeys.size,
+    totals,
+    chronologyWarningCounts,
+    legacy1900PlaceholderWarnings,
+    chronologyRows: [...chronologyRows].sort(),
+    expectedChronologyWarningRows: expected.chronologyWarningRows,
+  };
+
+  console.log(JSON.stringify(diagnostics, null, 2));
+
+  assert(rows.length === manifest.expectedRows, 'Cantidad de filas distinta al manifest');
+  assert(legacyKeys.size === manifest.expectedUniqueLegacyKeys, 'Las claves AÑO + Nº no son únicas');
+  assert(totals.findingMode === manifest.expectedTotals.findingsModeRows, 'Cantidad Hallazgo incorrecta');
+  assert(totals.checklistMode === manifest.expectedTotals.checklistModeRows, 'Cantidad Checklist incorrecta');
+  assert(totals.closedRows === manifest.expectedTotals.closedRows, 'Cantidad Cerrado incorrecta');
+  assert(totals.openRows === manifest.expectedTotals.openRows, 'Cantidad Abierto incorrecta');
+  assert(totals.findings === expected.findingsCount, 'Total normalizado de observaciones incorrecto');
+  assert(totals.closed === expected.closedFindingsCount, 'Total normalizado de observaciones cerradas incorrecto');
+  assert(totals.open === expected.openFindingsCount, 'Total normalizado de observaciones pendientes incorrecto');
+  assert(totals.s1 === expected.followupS1Rows, 'Cantidad normalizada S1 incorrecta');
+  assert(totals.s2 === expected.followupS2Rows, 'Cantidad normalizada S2 incorrecta');
+  assert(totals.s3 === expected.followupS3Rows, 'Cantidad normalizada S3 incorrecta');
+  assert(totals.quarantine === expected.quarantineRows, 'Cantidad de cuarentena conocida incorrecta');
+  assert(
+    chronologyRows.size === expected.chronologyWarningRows,
+    `Cantidad de filas con anomalía cronológica real incorrecta: actual=${chronologyRows.size}, esperada=${expected.chronologyWarningRows}`,
+  );
+
+  manifest.knownQuarantine.forEach((known) => {
+    const row = rows.find((candidate) => (
+      candidate.legacyYear === known.legacyYear
+      && candidate.legacyNumber === known.legacyNumber
+      && candidate.sourceRow === known.sourceRow
+    ));
+    assert(Boolean(row), `No se encontró la cuarentena conocida ${known.legacyYear}:${known.legacyNumber}`);
+    assert(row?.disposition === 'QUARANTINE', `La fila ${known.legacyYear}:${known.legacyNumber} debe quedar en cuarentena`);
+  });
+
+  manifest.knownChronologyWarnings.forEach((known) => {
+    assert(
+      chronologyRows.has(`${known.legacyYear}:${known.legacyNumber}`),
+      `No se detectó la anomalía cronológica ${known.legacyYear}:${known.legacyNumber}`,
+    );
+  });
+
+  console.log('Legacy inspections source smoke test passed');
+}
+
+void main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

@@ -29,6 +29,10 @@ type ApiEnv = {
   ai: {
     anthropicApiKey: string | null;
   };
+  swagger: {
+    enabled: boolean;
+    path: string;
+  };
 };
 
 function readRequiredString(source: EnvSource, name: string): string {
@@ -85,6 +89,15 @@ function readRateLimitStore(source: EnvSource): 'memory' | 'database' {
   throw new Error('Environment variable API_RATE_LIMIT_STORE must be either memory or database');
 }
 
+function readSwaggerPath(source: EnvSource): string {
+  const value = readOptionalString(source, 'SWAGGER_PATH') ?? 'docs';
+  const normalized = value.replace(/^\/+|\/+$/g, '');
+  if (!normalized || !/^[a-zA-Z0-9/_-]+$/.test(normalized)) {
+    throw new Error('Environment variable SWAGGER_PATH must be a valid relative URL path');
+  }
+  return normalized;
+}
+
 export function readApiEnv(source: EnvSource = process.env): ApiEnv {
   const tokenKey = readRequiredString(source, 'API_TOKEN_KEY');
   if (tokenKey.length < 32) throw new Error('Environment variable API_TOKEN_KEY must be at least 32 characters');
@@ -117,6 +130,10 @@ export function readApiEnv(source: EnvSource = process.env): ApiEnv {
     },
     ai: {
       anthropicApiKey: readOptionalString(source, 'ANTHROPIC_API_KEY'),
+    },
+    swagger: {
+      enabled: readOptionalBoolean(source, 'SWAGGER_ENABLED', source.NODE_ENV !== 'production'),
+      path: readSwaggerPath(source),
     },
   };
 }

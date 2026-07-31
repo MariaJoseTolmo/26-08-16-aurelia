@@ -1,6 +1,7 @@
 import { DynamicModule, Global, Module, Type } from '@nestjs/common';
 import { DisabledEmailTransport } from './disabled-email.transport';
 import { EmailTemplateService } from './email-template.service';
+import { InspectionRejectionEmailTemplateService } from './inspection-rejection-email-template.service';
 import { MessagingService } from './messaging.service';
 import { EMAIL_TRANSPORT, EmailTransport } from './messaging.types';
 import { SmtpEmailTransport } from './smtp-email.transport';
@@ -21,6 +22,7 @@ export class MessagingModule {
       module: MessagingModule,
       providers: [
         EmailTemplateService,
+        InspectionRejectionEmailTemplateService,
         MessagingService,
         emailTransport,
         {
@@ -28,7 +30,12 @@ export class MessagingModule {
           useExisting: emailTransport,
         },
       ],
-      exports: [EmailTemplateService, MessagingService, EMAIL_TRANSPORT],
+      exports: [
+        EmailTemplateService,
+        InspectionRejectionEmailTemplateService,
+        MessagingService,
+        EMAIL_TRANSPORT,
+      ],
     };
   }
 }

@@ -63,7 +63,7 @@ export class ResourceScopeInterceptor implements NestInterceptor {
     const resourceId = segments[2];
 
     if (request.method === 'POST' && path === '/api/inspections' && this.isScopedResource(request.body)) {
-      const allowed = await this.resourceScope.canAccessInspection(request.user, request.body);
+      const allowed = await this.resourceScope.canCreateInspection(request.user, request.body);
       if (!allowed) throw new ForbiddenException('Resource is outside user scope');
     }
 
@@ -85,6 +85,9 @@ export class ResourceScopeInterceptor implements NestInterceptor {
 
   private async canAccessResponse(request: AuthenticatedRequest & Request, resource: ScopedResource): Promise<boolean> {
     const path = request.originalUrl.split('?')[0];
+    if (request.method === 'POST' && path === '/api/inspections') {
+      return this.resourceScope.canCreateInspection(request.user, resource);
+    }
     if (path.startsWith('/api/inspections')) return this.resourceScope.canAccessInspection(request.user, resource);
     return this.resourceScope.canAccess(request.user, resource);
   }
