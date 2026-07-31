@@ -18,6 +18,8 @@ import { SPR_CYCLE_TRACEABILITY_ROUTE } from './sprCycleTraceability.constants';
 interface SprReportAreaViewProps {
   areaName: string;
   detail: SprReportAreaDetailData;
+  /** Vuelta al Dashboard preservando ?ciclo= (default /spr/reporte). */
+  backHref?: string;
 }
 
 function BackArrowIcon() {
@@ -408,7 +410,7 @@ function ParameterDetail({
   );
 }
 
-export function SprReportAreaView({ areaName, detail }: SprReportAreaViewProps) {
+export function SprReportAreaView({ areaName, detail, backHref = '/spr/reporte' }: SprReportAreaViewProps) {
   const navigate = useNavigate();
   const isEmptyMode = detail.viewMode === 'empty';
   const defaultParameterId =
@@ -436,7 +438,7 @@ export function SprReportAreaView({ areaName, detail }: SprReportAreaViewProps) 
         <div className="flex min-w-0 flex-wrap items-center gap-[10px]">
           <button
             type="button"
-            onClick={() => navigate('/spr/reporte')}
+            onClick={() => navigate(backHref)}
             className="flex size-[28px] shrink-0 items-center justify-center rounded-[6px] border border-[#e3e3e3] bg-white"
             aria-label="Volver al reporte SPR"
           >

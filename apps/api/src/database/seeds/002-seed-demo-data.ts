@@ -52,8 +52,12 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
       { code: 'AREA-MANTENCION', name: 'Mantención' },
       { code: 'AREA-SERVICIOS', name: 'Servicios Generales' },
       { code: 'AREA-STECNICOS', name: 'Servicios Técnicos' },
+      { code: 'AREA-OPTACTIVOS', name: 'Optimización de Activos' },
+      { code: 'AREA-FINANZAS', name: 'Finanzas' },
+      { code: 'AREA-SOPERACIONALES', name: 'Servicios Operacionales' },
       { code: 'AREA-SUSTAINING', name: 'Sustaining' },
       { code: 'AREA-MAMBIENTE', name: 'Medio Ambiente' },
+      { code: 'AREA-SUSTENTABILIDAD', name: 'Sustentabilidad' },
     ];
 
     for (const area of areas) {
@@ -141,6 +145,46 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
         pos: 'Responsable SPR Servicios Técnicos',
         areaCode: 'AREA-STECNICOS',
         roles: ['SPR_RESPONSIBLE'],
+      },
+      {
+        email: 'sofia.reyes@goldfields.com',
+        first: 'Sofía',
+        last: 'Reyes',
+        pos: 'Responsable SPR Planta',
+        areaCode: 'AREA-PLANTA',
+        roles: ['SPR_RESPONSIBLE'],
+      },
+      {
+        email: 'natalia.herrera@goldfields.com',
+        first: 'Natalia',
+        last: 'Herrera',
+        pos: 'Responsable SPR Optimización de Activos',
+        areaCode: 'AREA-OPTACTIVOS',
+        roles: ['SPR_RESPONSIBLE'],
+      },
+      {
+        email: 'miguel.castro@goldfields.com',
+        first: 'Miguel',
+        last: 'Castro',
+        pos: 'Gerente de Área SPR Planta',
+        areaCode: 'AREA-PLANTA',
+        roles: ['SPR_AREA_MANAGER'],
+      },
+      {
+        email: 'tania.galarce@goldfields.com',
+        first: 'Tania',
+        last: 'Galarce',
+        pos: 'Especialista de Sustentabilidad SPR',
+        areaCode: null,
+        roles: ['SPR_SUSTAINABILITY_SPECIALIST'],
+      },
+      {
+        email: 'gabriel.fuenzalida@goldfields.com',
+        first: 'Gabriel',
+        last: 'Fuenzalida',
+        pos: 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
+        areaCode: null,
+        roles: ['SPR_ENVIRONMENT_MANAGER'],
       },
       {
         email: 'carlos.aguirre@goldfields.com', first: 'Carlos', last: 'Aguirre', pos: 'Administrador Sistema',
@@ -238,9 +282,9 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
 
     await qr.commitTransaction();
     console.log('Demo seed completed successfully.');
-    console.log('  → 8 áreas, 18 sectores');
+    console.log('  → 12 áreas, 18 sectores');
     console.log('  → 8 empresas contratistas (EECC)');
-    console.log('  → 16 usuarios demo con roles funcionales');
+    console.log('  → 20 usuarios demo con roles funcionales');
   } catch (error) {
     await qr.rollbackTransaction();
     throw error;

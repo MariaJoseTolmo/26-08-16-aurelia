@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Role, SprCycleValidationStatus } from '@aurelia/contracts';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+import { useSprCycleValidations } from '../../shared/hooks/useSprCycleValidations';
 import { useSprParameters } from '../../shared/hooks/useSprParameters';
 import { useSprMonthlyRecords } from '../../shared/hooks/useSprMonthlyRecords';
 import { useSprRecordApprovals } from '../../shared/hooks/useSprRecordApprovals';
 import { useSprCycleCorrectionHistory } from '../../shared/hooks/useSprCycleCorrectionHistory';
+import { useSprUnits } from '../../shared/hooks/useSprUnits';
+import { getOrganizationAreas } from '../../shared/services/inspections.service';
 import { useSessionStore } from '../../shared/stores/session.store';
 import { SprAutomaticAreaStatusView } from './components/SprAutomaticAreaStatusView';
 import { SprKpiReviewView } from './SprKpiReviewView';
@@ -24,6 +30,7 @@ import {
   SPR_FORM_DEMO_VIEW_QUERY,
   SPR_RESPONSIBLE_CORRECTION_RESUBMITTED_STATUS,
 } from './spr.constants';
+import { resolveSoxResponsibleValidationGate } from './sprConsolidatedValidationLayout';
 import { resolveSprFormCycle, SPR_FORM_CYCLE_QUERY } from './sprFormCycles';
 import {
   getSprFormAreaCatalog,
@@ -31,6 +38,10 @@ import {
   resolveSprFormAreaKey,
 } from './sprFormFlow.constants';
 import { findSprRejectedRecordId, resolveSprRejectionContext } from './sprRejectedContext';
+import {
+  buildKpiReviewMetaLabel,
+  buildSoxKpiReviewCards,
+} from './sprKpiReviewCards';
 import {
   getSprCycleRecordIds,
   resolveSprFormDisplayMode,
@@ -42,7 +53,10 @@ import {
 export function SprFormView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const sessionUser = useSessionStore((state) => state.user);
+  const areaName = sessionUser?.areaName ?? null;
+  const areaId = sessionUser?.areaId ?? null;
+  const roles = sessionUser?.roles ?? [];
   const areaCatalog = getSprFormAreaCatalog(resolveSprFormAreaKey(areaName));
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
   const cycle = resolveSprFormCycle(searchParams.get(SPR_FORM_CYCLE_QUERY));
@@ -57,10 +71,22 @@ export function SprFormView() {
   const isDemoKpiValidationFlow = isDemoKpiValidation || isDemoKpiValidationSubmitted;
   const isKpiReviewView = isDemoKpiValidation && demoView === SPR_FORM_DEMO_KPI_REVIEW_VIEW;
   const [isCorrectingRejectedForm, setIsCorrectingRejectedForm] = useState(false);
-  const parametersQuery = useSprParameters();
+  const [kpiReviewOpen, setKpiReviewOpen] = useState(false);
+
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const validationsQuery = useSprCycleValidations(sprCycleQuery.cycle?.id);
+  const areasQuery = useQuery({
+    queryKey: ['organization', 'areas'],
+    queryFn: getOrganizationAreas,
+    staleTime: 300_000,
+  });
+
+  const parametersQuery = useSprParameters(areaId);
+  const unitsQuery = useSprUnits();
   const recordsQuery = useSprMonthlyRecords({
     periodYear: cycle.periodYear,
     periodMonth: cycle.periodMonth,
+    areaId: areaId ?? undefined,
   });
 
   const totalParameterCount = parametersQuery.data?.length ?? 0;
@@ -96,22 +122,53 @@ export function SprFormView() {
       }),
     [cycle.periodMonth, cycle.periodYear, recordsQuery.data],
   );
+
+  const soxGate = useMemo(
+    () =>
+      resolveSoxResponsibleValidationGate({
+        cycleStatus: sprCycleQuery.cycle?.status,
+        roles,
+        userAreaId: areaId,
+        areas: areasQuery.data,
+        validations: validationsQuery.validations,
+      }),
+    [
+      areaId,
+      areasQuery.data,
+      roles,
+      sprCycleQuery.cycle?.status,
+      validationsQuery.validations,
+    ],
+  );
+
+  const soxKpiReviewCards = useMemo(
+    () => buildSoxKpiReviewCards(parametersQuery.data, recordsQuery.data, unitsQuery.data),
+    [parametersQuery.data, recordsQuery.data, unitsQuery.data],
+  );
+
   const needsCorrectionHistory =
     displayMode === 'pending_approval' ||
     displayMode === 'manager_approved' ||
-    isDemoKpiValidationFlow;
+    isDemoKpiValidationFlow ||
+    soxGate.kind !== 'idle';
   const correctionHistoryQuery = useSprCycleCorrectionHistory(cycleRecordIds, needsCorrectionHistory);
   const processVariant = useMemo(
     () => resolveSprProcessStatusVariant(displayMode, correctionHistoryQuery.hasCorrectionHistory),
     [correctionHistoryQuery.hasCorrectionHistory, displayMode],
   );
   const rejectedRecordId = useMemo(() => findSprRejectedRecordId(recordsQuery.data), [recordsQuery.data]);
+  const isSoxCorrectionRequested = soxGate.kind === 'correction_requested';
   const approvalsQuery = useSprRecordApprovals(
-    displayMode === 'rejected' && isCorrectingRejectedForm ? rejectedRecordId : null,
+    (displayMode === 'rejected' || isSoxCorrectionRequested) && isCorrectingRejectedForm
+      ? rejectedRecordId
+      : null,
   );
   const rejectionContext = useMemo(
-    () => (displayMode === 'rejected' && isCorrectingRejectedForm ? resolveSprRejectionContext(approvalsQuery.data) : null),
-    [approvalsQuery.data, displayMode, isCorrectingRejectedForm],
+    () =>
+      (displayMode === 'rejected' || isSoxCorrectionRequested) && isCorrectingRejectedForm
+        ? resolveSprRejectionContext(approvalsQuery.data)
+        : null,
+    [approvalsQuery.data, displayMode, isCorrectingRejectedForm, isSoxCorrectionRequested],
   );
 
   const kpiValidationProcessVariant = useMemo(() => {
@@ -126,6 +183,13 @@ export function SprFormView() {
       ? ('kpi_validation_submitted_corrected' as const)
       : ('kpi_validation_submitted' as const);
   }, [correctionHistoryQuery.hasCorrectionHistory, correctionHistoryQuery.isLoading, isDemoKpiValidationSubmitted]);
+
+  const kpiValidationApprovedProcessVariant = useMemo(() => {
+    if (correctionHistoryQuery.isLoading) return 'kpi_validation_approved' as const;
+    return correctionHistoryQuery.hasCorrectionHistory
+      ? ('kpi_validation_approved_corrected' as const)
+      : ('kpi_validation_approved' as const);
+  }, [correctionHistoryQuery.hasCorrectionHistory, correctionHistoryQuery.isLoading]);
 
   const openKpiReview = () => {
     const nextParams = new URLSearchParams(searchParams);
@@ -159,12 +223,31 @@ export function SprFormView() {
   };
 
   useEffect(() => {
-    if (displayMode !== 'rejected') {
+    if (displayMode !== 'rejected' && soxGate.kind !== 'correction_requested') {
       setIsCorrectingRejectedForm(false);
     }
-  }, [displayMode]);
+  }, [displayMode, soxGate.kind]);
 
-  if (!isDemoKpiValidationFlow && !isDemoCorrectionRequested && !isDemoCorrectionResubmitted && (parametersQuery.isLoading || recordsQuery.isLoading)) {
+  useEffect(() => {
+    if (soxGate.kind !== 'pending') {
+      setKpiReviewOpen(false);
+    }
+  }, [soxGate.kind]);
+
+  const isSoxResponsible = roles.includes(Role.SPR_RESPONSIBLE);
+  const soxDataLoading =
+    isSoxResponsible &&
+    (sprCycleQuery.isLoading ||
+      validationsQuery.isLoading ||
+      areasQuery.isLoading ||
+      (kpiReviewOpen && unitsQuery.isLoading));
+
+  if (
+    !isDemoKpiValidationFlow &&
+    !isDemoCorrectionRequested &&
+    !isDemoCorrectionResubmitted &&
+    (parametersQuery.isLoading || recordsQuery.isLoading || soxDataLoading)
+  ) {
     return (
       <div className="flex h-[calc(100vh-56px)] w-full items-center justify-center bg-[#f7f7f7]">
         <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">Cargando formulario SPR…</p>
@@ -172,8 +255,23 @@ export function SprFormView() {
     );
   }
 
-  if (displayMode === 'rejected' && isCorrectingRejectedForm) {
+  if (
+    (displayMode === 'rejected' || soxGate.kind === 'correction_requested') &&
+    isCorrectingRejectedForm
+  ) {
     return <SprMonthlyEntryView cycle={cycle} correctionMode rejectionContext={rejectionContext} />;
+  }
+
+  // Figma 1760:27156 — área SOX reabierta por Especialista.
+  if (soxGate.kind === 'correction_requested') {
+    return (
+      <SprSubmittedStatusView
+        signDateLabel={signDateLabel}
+        variant="correction_requested"
+        processVariant="correction_requested"
+        onStartDiscrepancyCorrection={() => setIsCorrectingRejectedForm(true)}
+      />
+    );
   }
 
   if (displayMode === 'rejected' && !isCorrectingRejectedForm) {
@@ -240,6 +338,48 @@ export function SprFormView() {
     );
   }
 
+  // Camino real Fase 5 — revisión KPI 3 cards (Figma 2653:2078).
+  if (soxGate.kind === 'pending' && sprCycleQuery.cycle?.id && kpiReviewOpen) {
+    return (
+      <SprKpiReviewView
+        cycleId={sprCycleQuery.cycle.id}
+        areaId={soxGate.areaId}
+        areaName={soxGate.areaName}
+        cycleLabel={cycle.label}
+        metaLabel={buildKpiReviewMetaLabel(soxGate.areaName, signDateLabel)}
+        cards={soxKpiReviewCards}
+        onBack={() => setKpiReviewOpen(false)}
+      />
+    );
+  }
+
+  if (soxGate.kind === 'pending' && sprCycleQuery.cycle?.id) {
+    return (
+      <SprSubmittedStatusView
+        signDateLabel={signDateLabel}
+        managerApprovalDateLabel={managerApprovalDateLabel}
+        variant="kpi_validation_pending"
+        processVariant={kpiValidationProcessVariant}
+        onStartKpiReview={() => setKpiReviewOpen(true)}
+      />
+    );
+  }
+
+  if (soxGate.kind === 'decided') {
+    const isDiscrepancy =
+      soxGate.validation.status === SprCycleValidationStatus.DISCREPANCY_REPORTED;
+    return (
+      <SprSubmittedStatusView
+        signDateLabel={signDateLabel}
+        managerApprovalDateLabel={managerApprovalDateLabel}
+        variant="kpi_review_submitted"
+        processVariant={
+          isDiscrepancy ? kpiReviewSubmittedProcessVariant : kpiValidationApprovedProcessVariant
+        }
+      />
+    );
+  }
+
   if (displayMode === 'manager_approved') {
     return (
       <SprSubmittedStatusView
@@ -273,4 +413,3 @@ export function SprFormView() {
 
   return <SprMonthlyEntryView cycle={cycle} />;
 }
-

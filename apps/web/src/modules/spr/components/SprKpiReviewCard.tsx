@@ -209,6 +209,8 @@ function DiscrepancyReportForm({
 }
 
 function DirectComparisonPanel({ card }: { card: Extract<SprKpiReviewCardConfig, { type: 'direct' }> }) {
+  const sacUnavailable = card.sacUnavailable === true;
+
   return (
     <div className="overflow-hidden rounded-[8px] border border-[#e3e3e3]">
       <div className="grid grid-cols-1 sm:grid-cols-2">
@@ -219,22 +221,43 @@ function DirectComparisonPanel({ card }: { card: Extract<SprKpiReviewCardConfig,
           <p className="pt-[5px] font-['Inter:Bold',sans-serif] text-[22px] font-bold leading-[22px] text-[#131313]">
             {card.youEntered.value}
           </p>
-          <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">{card.youEntered.unit}</p>
+          {card.youEntered.unit ? (
+            <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">{card.youEntered.unit}</p>
+          ) : null}
         </div>
         <div className="bg-[#e6f3ff] px-[14px] py-[12px] text-center">
           <p className="font-['Inter:Bold',sans-serif] text-[9px] font-bold uppercase tracking-[0.63px] text-[#acacac]">
             Recibido por el SAC
           </p>
-          <p className="pt-[5px] font-['Inter:Bold',sans-serif] text-[22px] font-bold leading-[22px] text-[#0d3862]">
-            {card.sacReceived.value}
-          </p>
-          <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">{card.sacReceived.unit}</p>
+          {sacUnavailable ? (
+            <p className="pt-[5px] font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-[16px] text-[#0d3862]">
+              {card.sacReceived.value}
+            </p>
+          ) : (
+            <>
+              <p className="pt-[5px] font-['Inter:Bold',sans-serif] text-[22px] font-bold leading-[22px] text-[#0d3862]">
+                {card.sacReceived.value}
+              </p>
+              {card.sacReceived.unit ? (
+                <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">{card.sacReceived.unit}</p>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
-      <div className="flex items-center justify-center gap-[5px] border-t border-[#a8dfa8] bg-[#e0ffd3] px-[12px] py-[6px]">
-        <SprProcessStatusApprovedIcon className="h-[11px] w-[13.75px] shrink-0 text-[#2a5c16]" />
-        <p className="font-['Inter:Bold',sans-serif] text-[10px] font-bold text-[#2a5c16]">{card.matchMessage}</p>
-      </div>
+      {sacUnavailable ? (
+        <div className="flex items-start gap-[6px] border-t border-[#c5d8f0] bg-[#f0f6ff] px-[12px] py-[8px]">
+          <SprInfoCircleIcon className="mt-px h-[11px] w-[13.75px] shrink-0 text-[#0d3862]" />
+          <p className="font-['Inter:Regular',sans-serif] text-[9.5px] leading-[normal] text-[#0d3862]">
+            {SPR_KPI_REVIEW.sacUnavailableFooter}
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-[5px] border-t border-[#a8dfa8] bg-[#e0ffd3] px-[12px] py-[6px]">
+          <SprProcessStatusApprovedIcon className="h-[11px] w-[13.75px] shrink-0 text-[#2a5c16]" />
+          <p className="font-['Inter:Bold',sans-serif] text-[10px] font-bold text-[#2a5c16]">{card.matchMessage}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -321,8 +344,8 @@ export function SprKpiReviewCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
-      <header className="flex items-start justify-between gap-[12px] border-b border-[#e3e3e3] px-[15px] py-[12px]">
+    <article className="w-full min-w-0 overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
+      <header className="flex w-full items-start justify-between gap-[12px] border-b border-[#e3e3e3] px-[15px] py-[12px]">
         <div className="min-w-0">
           <p className="font-['Inter:Bold',sans-serif] text-[12.5px] font-bold text-[#001e39]">{card.title}</p>
           <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[9.5px] text-[#646464]">{card.subtitle}</p>
@@ -330,7 +353,7 @@ export function SprKpiReviewCard({
         <HeaderBadge response={response} />
       </header>
 
-      <div className="flex flex-col gap-[12px] px-[15px] py-[13px]">
+      <div className="flex w-full flex-col gap-[12px] px-[15px] py-[13px]">
         {card.type === 'direct' ? <DirectComparisonPanel card={card} /> : <CalculatedComparisonPanel card={card} />}
         {showActionArea ? (
           isReportingDiscrepancy ? (
@@ -361,16 +384,17 @@ export function SprKpiReviewCard({
   );
 }
 
-export function SprKpiReviewReportBanner() {
+export function SprKpiReviewReportBanner({ cycleLabel }: { cycleLabel?: string }) {
+  const label = cycleLabel ?? SPR_ACTIVE_CYCLE.label;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-[12px] rounded-[9px] bg-[#001e39] px-[18px] py-[14px]">
+    <div className="flex w-full flex-wrap items-center justify-between gap-[12px] rounded-[9px] bg-[#001e39] px-[18px] py-[14px]">
       <div className="flex min-w-0 items-center gap-[12px]">
         <div className="flex size-[40px] shrink-0 items-center justify-center rounded-[9px] bg-[rgba(255,255,255,0.1)]">
           <SprPdfFileIcon className="h-[18px] w-[22.5px] text-white" />
         </div>
         <div className="min-w-0">
           <p className="font-['Inter:Bold',sans-serif] text-[12px] font-bold text-white">
-            {SPR_KPI_REVIEW.reportBannerTitle(SPR_ACTIVE_CYCLE.label)}
+            {SPR_KPI_REVIEW.reportBannerTitle(label)}
           </p>
           <p className="pt-[3px] font-['Inter:Regular',sans-serif] text-[10.5px] leading-[15.75px] text-[rgba(255,255,255,0.6)]">
             {SPR_KPI_REVIEW.reportBannerDescription}

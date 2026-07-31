@@ -69,7 +69,7 @@ export const SPR_RESPONSIBLE_KPI_VALIDATION_STATUS = {
   formStatusHelper: 'Aprobado por tu Gerente',
   reportStatusLabel: 'Firmado oficialmente',
   reportSignDateFallback: '09-06-2026',
-  reportSignerFallback: 'Gabriel Fuenzalida',
+  reportSignerFallback: 'Gerente de Sustentabilidad',
   reportSignHelper: (dateLabel: string, signerLabel: string) => `${dateLabel} · ${signerLabel}`,
   kpiValidationStepTitle: (cycleLabel: string) => `Validación de KPIs — Reporte SPR ${cycleLabel}`,
   kpiValidationStepHelper:
@@ -77,15 +77,15 @@ export const SPR_RESPONSIBLE_KPI_VALIDATION_STATUS = {
   kpiValidationBadgeLabel: 'Pendiente',
 } as const;
 
-// Responsable — revision KPI enviada con discrepancia pendiente (Figma 1760:21616).
-// Conectado con gerente Figma 1760:22435 → /spr/mi-area?estado=aprobado
+// Responsable — revision KPI enviada con discrepancia pendiente (Figma 1760:21407 / 1760:21616).
+// Espejo gerente: Figma 1760:22435 → /spr/mi-area (mode approved + soxDiscrepancyReported).
 export const SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS = {
   cycleStatusLabel: 'Cerrado y reportado',
   formStatusLabel: 'Completado ✓',
   formStatusHelper: 'Aprobado por tu Gerente',
   reportStatusLabel: 'Firmado oficialmente',
   reportSignDateFallback: '09-06-2026',
-  reportSignerFallback: 'Gabriel Fuenzalida',
+  reportSignerFallback: 'Gerente de Sustentabilidad',
   reportSignHelper: (dateLabel: string, signerLabel: string) => `${dateLabel} · ${signerLabel}`,
   discrepancyStepTitle: (cycleLabel: string) =>
     `Formulario SPR ${cycleLabel} - Has reportado una discrepancia`,
@@ -95,6 +95,14 @@ export const SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS = {
   kpiValidationStepHelper:
     'El reporte fue firmado oficialmente. Por favor confirma que los KPIs calculados de tu área son correctos.',
   kpiValidationBadgeLabel: 'Completado',
+} as const;
+
+/** Responsable — POST approved: fila tope Figma 1760:23007. */
+export const SPR_RESPONSIBLE_KPI_REVIEW_APPROVED_STATUS = {
+  reviewedValidatedStepTitle: (cycleLabel: string) =>
+    `Formulario SPR ${cycleLabel} revisado y validado`,
+  reviewedValidatedStepHelper: 'Haz revisado y validado todos los resultados.',
+  reviewedValidatedBadgeLabel: 'Completado',
 } as const;
 
 // Responsable — correccion solicitada por especialista (Figma 1760:27156).
@@ -217,6 +225,8 @@ export type SprKpiReviewCardConfig =
       youEntered: { value: string; unit: string };
       sacReceived: { value: string; unit: string };
       matchMessage: string;
+      /** Sin integración SAC: placeholder honesto, sin barra de “match”. */
+      sacUnavailable?: boolean;
     }
   | {
       id: string;
@@ -237,12 +247,13 @@ export type SprKpiReviewCardConfig =
 // Conectado con 1672:14978 (entrada) y especialista 1942:63546 (firmas-completas).
 export const SPR_KPI_REVIEW = {
   pageTitle: (cycleLabel: string) => `Revisión de datos SPR — ${cycleLabel}`,
-  metaLabel: 'Servicios Técnicos · Enviado por Tania Galarce · 09-06-2026',
+  metaLabel: 'Servicios Técnicos · Enviado por Especialista de Sustentabilidad · 09-06-2026',
   reportBannerTitle: (cycleLabel: string) => `Reporte SPR ${cycleLabel} — Firmado oficialmente`,
   reportBannerDescription:
     'Revisa que los valores de tu área son correctos y descarga el PDF como evidencia para tus controles SOX.',
   downloadPdfLabel: 'Descargar PDF firmado',
-  footerHint: 'Revisa los 3 datos antes de finalizar · Puedes editar tus respuestas antes de enviar',
+  footerHint: (kpiCount: number) =>
+    `Revisa los ${kpiCount} datos antes de finalizar · Puedes editar tus respuestas antes de enviar`,
   finalizeLabel: 'Finalizar revisión',
   confirmLabel: 'El número es correcto',
   reportDiscrepancyLabel: 'Reportar discrepancia',
@@ -263,6 +274,13 @@ export const SPR_KPI_REVIEW = {
   discrepancyTimeFallback: '09:15',
   demoDiscrepancyCommentFallback:
     'Ej: Esperaba un porcentaje más cercano al 12%. Creo que uno de mis datos base fue mal ingresado...',
+  /** Placeholder honesto mientras no haya integración SAC (Opción A). */
+  sacUnavailableValue: 'No disponible — sin integración SAC',
+  sacUnavailableFooter:
+    'Sin valor SAC para comparar. Confirma o reporta según el dato que tú ingresaste.',
+  soxCardSubtitleFallback: 'Referencia SOX · Dato ingresado por ti',
+  emptySoxCardsMessage: 'No hay parámetros SOX asignados a tu área para revisar.',
+  submitErrorFallback: 'No se pudo enviar la revisión SOX. Intenta de nuevo.',
   cards: [
     {
       id: 'ground-water-freshwater',
@@ -318,7 +336,7 @@ export const SPR_KPI_REVIEW_FINALIZE_MODAL = {
   submitLabel: 'Enviar revisión',
   submittingLabel: 'Enviando…',
   areaLabelFallback: 'Servicios Técnicos',
-  specialistLabelFallback: 'Tania Galarce',
+  specialistLabelFallback: 'Especialista de Sustentabilidad',
   kpiCount: 3,
 } as const;
 
@@ -414,8 +432,7 @@ export const SPR_MANAGER_REJECTED_WAITING_STATUS = {
   deliveredStepHelper: 'El responsable de área ha emitido el formulario',
 } as const;
 
-// Gerente de área — formulario aprobado (sin mock de discrepancia KPI / Especialista).
-// La discrepancia Figma 1760:22435 queda fuera hasta que exista flujo real de Especialista.
+// Gerente de área — formulario aprobado (Figma base + discrepancia SOX 1760:22435 vía flag).
 export const SPR_MANAGER_APPROVED_STATUS = {
   cycleStatusLabel: 'En curso',
   formStatusLabel: 'Completado ✓',
@@ -428,6 +445,14 @@ export const SPR_MANAGER_APPROVED_STATUS = {
   rejectedStepHelper: 'A la espera de correcciones del responsable del área.',
   deliveredStepTitle: (cycleLabel: string) => `Formulario SPR ${cycleLabel} entregado por el responsable del área`,
   deliveredStepHelper: 'El responsable de área ha emitido el formulario.',
+} as const;
+
+/** Gerente — fila tope cuando el Responsable SOX reportó discrepancia (Figma 1760:22435). */
+export const SPR_MANAGER_SOX_DISCREPANCY_STATUS = {
+  discrepancyStepTitle: (cycleLabel: string) =>
+    `Formulario SPR ${cycleLabel} - El responsable del área ha reportado una discrepancia`,
+  discrepancyStepHelper: 'A la espera de la decisión de Especialista de Sustentabilidad',
+  discrepancyBadgeLabel: 'Pendiente',
 } as const;
 
 /** Query mock para forzar la vista aprobada del gerente en `/spr/mi-area`. */
@@ -508,7 +533,15 @@ export const SPR_REPORT_DASHBOARD = {
     'Consolidado se actualiza al recibir cada formulario firmado por el Responsable · Independiente de la firma del Gerente',
   cycleActiveBadge: 'Ciclo activo',
   traceabilityLabel: 'Ver trazabilidad del ciclo',
+  /** PLACEHOLDER: no se muestra en Dashboard hasta motor histórico real (opción A auditoría). */
   alertBadge: '1 valor con alerta histórica',
+  dataLoadErrorTitle: 'No se pudieron cargar los datos del Dashboard',
+  dataLoadErrorDescription: 'No se pudieron cargar los datos del Dashboard. Intenta recargar la página.',
+  dataLoadingLabel: 'Cargando datos del ciclo…',
+  cycleLoadErrorTitle: 'No se pudo cargar el ciclo SPR',
+  cycleLoadErrorDescription:
+    'No se encontró el ciclo en el servidor (spr_cycles). El countdown del día 9 no está disponible.',
+  cycleLoadingLabel: 'Cargando ciclo…',
   areasSectionTitle: (cycleLabel: string) => `Estado por área — ${cycleLabel}`,
   reportSectionTitle: (cycleLabel: string) => `Estado del Reporte SPR — ${cycleLabel}`,
   closureSectionTitle: (cycleLabel: string) => `Estado de cierre de ciclo — ${cycleLabel}`,
@@ -557,7 +590,7 @@ export const SPR_REPORT_TIMELINE_STEPS = [
     step: 4,
     title: 'Firma del reporte SAC',
     dateLabel: '10-06-2026 · 5 días',
-    description: 'Tania/Cata/Marjorie firman primero · Gabriel o Elisa dan el alta oficial.',
+    description: 'El Especialista firma primero · el Gerente MA da el alta oficial.',
     actorLabel: 'Esp. Sust. → Gte. MA',
     status: 'upcoming' as SprReportTimelineStepStatus,
     progress: 0,
@@ -575,6 +608,7 @@ export const SPR_REPORT_TIMELINE_STEPS = [
   },
 ] as const;
 
+/** MOCK histórico Figma — ya NO se usa como fallback de error del Dashboard real. */
 export const SPR_REPORT_KPI_CARDS = [
   {
     value: '8',
@@ -596,7 +630,7 @@ export const SPR_REPORT_KPI_CARDS = [
   },
   {
     value: '4/6',
-    label: 'Aprobados por Gerente',
+    label: 'Aprobados por Gerente de Área',
     helper: '2 pendientes de aprobación',
     helperTone: 'amber' as const,
   },
@@ -621,7 +655,7 @@ export const SPR_REPORT_STATUS_ROWS = [
     actionHref: '/spr/reporte/consolidado?estado=consolidado-enviado&tab=sac',
   },
   {
-    title: 'Firma del reporte oficial — Orden: Tania/Cata/Marjorie → Gabriel/Elisa',
+    title: 'Firma del reporte oficial — Orden: Esp. Sust. → Gte. MA',
     helper: 'Disponible cuando el SAC genere el reporte · El Especialista firma primero',
     badge: 'Pendiente',
     badgeTone: 'muted' as const,
@@ -632,6 +666,7 @@ export const SPR_REPORT_STATUS_ROWS = [
 
 export type SprReportAreaCardStatus = 'complete' | 'consolidating' | 'pending' | 'estimated';
 
+/** MOCK histórico Figma — ya NO se usa como fallback de error del Dashboard real. */
 export const SPR_REPORT_AREA_CARDS: {
   slug: string;
   name: string;
@@ -893,9 +928,11 @@ const SPR_REPORT_VALIDACION_APROBADA_STATUS_ROWS: SprReportStatusRow[] = [
 
 const SPR_REPORT_VALIDACION_APROBADA_CLOSURE_ITEMS: SprReportClosureItem[] = [
   { label: SPR_REPORT_CLOSURE_ITEMS[0], status: 'pending' },
-  { label: SPR_REPORT_CLOSURE_ITEMS[1], status: 'completed' },
-  { label: SPR_REPORT_CLOSURE_ITEMS[2], status: 'completed' },
-  { label: SPR_REPORT_CLOSURE_ITEMS[3], status: 'completed' },
+  // Sin tabla de firmas de ciclo (Fase 3): no afirmar firmas completadas.
+  { label: SPR_REPORT_CLOSURE_ITEMS[1], status: 'pending' },
+  { label: SPR_REPORT_CLOSURE_ITEMS[2], status: 'pending' },
+  // Sin validación SOX de ciclo (Fase 5): no afirmar validación completada.
+  { label: SPR_REPORT_CLOSURE_ITEMS[3], status: 'pending' },
 ];
 
 const SPR_REPORT_CICLO_CERRADO_AREA_CARDS: (typeof SPR_REPORT_AREA_CARDS)[number][] =
@@ -1311,7 +1348,7 @@ export const SPR_REPORT_AREA_DETAIL_PLANTA: SprReportAreaDetailData = {
   ],
 };
 
-/** Figma 1560:5830 — Servicios Generales pendiente / sin datos. */
+/** Figma 1560:5830 — Servicios Generales pendiente / sin datos (MOCK legacy; preferir builder real). */
 export const SPR_REPORT_AREA_DETAIL_SERVICIOS_GENERALES: SprReportAreaDetailData = {
   viewMode: 'empty',
   headerBadge: 'Pendiente · Sin datos · Fecha límite hoy',
@@ -1798,6 +1835,13 @@ export const SPR_CONSOLIDATED_REPORT = {
   footerShowing: 'Mostrando 28 de 28 parámetros consolidados',
   pendingAreasLabel: 'Áreas pendientes:',
   pendingAreasValue: 'Planta · Servicios Generales · Sustentabilidad',
+  pendingAreasNone: 'Ninguna',
+  dataLoadErrorTitle: 'No se pudieron cargar los datos del consolidado',
+  dataLoadErrorDescription: 'No se pudieron cargar los datos del consolidado. Intenta recargar la página.',
+  tableLoadingLabel: 'Cargando datos consolidados…',
+  cycleLoadErrorDescription:
+    'No se encontró el ciclo en el servidor (spr_cycles). El countdown del día 9 no está disponible.',
+  cycleLoadingLabel: 'Cargando ciclo…',
   sacPending: {
     title: 'Reporte SAC — Pendiente de generación',
     bodyBefore: 'AurelIA enviará el consolidado al SAC el ',
@@ -1821,10 +1865,10 @@ export const SPR_CONSOLIDATED_REPORT = {
     availableLabel: 'Disponible en',
     daysLabel: '4 días',
   },
-  // Figma 1570:3146 / 1570:4077 / 1672:13475 — SAC en preparación.
+  // Figma 1570:3146 / 1570:4077 / 1672:13475 — SAC en preparación (copy sin tiempos).
   sacPreparing: {
     title: 'El reporte SAC está siendo preparado',
-    body: 'AurelIA ha enviado el consolidado a SAC. El reporte está siendo preparado ahora mismo. Esto podría tardar unos minutos',
+    body: 'El reporte SAC está siendo preparado. Estará disponible pronto.',
   },
   // Figma 2109:30986 — consolidado ya enviado al SAC.
   consolidadoEnviado: {
@@ -1857,29 +1901,43 @@ export const SPR_CONSOLIDATED_REPORT = {
     sacReportLegendIngresadoHelper: 'Dato enviado por AurelIA al SAC',
     sacReportLegendCalculado: 'Calculado SAC',
     sacReportLegendCalculadoHelper: 'KPI calculado por el SAC con factores de emisión corporativos',
+    /** Sin payload_snapshot / artefacto real — tab SAC honesto (camino report_ready). */
+    sacArtifactPendingTitle: 'Artefacto del reporte SAC no disponible aún',
+    sacArtifactPendingBody:
+      'El envío al SAC está registrado en el sistema, pero el grid/archivo del reporte aún no está integrado. Cuando exista el artefacto real, se mostrará aquí.',
+    sacArtifactPendingBadge: 'Registro de envío · sin artefacto',
   },
   // Figma 1760:25200 — alerta en tab Reporte SAC tras reapertura de Servicios técnicos.
+  // Figma 1760:24680 — misma familia de alerta en tab Consolidado (título distinto).
   sacReabierto: {
+    consolidadoAlertTitle: 'Este consolidado será actualizado',
+    consolidadoAlertBody: (areaName: string) =>
+      `El proceso ha sido reabierto para el área de “${areaName}”. Una vez el responsable del área emita el formulario reportando sus parámetros, se realizará nuevamente la consolidación y reconstrucción del reporte SAC.`,
     alertTitle: 'El reporte SAC será actualizado',
-    alertBody:
-      'El proceso ha sido reabierto para el área de “Servicios técnicos”. Una vez el responsable del área emita el formulario reportando sus parámetros, se realizará nuevamente la consolidación y reconstrucción del reporte SAC.',
+    alertBody: (areaName: string) =>
+      `El proceso ha sido reabierto para el área de “${areaName}”. Una vez el responsable del área emita el formulario reportando sus parámetros, se realizará nuevamente la consolidación y reconstrucción del reporte SAC.`,
+    /** Fallback mock cuando no hay reopenedAt real. */
+    demoAreaName: 'Servicios técnicos',
+    demoDaysElapsed: 2,
+    countdownLabel: 'En corrección',
     // Figma 1760:25499 — tab Firma bloqueada hasta actualización SAC.
-    firmaPendingTitle: 'Firma del reporte — A espera de actualización del reporte SAC',
+    firmaPendingTitle: 'Firma del reporte — A la espera de actualización del SAC',
     firmaPendingBody:
       'Una vez el reporte SAC esté nuevamente disponible, este apartado se disponibilizará para que pueda ser firmado.',
   },
   // Figma 1570:6144 — tab Firma del reporte (lista para firmar).
+  // Nombres de personas: camino real usa GET /spr/signers; aquí solo fallbacks por rol (demos).
   firmaReady: {
     infoBefore: 'El reporte requiere ',
     infoBold: 'dos firmas en orden',
     infoAfter:
-      ': primero debe firmar un Especialista de Sustentabilidad (Tania, Catalina o Marjorie), y una vez completada esa firma, queda habilitada la firma del Gerente MA o Gerente de Sustentabilidad para dar el alta oficial.',
+      ': primero debe firmar un Especialista de Sustentabilidad, y una vez completada esa firma, queda habilitada la firma del Gerente MA o Gerente de Sustentabilidad para dar el alta oficial.',
     cardTitle: 'Firma oficial del Reporte SPR — Mayo 2026',
     cardBadge: '2 firmas requeridas',
     step1Title: 'Firma del Especialista de Sustentabilidad',
     step1Badge: 'Pendiente · Tú puedes firmar',
     step1Helper: 'Cualquiera de los siguientes Especialistas puede firmar en este paso:',
-    step1Cta: 'Haz clic para firmar como Tania Galarce',
+    step1Cta: 'Haz clic para firmar digitalmente',
     step1Footer: 'Al firmar, se habilitará la firma del Gerente MA o Gerente de Sustentabilidad',
     bridgeHelper:
       'La firma del Gerente se habilita después de la firma del Especialista y de la revisión por parte de las áreas de “Servicios técnicos” y “Optimización de activos”.',
@@ -1888,43 +1946,19 @@ export const SPR_CONSOLIDATED_REPORT = {
     step2Helper: 'Disponible una vez que el Especialista complete el paso 1:',
     step2Footer: 'Al firmar el Gerente, el reporte queda oficial y se notifica a las áreas SOX',
     pendingLabel: 'Pendiente',
-    specialists: [
-      {
-        id: 'tania',
-        initials: 'TG',
-        name: 'Tania Galarce',
-        role: 'Especialista Sustentabilidad · Sesión activa',
-        active: true,
-      },
-      {
-        id: 'catalina',
-        initials: 'CC',
-        name: 'Catalina Cortés',
-        role: 'Especialista Sustentabilidad',
-        active: false,
-      },
-      {
-        id: 'marjorie',
-        initials: 'MR',
-        name: 'Marjorie Reyes',
-        role: 'Especialista Sustentabilidad',
-        active: false,
-      },
-    ],
-    managers: [
-      {
-        id: 'gabriel',
-        initials: 'GF',
-        name: 'Gabriel Fuenzalida',
-        role: 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
-      },
-      {
-        id: 'elisa',
-        initials: 'EG',
-        name: 'Elisa González',
-        role: 'Gerente de Medio Ambiente',
-      },
-    ],
+    specialists: [] as Array<{
+      id: string;
+      initials: string;
+      name: string;
+      role: string;
+      active: boolean;
+    }>,
+    managers: [] as Array<{
+      id: string;
+      initials: string;
+      name: string;
+      role: string;
+    }>,
   },
   // Figma 1570:6712 — modal Firma del Especialista (paso 1 de 2).
   firmaEspecialistaModal: {
@@ -1937,8 +1971,8 @@ export const SPR_CONSOLIDATED_REPORT = {
     kpisValue: '22 adicionales',
     digitalTitle: 'Firma digital — Paso 1',
     digitalCta: 'Haz clic para firmar digitalmente',
-    digitalSigned: 'Firmado digitalmente · Tania Galarce',
-    digitalMeta: 'Tania Galarce · Especialista Sustentabilidad · Fecha y hora automática',
+    digitalSigned: 'Firmado digitalmente',
+    digitalMeta: 'Especialista Sustentabilidad · Fecha y hora automática',
     cancelLabel: 'Cancelar',
     confirmLabel: 'Confirmar firma',
   },
@@ -2088,7 +2122,7 @@ export const SPR_CONSOLIDATED_REPORT = {
     {
       id: 'validation',
       title: 'Validación de\nresponsables',
-      badge: '1 discrepancia',
+      badge: 'En corrección',
       status: 'discrepancy' as const satisfies SprConsolidatedTimelineStatus,
     },
   ],
@@ -2114,7 +2148,7 @@ export const SPR_CONSOLIDATED_REPORT = {
     {
       id: 'validacion' as const,
       label: 'Validación de responsables',
-      badge: '1 discrepancia',
+      badge: 'En corrección',
       badgeTone: 'rose' as const satisfies SprConsolidatedTabBadgeTone,
     },
   ],
@@ -2214,20 +2248,20 @@ export const SPR_CONSOLIDATED_REPORT = {
     {
       id: 'consolidado' as const,
       label: 'Consolidado enviado',
-      badge: '5/8',
+      badge: 'OK',
       badgeTone: 'teal' as const satisfies SprConsolidatedTabBadgeTone,
     },
     {
       id: 'sac' as const,
       label: 'Reporte SAC',
-      badge: 'Disponible',
-      badgeTone: 'teal' as const satisfies SprConsolidatedTabBadgeTone,
+      badge: 'En curso',
+      badgeTone: 'amber' as const satisfies SprConsolidatedTabBadgeTone,
     },
     {
       id: 'firma' as const,
       label: 'Firma del reporte',
       badge: 'Pendiente',
-      badgeTone: 'amber' as const satisfies SprConsolidatedTabBadgeTone,
+      badgeTone: 'muted' as const satisfies SprConsolidatedTabBadgeTone,
     },
     {
       id: 'validacion' as const,
@@ -2295,7 +2329,7 @@ export const SPR_CONSOLIDATED_REPORT = {
       badgeTone: 'muted' as const satisfies SprConsolidatedTabBadgeTone,
     },
   ],
-  // Figma 1942:61722 — especialista firmó; gerente habilitado (CTA Gabriel).
+  // Figma 1942:61722 — especialista firmó; gerente habilitado.
   firmaGerente: {
     step1Badge: 'Firmado ✓',
     step1Helper: 'Firmado por',
@@ -2303,7 +2337,7 @@ export const SPR_CONSOLIDATED_REPORT = {
     step2Badge: 'Pendiente · Habilitado',
     step2Helper: 'Disponible una vez que el Especialista complete el paso 1:',
     managerAction: 'Pendiente →',
-    step2Cta: 'Haz clic para firmar como Gabriel Fuenzalida',
+    step2Cta: 'Haz clic para firmar digitalmente',
   },
   // Figma 1942:62087 / 1942:62490 — modal Firma del Gerente (paso 2 de 2).
   firmaGerenteModal: {
@@ -2316,9 +2350,8 @@ export const SPR_CONSOLIDATED_REPORT = {
     kpisValue: '22 adicionales',
     digitalTitle: 'Firma digital',
     digitalCta: 'Haz clic para firmar digitalmente',
-    digitalSigned: 'Firmado digitalmente · Gabriel Fuenzalida',
-    digitalMeta:
-      'Gabriel Fuenzalida · Gerente de Sustentabilidad y Cumplimiento Ambiental · Fecha y hora automática',
+    digitalSigned: 'Firmado digitalmente',
+    digitalMeta: 'Gerente de Sustentabilidad y Cumplimiento Ambiental · Fecha y hora automática',
     cancelLabel: 'Cancelar',
     confirmLabel: 'Confirmar firma',
   },
@@ -2354,7 +2387,7 @@ export const SPR_CONSOLIDATED_REPORT = {
       status: 'upcoming' as const satisfies SprConsolidatedTimelineStatus,
     },
   ],
-  // Figma 1942:63546 / 1956:68048 — ambas firmas hechas; validación SOX en proceso.
+  // Figma 1942:62931 (Especialista) -> 1942:63546 (Gerente MA) / 1956:68048 — ambas firmas hechas; validación SOX en proceso.
   // Solo notifica a Servicios técnicos y Optimización de activos (áreas SOX).
   // Par responsable: /spr?estado=validacion-kpis (Figma 1672:14978).
   firmasCompletas: {
@@ -2362,6 +2395,15 @@ export const SPR_CONSOLIDATED_REPORT = {
       'Al firmar el reporte oficial, AurelIA notificó automáticamente a los Responsables de Área de “Servicios técnicos” y “Optimización de activos”, para que confirmen que los valores calculados son correctos.',
     signedBadge: 'Firmado ✓',
     signedByLabel: 'Firmado por',
+    sessionActiveSuffix: ' · Sesión activa',
+  },
+  // Camino real post ambas firmas — tab Validación (Fase 5: GET/POST SOX).
+  validationAwaitingSox: {
+    title: 'Validación de responsables — En curso',
+    body: 'Los Responsables de Área SOX deben confirmar los valores calculados del reporte o reportar una discrepancia.',
+    infoBanner:
+      'Las áreas SOX (Servicios técnicos y Optimización de activos) deben confirmar los valores del reporte o reportar una discrepancia.',
+    cardTitle: 'Validación SOX del Reporte SPR',
   },
   firmasCompletasTimelineSteps: [
     {
@@ -2519,9 +2561,12 @@ export const SPR_CONSOLIDATED_REPORT = {
     estimateBannerBodyBold:
       'Esta estimación es solo visible para ti — el SAC recibe el valor numérico sin distinción.',
     estimateBannerBodyAfter: ' Si recibes los datos reales, puedes actualizar el próximo ciclo.',
-    // Figma 2035:5637 — banner verde en tab Reporte SAC.
+    // Figma 2035:5637 — banner verde en tab Reporte SAC / Validación aprobada.
     sacTabInfoBanner:
       'Las áreas SOX han finalizado las revisiones de los datos sin discrepancias. Aún existen datos estimados dentro del consolidado, por ende el ciclo aún no puede ser cerrado. Los datos en “Monitoreo de KPIs” han sido actualizados con respecto a este ciclo. Puedes acceder a revisar los KPIs desde la página “Monitoreo de KPIs”.',
+    /** Camino real: validation_approved (SOX OK, 8/8 áreas aún no). Cierre formal → `closed`. */
+    realApprovedBanner:
+      'Las áreas SOX han finalizado las revisiones de los datos. El ciclo queda aprobado (validation_approved). El cierre formal (closed) ocurre cuando las 8 áreas tienen todos sus parámetros approved.',
     kpiTableTitle: 'Estado de validación por KPI',
     footerSummary: '2 confirmados · 1 discrepancia · 2 pendientes',
     previousSacValueLabel: 'Dato anterior',
@@ -2604,17 +2649,17 @@ export const SPR_CONSOLIDATED_REPORT = {
       {
         id: 'sustainability-signed',
         label: 'El reporte fue firmado por Sustentabilidad',
-        status: 'completed' as const,
+        status: 'pending' as const,
       },
       {
         id: 'management-signed',
         label: 'El reporte fue firmado por Gerencia',
-        status: 'completed' as const,
+        status: 'pending' as const,
       },
       {
         id: 'sox-validated',
         label: 'Los datos han sido validados por áreas SOX',
-        status: 'completed' as const,
+        status: 'pending' as const,
       },
     ],
     infoTitle: 'El ciclo seguirá abierto hasta cumplir con los 4 hitos',
@@ -2993,7 +3038,7 @@ const SPR_REPORT_DASHBOARD_CONFIGS: Record<SprReportFlowId, SprReportDashboardCo
       {
         value: '4/6',
         valueTone: 'amber',
-        label: 'Aprobados por Gerente',
+        label: 'Aprobados por Gerente de Área',
         helper: '2 pendientes de aprobación',
         helperTone: 'muted',
       },
@@ -3041,7 +3086,7 @@ const SPR_REPORT_DASHBOARD_CONFIGS: Record<SprReportFlowId, SprReportDashboardCo
       {
         value: '4/6',
         valueTone: 'amber',
-        label: 'Aprobados por Gerente',
+        label: 'Aprobados por Gerente de Área',
         helper: '2 pendientes de aprobación',
         helperTone: 'muted',
       },

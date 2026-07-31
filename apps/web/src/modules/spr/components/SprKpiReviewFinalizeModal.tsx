@@ -10,6 +10,7 @@ export interface SprKpiReviewFinalizeModalSummary {
 interface SprKpiReviewFinalizeModalProps {
   open: boolean;
   summary: SprKpiReviewFinalizeModalSummary;
+  kpiCount?: number;
   areaLabel?: string;
   specialistLabel?: string;
   isSubmitting: boolean;
@@ -30,6 +31,7 @@ function SummaryRow({ label, value, valueClassName }: { label: string; value: st
 export function SprKpiReviewFinalizeModal({
   open,
   summary,
+  kpiCount = SPR_KPI_REVIEW_FINALIZE_MODAL.kpiCount,
   areaLabel = SPR_KPI_REVIEW_FINALIZE_MODAL.areaLabelFallback,
   specialistLabel = SPR_KPI_REVIEW_FINALIZE_MODAL.specialistLabelFallback,
   isSubmitting,
@@ -55,11 +57,7 @@ export function SprKpiReviewFinalizeModal({
         </p>
 
         <p className="pt-[6px] font-['Inter:Regular',sans-serif] text-[11px] leading-[16.5px] text-[#646464]">
-          {SPR_KPI_REVIEW_FINALIZE_MODAL.description(
-            SPR_KPI_REVIEW_FINALIZE_MODAL.kpiCount,
-            areaLabel,
-            specialistLabel,
-          )}
+          {SPR_KPI_REVIEW_FINALIZE_MODAL.description(kpiCount, areaLabel, specialistLabel)}
         </p>
 
         <div className="pt-[16px]">

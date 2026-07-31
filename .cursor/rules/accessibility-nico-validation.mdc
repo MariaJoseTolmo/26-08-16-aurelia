@@ -1,0 +1,33 @@
+---
+description: Validation and debugging must be text/terminal-first for Nico (low vision)
+alwaysApply: true
+---
+
+# Accesibilidad — validación para Nico
+
+Nico tiene baja visión (~30% en un ojo) y usa lector de pantalla. Depende de **texto claro**, no de capturas, colores, iconos ni columnas en pantalla.
+
+## Al proponer validación o debugging
+
+1. **Prioriza comandos de terminal** (PowerShell/bash) con salida en texto plano. No pidas “mira Network”, “fíjate en el status verde” o “lee la columna X”.
+2. Si hace falta probar UI en el navegador, indícalo, pero **no** dependas de que describa colores, iconos o posiciones.
+3. Para confirmar HTTP/API, da un comando que imprima el resultado (ej. `Write-Host "OK 200"` / `"ERROR"`), no DevTools.
+4. Documentación e instrucciones: texto simple y listas. Evita tablas densas de muchas columnas si una lista basta.
+
+Aplica a **todo** el trabajo en este repo (incluido SPR), de ahora en adelante.
+
+## Ejemplo (login + SPR)
+
+```powershell
+# Preferir esto a "mira Network"
+$body = @{ email = "karen.opazo@goldfields.com"; password = "AureliaDemo123!" } | ConvertTo-Json
+$login = Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/auth/login" -ContentType "application/json" -Body $body
+$token = $login.accessToken
+$headers = @{ Authorization = "Bearer $token" }
+try {
+  $r = Invoke-WebRequest -Uri "http://localhost:3000/api/spr/parameters" -Headers $headers
+  Write-Host "OK $($r.StatusCode)"
+} catch {
+  Write-Host "ERROR $($_.Exception.Response.StatusCode.value__)"
+}
+```

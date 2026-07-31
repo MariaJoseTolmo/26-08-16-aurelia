@@ -1,6 +1,6 @@
 import { SprProcessStatusSection } from './components/SprProcessStatusSection';
 import { SprSubmittedSummaryHeader } from './components/SprSubmittedSummaryHeader';
-import type { SprAreaStatusViewMode } from './sprAreaStatus';
+import type { SprAreaProcessStatusVariant, SprAreaStatusViewMode } from './sprAreaStatus';
 
 interface SprAreaStatusViewProps {
   signDateLabel: string;
@@ -8,6 +8,8 @@ interface SprAreaStatusViewProps {
   mode: SprAreaStatusViewMode;
   onPendingReReviewClick?: () => void;
   hasCorrectionHistory?: boolean;
+  /** Figma 1760:22435 — Responsable SOX reportó discrepancy_reported. */
+  soxDiscrepancyReported?: boolean;
 }
 
 const STATUS_VIEW_CONFIG: Record<
@@ -18,11 +20,7 @@ const STATUS_VIEW_CONFIG: Record<
       | 'pending_approval'
       | 'manager_corrections_pending'
       | 'manager_approved';
-    processVariant:
-      | 'manager_waiting'
-      | 'manager_rejected_waiting_correction'
-      | 'manager_pending_re_review'
-      | 'manager_approved';
+    processVariant: SprAreaProcessStatusVariant;
   }
 > = {
   waiting_for_responsible: {
@@ -39,22 +37,27 @@ const STATUS_VIEW_CONFIG: Record<
     summaryVariant: 'pending_approval',
     processVariant: 'manager_pending_re_review',
   },
-  // Formulario aprobado por gerente (sin mock de discrepancia Especialista).
+  // Formulario aprobado por gerente (discrepancia SOX → processVariant vía prop).
   approved: {
     summaryVariant: 'manager_approved',
     processVariant: 'manager_approved',
   },
 };
 
-// Vista de estado del gerente de area (Figma 1672:4446 / 1672:5531 / 1672:8268).
+// Vista de estado del gerente de area (Figma 1672:4446 / 1672:5531 / 1672:8268 / 1760:22435).
 export function SprAreaStatusView({
   signDateLabel,
   managerApprovalDateLabel,
   mode,
   onPendingReReviewClick,
   hasCorrectionHistory = false,
+  soxDiscrepancyReported = false,
 }: SprAreaStatusViewProps) {
-  const { summaryVariant, processVariant } = STATUS_VIEW_CONFIG[mode];
+  const { summaryVariant, processVariant: baseProcessVariant } = STATUS_VIEW_CONFIG[mode];
+  const processVariant: SprAreaProcessStatusVariant =
+    mode === 'approved' && soxDiscrepancyReported
+      ? 'manager_approved_sox_discrepancy'
+      : baseProcessVariant;
 
   return (
     <div className="h-[calc(100vh-56px)] w-full overflow-y-auto bg-[#f7f7f7]">

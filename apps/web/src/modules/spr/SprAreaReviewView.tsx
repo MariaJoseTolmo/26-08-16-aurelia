@@ -103,11 +103,13 @@ export function SprAreaReviewView({
   /** Tras 8268 → 8997: banner con motivo real del rechazo previo. */
   showManagerCorrectionBanner?: boolean;
 } = {}) {
-  const parametersQuery = useSprParameters();
+  const areaId = useSessionStore((state) => state.user?.areaId ?? null);
+  const parametersQuery = useSprParameters(areaId);
   const unitsQuery = useSprUnits();
   const recordsQuery = useSprMonthlyRecords({
     periodYear: SPR_ACTIVE_CYCLE.periodYear,
     periodMonth: SPR_ACTIVE_CYCLE.periodMonth,
+    areaId: areaId ?? undefined,
   });
   const approveMutation = useApproveSprMonthlyRecord();
   const rejectMutation = useRejectSprMonthlyRecord();

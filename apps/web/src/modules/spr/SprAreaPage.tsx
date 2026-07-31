@@ -11,12 +11,14 @@ import { isSprFormAreaAutomatic, SPR_FORM_FLOW_COPY } from './sprFormFlow.consta
 
 function SprAreaPageHeader() {
   const areaName = useSessionStore((state) => state.user?.areaName ?? null);
+  const areaId = useSessionStore((state) => state.user?.areaId ?? null);
   const areaLabel = areaName?.trim() || 'Sin área';
   const isAutomaticArea = isSprFormAreaAutomatic(areaName);
-  const parametersQuery = useSprParameters();
+  const parametersQuery = useSprParameters(areaId);
   const recordsQuery = useSprMonthlyRecords({
     periodYear: SPR_ACTIVE_CYCLE.periodYear,
     periodMonth: SPR_ACTIVE_CYCLE.periodMonth,
+    areaId: areaId ?? undefined,
   });
 
   const displayMode = useMemo(

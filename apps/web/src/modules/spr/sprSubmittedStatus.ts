@@ -17,6 +17,8 @@ export type SprProcessStatusVariant =
   | 'approved_corrected'
   | 'kpi_validation'
   | 'kpi_validation_corrected'
+  | 'kpi_validation_approved'
+  | 'kpi_validation_approved_corrected'
   | 'kpi_validation_submitted'
   | 'kpi_validation_submitted_corrected'
   | 'correction_requested'

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useCreateSprCycleValidation } from '../../shared/hooks/useSprCycleValidations';
+import { useSprSigners } from '../../shared/hooks/useSprSigners';
 import { SprFooterInfoIcon, SprSubmitIcon } from './icons/SprIcons';
 import {
   SprKpiReviewCard,
@@ -16,11 +18,23 @@ import {
   SPR_FORM_DEMO_REVIEW_PRESET_QUERY,
   SPR_FORM_DEMO_REVIEW_PRESET_REVIEWED,
   SPR_KPI_REVIEW,
+  SPR_KPI_REVIEW_FINALIZE_MODAL,
+  type SprKpiReviewCardConfig,
 } from './spr.constants';
+import { buildSoxValidationPayload } from './sprKpiReviewCards';
+import { buildSpecialistRecipientLabel } from './sprSignerLabels';
 
 interface SprKpiReviewViewProps {
   onBack: () => void;
+  /** Solo demo Figma: navega a estado submitted sin POST. */
   onFinalize?: () => void;
+  /** Modo real — POST /spr/cycles/:id/validations. */
+  cycleId?: string;
+  areaId?: string;
+  areaName?: string;
+  cycleLabel?: string;
+  metaLabel?: string;
+  cards?: SprKpiReviewCardConfig[];
 }
 
 function SprKpiReviewBackIcon() {
@@ -75,8 +89,17 @@ function buildDemoReviewedState(): {
   };
 }
 
-// Revision de KPIs del responsable vs SAC (Figma 1760:19794 / 1760:20947 / 1760:20600 / 1831:52699).
-export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) {
+// Revision de KPIs (Figma 2653:2078 real / 1760:* demo).
+export function SprKpiReviewView({
+  onBack,
+  onFinalize,
+  cycleId,
+  areaId,
+  areaName,
+  cycleLabel,
+  metaLabel,
+  cards: cardsProp,
+}: SprKpiReviewViewProps) {
   const [searchParams] = useSearchParams();
   const demoDiscrepancyCardId = searchParams.get(SPR_FORM_DEMO_DISCREPANCY_QUERY);
   const isDemoReviewedPreset =
@@ -84,9 +107,22 @@ export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) 
   const isDemoFinalizeModal = searchParams.get(SPR_FORM_DEMO_MODAL_QUERY) === SPR_FORM_DEMO_FINALIZE_MODAL;
   const demoReviewedState = isDemoReviewedPreset ? buildDemoReviewedState() : null;
 
+  const isRealMode = Boolean(cycleId && areaId);
+  const cards = cardsProp ?? [...SPR_KPI_REVIEW.cards];
+  const resolvedCycleLabel = cycleLabel ?? SPR_ACTIVE_CYCLE.label;
+  const resolvedMetaLabel = metaLabel ?? SPR_KPI_REVIEW.metaLabel;
+  const resolvedAreaName = areaName ?? SPR_KPI_REVIEW_FINALIZE_MODAL.areaLabelFallback;
+  const signersQuery = useSprSigners();
+  const specialistLabel = useMemo(
+    () => buildSpecialistRecipientLabel(signersQuery.specialists),
+    [signersQuery.specialists],
+  );
+
+  const createValidation = useCreateSprCycleValidation(cycleId);
+
   const [responses, setResponses] = useState<Record<string, SprKpiReviewResponse>>(() => {
     if (demoReviewedState) return demoReviewedState.responses;
-    return Object.fromEntries(SPR_KPI_REVIEW.cards.map((card) => [card.id, 'pending']));
+    return Object.fromEntries(cards.map((card) => [card.id, 'pending' as const]));
   });
   const [responseMeta, setResponseMeta] = useState<Record<string, SprKpiReviewResponseMeta>>(
     () => demoReviewedState?.responseMeta ?? {},
@@ -97,19 +133,20 @@ export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(isDemoFinalizeModal && isDemoReviewedPreset);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const allReviewed = useMemo(
-    () => SPR_KPI_REVIEW.cards.every((card) => responses[card.id] !== 'pending'),
-    [responses],
+    () => cards.length > 0 && cards.every((card) => responses[card.id] !== 'pending'),
+    [cards, responses],
   );
 
   const reviewSummary = useMemo(() => {
-    const values = SPR_KPI_REVIEW.cards.map((card) => responses[card.id] ?? 'pending');
+    const values = cards.map((card) => responses[card.id] ?? 'pending');
     return {
       confirmedCount: values.filter((response) => response === 'confirmed').length,
       discrepancyCount: values.filter((response) => response === 'discrepancy').length,
     };
-  }, [responses]);
+  }, [cards, responses]);
 
   function setCardResponse(cardId: string, response: Exclude<SprKpiReviewResponse, 'pending'>) {
     const now = new Date();
@@ -131,24 +168,39 @@ export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) 
 
   function handleOpenFinalizeModal() {
     if (!allReviewed) return;
+    setSubmitError(null);
     setFinalizeModalOpen(true);
   }
 
   async function handleConfirmFinalize() {
     if (!allReviewed || isSubmitting) return;
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
+      if (isRealMode && cycleId && areaId) {
+        const payload = buildSoxValidationPayload(cards, responses, discrepancyComments);
+        await createValidation.mutateAsync({
+          areaId,
+          decision: payload.decision,
+          comments: payload.comments,
+        });
+        setFinalizeModalOpen(false);
+        onBack();
+        return;
+      }
       onFinalize?.();
+      setFinalizeModalOpen(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : SPR_KPI_REVIEW.submitErrorFallback);
     } finally {
       setIsSubmitting(false);
-      setFinalizeModalOpen(false);
     }
   }
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#f7f7f7]">
-      <div className="shrink-0 border-b border-[#e3e3e3] bg-white">
-        <div className="flex items-center justify-between gap-[12px] px-[22px] py-[10px]">
+    <div className="flex h-[calc(100vh-56px)] w-full min-w-0 flex-col bg-[#f7f7f7]">
+      <div className="w-full shrink-0 border-b border-[#e3e3e3] bg-white">
+        <div className="flex w-full items-center justify-between gap-[12px] px-[22px] py-[10px]">
           <div className="flex min-w-0 items-center gap-[10px]">
             <button
               type="button"
@@ -159,43 +211,56 @@ export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) 
               <SprKpiReviewBackIcon />
             </button>
             <p className="font-['Inter:Bold',sans-serif] text-[13.5px] font-bold text-[#001e39]">
-              {SPR_KPI_REVIEW.pageTitle(SPR_ACTIVE_CYCLE.label)}
+              {SPR_KPI_REVIEW.pageTitle(resolvedCycleLabel)}
             </p>
           </div>
           <p className="hidden shrink-0 font-['Inter:Regular',sans-serif] text-[10px] text-[#646464] sm:block">
-            {SPR_KPI_REVIEW.metaLabel}
+            {resolvedMetaLabel}
           </p>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-[14px] px-[22px] py-[18px] pb-[80px]">
-          <SprKpiReviewReportBanner />
-          {SPR_KPI_REVIEW.cards.map((card) => (
-            <SprKpiReviewCard
-              key={card.id}
-              card={card}
-              response={responses[card.id] ?? 'pending'}
-              responseMeta={responseMeta[card.id]}
-              discrepancyComment={discrepancyComments[card.id]}
-              initialReportingDiscrepancy={
-                demoDiscrepancyCardId === card.id && (responses[card.id] ?? 'pending') === 'pending'
-              }
-              isEditing={editingCardId === card.id}
-              onConfirm={() => setCardResponse(card.id, 'confirmed')}
-              onReportDiscrepancy={(comment) => setCardDiscrepancy(card.id, comment)}
-              onEdit={() => setEditingCardId(card.id)}
-              onCancelEdit={() => setEditingCardId(null)}
-            />
-          ))}
+      <div className="min-h-0 w-full min-w-0 flex-1 overflow-y-auto">
+        <div className="flex w-full flex-col gap-[14px] px-[22px] py-[18px] pb-[80px]">
+          <SprKpiReviewReportBanner cycleLabel={resolvedCycleLabel} />
+          {cards.length === 0 ? (
+            <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
+              {SPR_KPI_REVIEW.emptySoxCardsMessage}
+            </p>
+          ) : (
+            cards.map((card) => (
+              <SprKpiReviewCard
+                key={card.id}
+                card={card}
+                response={responses[card.id] ?? 'pending'}
+                responseMeta={responseMeta[card.id]}
+                discrepancyComment={discrepancyComments[card.id]}
+                initialReportingDiscrepancy={
+                  demoDiscrepancyCardId === card.id && (responses[card.id] ?? 'pending') === 'pending'
+                }
+                isEditing={editingCardId === card.id}
+                onConfirm={() => setCardResponse(card.id, 'confirmed')}
+                onReportDiscrepancy={(comment) => setCardDiscrepancy(card.id, comment)}
+                onEdit={() => setEditingCardId(card.id)}
+                onCancelEdit={() => setEditingCardId(null)}
+              />
+            ))
+          )}
+          {submitError ? (
+            <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#bd3b5b]" role="alert">
+              {submitError}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[#e3e3e3] bg-white px-[22px] py-[12px]">
-        <div className="flex flex-wrap items-center justify-between gap-[10px]">
+      <div className="w-full shrink-0 border-t border-[#e3e3e3] bg-white px-[22px] py-[12px]">
+        <div className="flex w-full flex-wrap items-center justify-between gap-[10px]">
           <div className="flex items-center gap-[6px]">
             <SprFooterInfoIcon className="h-[11px] w-[13.75px] shrink-0 text-[#646464]" />
-            <p className="font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">{SPR_KPI_REVIEW.footerHint}</p>
+            <p className="font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">
+              {SPR_KPI_REVIEW.footerHint(cards.length || SPR_KPI_REVIEW.cards.length)}
+            </p>
           </div>
           <button
             type="button"
@@ -216,8 +281,14 @@ export function SprKpiReviewView({ onBack, onFinalize }: SprKpiReviewViewProps) 
       <SprKpiReviewFinalizeModal
         open={finalizeModalOpen}
         summary={reviewSummary}
+        kpiCount={cards.length || SPR_KPI_REVIEW_FINALIZE_MODAL.kpiCount}
+        areaLabel={resolvedAreaName}
+        specialistLabel={specialistLabel}
         isSubmitting={isSubmitting}
-        onClose={() => setFinalizeModalOpen(false)}
+        onClose={() => {
+          if (isSubmitting) return;
+          setFinalizeModalOpen(false);
+        }}
         onConfirm={handleConfirmFinalize}
       />
     </div>

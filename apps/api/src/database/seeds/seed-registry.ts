@@ -7,6 +7,7 @@ import { runDevPasswordResetSeed } from './005-seed-dev-password-reset';
 import { runNotificationsPermissionsSeed } from './006-seed-notifications-permissions';
 import { runBootstrapSeed } from './008-seed-bootstrap';
 import { runInspectionsMasterDataSeed } from './009-seed-inspections-master-data';
+import { runSprHomologyUsersSeed } from './011-seed-spr-homology-users';
 import { runDemoInspectionProfilesSeed } from './011-seed-demo-inspection-profiles';
 
 const seedRegistry = {
@@ -18,6 +19,7 @@ const seedRegistry = {
   'dev-password-reset': runDevPasswordResetSeed,
   'notifications-permissions': runNotificationsPermissionsSeed,
   'inspections-master': runInspectionsMasterDataSeed,
+  'spr-homology': runSprHomologyUsersSeed,
   'demo-inspection-profiles': runDemoInspectionProfilesSeed,
 } as const;
 

@@ -36,6 +36,7 @@
     "seed:demo-inspection-profiles": "ts-node src/database/seeds/011-seed-demo-inspection-profiles.ts",
     "seed:all": "pnpm run seed && ts-node src/database/seeds/005-seed-dev-password-reset.ts && ts-node src/database/seeds/006-seed-notifications-permissions.ts",
     "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts",
+    "seed:spr-homology": "ts-node src/database/seeds/011-seed-spr-homology-users.ts",
     "export:master-data-matrix": "ts-node src/cli/export-master-data-matrix.ts"
   },
   "dependencies": {

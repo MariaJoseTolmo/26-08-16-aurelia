@@ -2,7 +2,9 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   SprProcessStatusApprovedIcon,
   SprProcessStatusBellIcon,
+  SprProcessStatusClipboardCheckIcon,
   SprProcessStatusDocumentIcon,
+  SprProcessStatusDoubleCheckIcon,
   SprProcessStatusRejectedIcon,
 } from '../icons/SprIcons';
 import {
@@ -13,8 +15,10 @@ import {
   SPR_MANAGER_PENDING_REVIEW_STATUS,
   SPR_MANAGER_PENDING_RE_REVIEW_STATUS,
   SPR_MANAGER_REJECTED_WAITING_STATUS,
+  SPR_MANAGER_SOX_DISCREPANCY_STATUS,
   SPR_MANAGER_WAITING_STATUS,
   SPR_REJECTED_STATUS,
+  SPR_RESPONSIBLE_KPI_REVIEW_APPROVED_STATUS,
   SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS,
   SPR_RESPONSIBLE_KPI_VALIDATION_STATUS,
   SPR_RESPONSIBLE_CORRECTION_REQUESTED_STATUS,
@@ -35,7 +39,14 @@ interface SprProcessStatusSectionProps {
   hasCorrectionHistory?: boolean;
 }
 
-type ProcessStepIcon = 'document' | 'rejected' | 'corrected' | 'approved' | 'pending-report';
+type ProcessStepIcon =
+  | 'document'
+  | 'rejected'
+  | 'corrected'
+  | 'approved'
+  | 'double-check'
+  | 'clipboard-check'
+  | 'pending-report';
 
 interface ProcessStepRowProps {
   icon: ProcessStepIcon;
@@ -52,6 +63,8 @@ const PROCESS_STEP_ICONS: Record<ProcessStepIcon, ComponentType<SVGProps<SVGSVGE
   document: SprProcessStatusDocumentIcon,
   'pending-report': SprProcessStatusDocumentIcon,
   approved: SprProcessStatusApprovedIcon,
+  'double-check': SprProcessStatusDoubleCheckIcon,
+  'clipboard-check': SprProcessStatusClipboardCheckIcon,
   rejected: SprProcessStatusRejectedIcon,
   corrected: SprProcessStatusRejectedIcon,
 };
@@ -144,9 +157,9 @@ function KpiValidationPendingRow({
 }) {
   const row = (
     <ProcessStepRow
-      icon="pending-report"
+      icon="clipboard-check"
       iconBgClassName="bg-[#e6f3ff]"
-      iconClassName="text-[#24588b]"
+      iconClassName="text-[#0d3862]"
       title={SPR_RESPONSIBLE_KPI_VALIDATION_STATUS.kpiValidationStepTitle(SPR_ACTIVE_CYCLE.label)}
       helper={SPR_RESPONSIBLE_KPI_VALIDATION_STATUS.kpiValidationStepHelper}
       badgeLabel={SPR_RESPONSIBLE_KPI_VALIDATION_STATUS.kpiValidationBadgeLabel}
@@ -179,6 +192,22 @@ function KpiValidationCompletedRow({ withBottomBorder = false }: { withBottomBor
   );
 }
 
+/** Figma 1760:23007 — fila tope post-POST approved. */
+function ResponsibleReviewedValidatedRow({ withBottomBorder = false }: { withBottomBorder?: boolean }) {
+  return (
+    <ProcessStepRow
+      icon="approved"
+      iconBgClassName="bg-[#e0ffd3]"
+      iconClassName="text-[#2a5c16]"
+      title={SPR_RESPONSIBLE_KPI_REVIEW_APPROVED_STATUS.reviewedValidatedStepTitle(SPR_ACTIVE_CYCLE.label)}
+      helper={SPR_RESPONSIBLE_KPI_REVIEW_APPROVED_STATUS.reviewedValidatedStepHelper}
+      badgeLabel={SPR_RESPONSIBLE_KPI_REVIEW_APPROVED_STATUS.reviewedValidatedBadgeLabel}
+      badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
+      withBottomBorder={withBottomBorder}
+    />
+  );
+}
+
 function ResponsibleDiscrepancyPendingRow({ withBottomBorder = false }: { withBottomBorder?: boolean }) {
   return (
     <ProcessStepRow
@@ -188,6 +217,22 @@ function ResponsibleDiscrepancyPendingRow({ withBottomBorder = false }: { withBo
       title={SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS.discrepancyStepTitle(SPR_ACTIVE_CYCLE.label)}
       helper={SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS.discrepancyStepHelper}
       badgeLabel={SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS.discrepancyBadgeLabel}
+      badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
+      withBottomBorder={withBottomBorder}
+    />
+  );
+}
+
+/** Figma 1760:22435 — fila tope gerente cuando Responsable SOX reportó discrepancia. */
+function ManagerSoxDiscrepancyPendingRow({ withBottomBorder = false }: { withBottomBorder?: boolean }) {
+  return (
+    <ProcessStepRow
+      icon="rejected"
+      iconBgClassName="bg-[#ffd0db]"
+      iconClassName="text-[#570b1d]"
+      title={SPR_MANAGER_SOX_DISCREPANCY_STATUS.discrepancyStepTitle(SPR_ACTIVE_CYCLE.label)}
+      helper={SPR_MANAGER_SOX_DISCREPANCY_STATUS.discrepancyStepHelper}
+      badgeLabel={SPR_MANAGER_SOX_DISCREPANCY_STATUS.discrepancyBadgeLabel}
       badgeClassName="bg-[#ffeab8] text-[10px] text-[#8e6e3e]"
       withBottomBorder={withBottomBorder}
     />
@@ -256,9 +301,9 @@ function CorrectionResubmittedKpiUrgentRow({
 }) {
   const row = (
     <ProcessStepRow
-      icon="pending-report"
+      icon="clipboard-check"
       iconBgClassName="bg-[#e6f3ff]"
-      iconClassName="text-[#24588b]"
+      iconClassName="text-[#0d3862]"
       title={SPR_RESPONSIBLE_CORRECTION_RESUBMITTED_STATUS.kpiValidationUrgentStepTitle}
       helper={SPR_RESPONSIBLE_CORRECTION_RESUBMITTED_STATUS.kpiValidationUrgentStepHelper}
       badgeLabel={SPR_RESPONSIBLE_CORRECTION_RESUBMITTED_STATUS.kpiValidationUrgentBadgeLabel}
@@ -338,7 +383,7 @@ function ManagerApprovedRow({
 }) {
   return (
     <ProcessStepRow
-      icon="approved"
+      icon="double-check"
       iconBgClassName="bg-[#e0ffd3]"
       iconClassName="text-[#2a5c16]"
       title={SPR_APPROVED_STATUS.approvedStepTitle(SPR_ACTIVE_CYCLE.label)}
@@ -509,6 +554,21 @@ export function SprProcessStatusSection({
           <ManagerApprovedRow managerApprovalDateLabel={managerApprovalDateLabel} withBottomBorder />
           <CompletedEmittedRow />
         </>
+      ) : variant === 'kpi_validation_approved_corrected' ? (
+        <>
+          <ResponsibleReviewedValidatedRow withBottomBorder />
+          <KpiValidationCompletedRow withBottomBorder />
+          <ManagerApprovedRow managerApprovalDateLabel={managerApprovalDateLabel} withBottomBorder />
+          <CompletedCorrectedRow withBottomBorder />
+          <CompletedEmittedRow />
+        </>
+      ) : variant === 'kpi_validation_approved' ? (
+        <>
+          <ResponsibleReviewedValidatedRow withBottomBorder />
+          <KpiValidationCompletedRow withBottomBorder />
+          <ManagerApprovedRow managerApprovalDateLabel={managerApprovalDateLabel} withBottomBorder />
+          <CompletedEmittedRow />
+        </>
       ) : variant === 'kpi_validation' ? (
         <>
           <KpiValidationPendingRow withBottomBorder onClick={onKpiValidationClick} />
@@ -518,7 +578,42 @@ export function SprProcessStatusSection({
       ) : variant === 'manager_approved' ? (
         <>
           <ProcessStepRow
-            icon="approved"
+            icon="double-check"
+            iconBgClassName="bg-[#e0ffd3]"
+            iconClassName="text-[#2a5c16]"
+            title={SPR_MANAGER_APPROVED_STATUS.approvedStepTitle(SPR_ACTIVE_CYCLE.label)}
+            helper={SPR_MANAGER_APPROVED_STATUS.approvedStepHelper(managerApprovalDateLabel)}
+            badgeLabel="Completado"
+            badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
+            withBottomBorder
+          />
+          {hasCorrectionHistory ? (
+            <ProcessStepRow
+              icon="rejected"
+              iconBgClassName="bg-[#e0ffd3]"
+              iconClassName="text-[#2a5c16]"
+              title={SPR_MANAGER_APPROVED_STATUS.rejectedStepTitle(SPR_ACTIVE_CYCLE.label)}
+              helper={SPR_MANAGER_APPROVED_STATUS.rejectedStepHelper}
+              badgeLabel="Completado"
+              badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
+              withBottomBorder
+            />
+          ) : null}
+          <ProcessStepRow
+            icon="document"
+            iconBgClassName="bg-[#e0ffd3]"
+            iconClassName="text-[#2a5c16]"
+            title={SPR_MANAGER_APPROVED_STATUS.deliveredStepTitle(SPR_ACTIVE_CYCLE.label)}
+            helper={SPR_MANAGER_APPROVED_STATUS.deliveredStepHelper}
+            badgeLabel="Completado"
+            badgeClassName="bg-[#e0ffd3] text-[#2a5c16]"
+          />
+        </>
+      ) : variant === 'manager_approved_sox_discrepancy' ? (
+        <>
+          <ManagerSoxDiscrepancyPendingRow withBottomBorder />
+          <ProcessStepRow
+            icon="double-check"
             iconBgClassName="bg-[#e0ffd3]"
             iconClassName="text-[#2a5c16]"
             title={SPR_MANAGER_APPROVED_STATUS.approvedStepTitle(SPR_ACTIVE_CYCLE.label)}
