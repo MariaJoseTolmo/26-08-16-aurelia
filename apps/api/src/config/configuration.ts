@@ -11,6 +11,7 @@ export default () => {
     security: env.security,
     auth: env.auth,
     ai: env.ai,
+    swagger: env.swagger,
     smtp: readSmtpEnv(),
   };
 };
