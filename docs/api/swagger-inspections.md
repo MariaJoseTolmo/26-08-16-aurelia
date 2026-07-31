@@ -12,7 +12,7 @@ Además de rutas, filtros y cuerpos de entrada, la documentación contiene model
 
 Estas clases son exclusivamente documentales: implementan los contratos de `@aurelia/contracts`, pero no modifican los payloads ni la lógica del backend.
 
-## Acceso local
+## Acceso
 
 Con la API levantada en el puerto `3000`:
 
@@ -20,21 +20,27 @@ Con la API levantada en el puerto `3000`:
 - OpenAPI JSON: `http://localhost:3000/api/docs-json`
 - OpenAPI YAML: `http://localhost:3000/api/docs-yaml`
 
+En ambientes desplegados se utiliza el mismo path relativo al dominio del API, por ejemplo `https://api-aurelia-qa.kabeli.cl/api/docs`.
+
 La ruta puede cambiarse mediante `SWAGGER_PATH`. El valor se interpreta relativo al prefijo global `/api`.
 
 ## Configuración
 
+Swagger está habilitado por defecto en todos los ambientes, incluido producción. No es necesario configurar variables adicionales para publicar `/api/docs`.
+
+Las variables son opcionales:
+
 ```env
-SWAGGER_ENABLED=true
 SWAGGER_PATH=docs
+SWAGGER_ENABLED=true
 ```
 
 Reglas:
 
-- En ambientes distintos de producción, Swagger se habilita por defecto.
-- En producción, Swagger se deshabilita por defecto.
-- Para habilitarlo en producción debe configurarse explícitamente `SWAGGER_ENABLED=true`.
-- Para deshabilitarlo en cualquier ambiente usar `SWAGGER_ENABLED=false`.
+- Si `SWAGGER_ENABLED` no está definido, Swagger permanece habilitado.
+- `NODE_ENV=production` no deshabilita la documentación.
+- Para deshabilitar Swagger explícitamente en un ambiente usar `SWAGGER_ENABLED=false`.
+- Si `SWAGGER_PATH` no está definido se utiliza `docs`.
 
 ## Autenticación desde Swagger
 
@@ -271,18 +277,17 @@ pnpm --filter api lint
 
 Validación manual:
 
-1. Crear `apps/api/.env` con `SWAGGER_ENABLED=true`.
-2. Ejecutar `pnpm --filter api dev`.
-3. Abrir `http://localhost:3000/api/docs`.
-4. Confirmar que aparezcan los tags Autenticación e Inspecciones.
-5. Ejecutar `POST /api/auth/login` con un usuario de desarrollo.
-6. Autorizar Swagger con el JWT retornado.
-7. Abrir `GET /api/inspections/{id}/detail` y comprobar schemas anidados, SLA y datos legacy.
-8. Revisar los schemas de catálogos, evidencias, comentarios y seguimientos.
-9. Revisar KPIs, gráficos, análisis por empresa y observaciones abiertas.
-10. Confirmar que las evaluaciones de IA y solicitudes de reenvío tengan respuestas tipadas.
-11. Confirmar que PDF y XLSX aparezcan como descargas binarias.
-12. Confirmar que las rutas de otros módulos todavía no aparezcan.
+1. Ejecutar `pnpm --filter api dev`.
+2. Abrir `http://localhost:3000/api/docs`.
+3. Confirmar que aparezcan los tags Autenticación e Inspecciones.
+4. Ejecutar `POST /api/auth/login` con un usuario de desarrollo.
+5. Autorizar Swagger con el JWT retornado.
+6. Abrir `GET /api/inspections/{id}/detail` y comprobar schemas anidados, SLA y datos legacy.
+7. Revisar los schemas de catálogos, evidencias, comentarios y seguimientos.
+8. Revisar KPIs, gráficos, análisis por empresa y observaciones abiertas.
+9. Confirmar que las evaluaciones de IA y solicitudes de reenvío tengan respuestas tipadas.
+10. Confirmar que PDF y XLSX aparezcan como descargas binarias.
+11. Confirmar que las rutas de otros módulos todavía no aparezcan.
 
 ## Limitaciones actuales
 

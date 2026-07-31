@@ -78,6 +78,8 @@ type DetailRowsProps = {
   inspectionId: string;
   counts: Record<InspectionDetailFindingGroupKey, number>;
   findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>;
+  preferredStatus?: StatusKey | null;
+  preferredFindingId?: string | null;
   actions: ReturnType<typeof useInspectionFindingActions>;
   onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void;
   onRequestReject: (item: InspectionDetailFindingItemResponse) => void;
@@ -198,6 +200,24 @@ function allFindings(detail: InspectionDetailResponse) {
   return statusConfigs.flatMap((config) => detail.findings[config.key]);
 }
 
+function normalizePreferredStatus(value: string | null | undefined): StatusKey | null {
+  if (value === 'executed' || value === 'open' || value === 'closed' || value === 'rejected') return value;
+  return null;
+}
+
+function resolvePreferredStatus(
+  findings: Record<InspectionDetailFindingGroupKey, InspectionDetailFindingItemResponse[]>,
+  preferredFindingId: string | null | undefined,
+  preferredGroup: string | null | undefined,
+): StatusKey | null {
+  if (preferredFindingId) {
+    for (const config of statusConfigs) {
+      if ((findings[config.key] ?? []).some((item) => item.findingId === preferredFindingId)) return config.key;
+    }
+  }
+  return normalizePreferredStatus(preferredGroup);
+}
+
 function primaryResponsibleCompany(detail: InspectionDetailResponse) {
   return allFindings(detail).find((item) => item.responsibleCompanyName)?.responsibleCompanyName ?? detail.general.companyName ?? '—';
 }
@@ -285,12 +305,12 @@ function FindingObservationsPanel({ inspectionId, items, actions, onRequestExecu
   return <div className="flex shrink-0 flex-col gap-[24px] bg-white px-[14px] pb-[24px] pt-[14px]">{items.map((item, index) => <FindingObservationCard key={item.findingId} inspectionId={inspectionId} item={item} actions={actions} index={index} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} />)}</div>;
 }
 
-function DetailRows({ inspectionId, counts, findings, actions, onRequestExecutionMode, onRequestReject, onSlaSuccess }: DetailRowsProps) {
+function DetailRows({ inspectionId, counts, findings, preferredStatus, preferredFindingId, actions, onRequestExecutionMode, onRequestReject, onSlaSuccess }: DetailRowsProps) {
   const [expandedStatus, setExpandedStatus] = useState<StatusKey | null>(null);
   useEffect(() => {
-    setExpandedStatus(null);
-  }, [inspectionId]);
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const items = findings[config.key] ?? []; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
+    setExpandedStatus(preferredStatus ?? null);
+  }, [inspectionId, preferredStatus]);
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white">{statusConfigs.map((config) => { const expanded = expandedStatus === config.key; const statusItems = findings[config.key] ?? []; const items = preferredFindingId && config.key === preferredStatus ? statusItems.filter((item) => item.findingId === preferredFindingId) : statusItems; const panel = expanded ? items.length > 0 ? <FindingObservationsPanel inspectionId={inspectionId} items={items} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} /> : <EmptyStatusPanel status={config.key} /> : null; return <div key={config.key}><StatusRow config={config} count={counts[config.key]} expanded={expanded} onToggle={() => setExpandedStatus((current) => current === config.key ? null : config.key)} />{panel}</div>; })}</div>;
 }
 
 function FollowupTimelineMarker({ completed }: { completed: boolean }) {
@@ -485,11 +505,11 @@ function EmptyDetailPanel() {
   return <div className="min-h-0 flex-1 bg-white" />;
 }
 
-function DetailContent({ activeTab, detail, actions, onOpenReassign, onRequestExecutionMode, onRequestReject, onSlaSuccess }: { activeTab: DetailTab; detail: InspectionDetailResponse; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void; onSlaSuccess: () => void }) {
+function DetailContent({ activeTab, detail, preferredStatus, preferredFindingId, actions, onOpenReassign, onRequestExecutionMode, onRequestReject, onSlaSuccess }: { activeTab: DetailTab; detail: InspectionDetailResponse; preferredStatus: StatusKey | null; preferredFindingId: string | null; actions: ReturnType<typeof useInspectionFindingActions>; onOpenReassign: () => void; onRequestExecutionMode: (item: InspectionDetailFindingItemResponse, index: number) => void; onRequestReject: (item: InspectionDetailFindingItemResponse) => void; onSlaSuccess: () => void }) {
   if (activeTab === 'followups') return <FollowupsPanel detail={detail} />;
   if (activeTab === 'general') return <GeneralPanel detail={detail} onOpenReassign={onOpenReassign} canReassign={actions.canReassign} />;
   if (activeTab === 'result' && detail.header.kind === 'checklist') return <InspectionChecklistResultPanel result={detail.checklistResult} />;
-  if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} />;
+  if (activeTab === 'observations') return <DetailRows inspectionId={detail.header.inspectionId} counts={detail.header.counts} findings={detail.findings} preferredStatus={preferredStatus} preferredFindingId={preferredFindingId} actions={actions} onRequestExecutionMode={onRequestExecutionMode} onRequestReject={onRequestReject} onSlaSuccess={onSlaSuccess} />;
   return <EmptyDetailPanel />;
 }
 
@@ -497,7 +517,7 @@ function DownloadPdfButton({ inspectionId }: { inspectionId: string }) {
   return <div className="shrink-0 border-t border-[#e3e3e3] bg-white px-[20px] pb-[14px] pt-[15px]"><button type="button" className="flex h-[40px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-[#d1d1d1] bg-white px-[15.5px] py-[1.5px] font-['Inter:Semi_Bold',sans-serif] text-[13px] font-semibold leading-none text-[#333]" onClick={() => window.open(`${apiOrigin}/api/inspections/${inspectionId}/export/pdf`, '_blank')}><InspectionDetailPdfIcon />Descargar PDF</button></div>;
 }
 
-export function InspectionDetailRealDataModal({ open, record, detail, onClose }: { open: boolean; record: InspectionDetailModalRecord; detail: InspectionDetailResponse; onClose: () => void }) {
+export function InspectionDetailRealDataModal({ open, record, detail, preferredFindingId = null, preferredGroup = null, onClose }: { open: boolean; record: InspectionDetailModalRecord; detail: InspectionDetailResponse; preferredFindingId?: string | null; preferredGroup?: string | null; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<DetailTab>('observations');
   const [reassignOpen, setReassignOpen] = useState(false);
   const [executionTarget, setExecutionTarget] = useState<ExecutionTarget | null>(null);
@@ -518,6 +538,10 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     staleTime: 60000,
   });
   const reassignCandidates = useMemo(() => responsibleUsersQuery.data?.map((user) => mapResponsibleCandidate(user, detail.general.responsibles)) ?? detail.general.responsibles, [detail.general.responsibles, responsibleUsersQuery.data]);
+  const preferredStatus = useMemo(
+    () => resolvePreferredStatus(detail.findings, preferredFindingId, preferredGroup),
+    [detail.findings, preferredFindingId, preferredGroup],
+  );
 
   useEffect(() => {
     setSelectedReassignIds(currentResponsibleIds);
@@ -577,5 +601,6 @@ export function InspectionDetailRealDataModal({ open, record, detail, onClose }:
     setRejectedToastVisible(true);
   };
 
-  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} onSlaSuccess={() => setSlaToastVisible(true)} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen && actions.canReassign} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget) && actions.canReview} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} /><SlaModifiedToast visible={slaToastVisible} onClose={() => setSlaToastVisible(false)} />{executionTarget && actions.canExecute ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} inspectionLabel={`${record.id} · ${record.title} · ${executionLocationLabel(detail)}`} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
+  return <div className="fixed inset-0 z-[1000] bg-[rgba(0,0,0,0.68)]"><div className="flex h-full w-full items-center justify-end px-[20px] py-[16px]"><section className="relative flex h-[calc(100vh-32px)] max-h-[692px] w-[360px] max-w-[calc(100vw-40px)] flex-col justify-between overflow-hidden rounded-[16px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]" role="dialog" aria-modal="true" aria-labelledby="inspection-detail-title"><div className="flex min-h-0 flex-1 flex-col"><div className="shrink-0 rounded-t-[16px] bg-white px-[14px] py-[12px]"><div className="flex items-center gap-[12px]"><div className="min-w-0 flex-1 font-['Inter:Bold',sans-serif] font-bold"><p className="whitespace-nowrap text-[13px] leading-none text-[#001e39]">{record.id}</p><h2 id="inspection-detail-title" className="mt-[5px] text-[16px] font-bold leading-[22px] tracking-[0.32px] text-[#2a2a2a]">{record.title}</h2><div className="mt-[4px]">{metadataFor(record)}</div></div><button type="button" className="flex size-[32px] shrink-0 items-center justify-center" onClick={onClose} aria-label="Cerrar detalle"><InspectionDetailCloseIcon /></button></div></div><ProgressSummary counts={detail.header.counts} progressPercent={detail.header.progressPercent} /><Tabs kind={record.kind} activeTab={activeTab} onChange={setActiveTab} /><DetailContent activeTab={activeTab} detail={detail} preferredStatus={preferredStatus} preferredFindingId={preferredFindingId} actions={actions} onOpenReassign={openReassignPrompt} onRequestExecutionMode={openExecutionMode} onRequestReject={openRejectPrompt} onSlaSuccess={() => setSlaToastVisible(true)} /></div><DownloadPdfButton inspectionId={detail.header.inspectionId} /><ReassignPrompt open={reassignOpen && actions.canReassign} candidates={reassignCandidates} selectedIds={selectedReassignIds} onToggle={toggleReassignOption} onCancel={closeReassignPrompt} onConfirm={confirmReassignPrompt} companyName={companyName} /><FindingRejectDialog open={Boolean(rejectTarget) && actions.canReview} isSubmitting={actions.isPending} onClose={closeRejectPrompt} onConfirm={confirmRejectPrompt} /><ObservationRejectedToast visible={rejectedToastVisible} onClose={() => setRejectedToastVisible(false)} /><SlaModifiedToast visible={slaToastVisible} onClose={() => setSlaToastVisible(false)} />{executionTarget && actions.canExecute ? <FindingExecutionModeView subtitle={executionLocationLabel(detail)} inspectionLabel={`${record.id} · ${record.title} · ${executionLocationLabel(detail)}`} item={executionTarget.item} index={executionTarget.index} isSubmitting={actions.isPending} onBack={closeExecutionMode} onCancel={closeExecutionMode} onStartAssistant={executeSelectedFinding} onStartManual={executeSelectedFindingWithEvidence} /> : null}</section></div></div>;
 }
+

@@ -1,7 +1,9 @@
-import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { CreateInspectionFollowupRequest, InspectionFollowupStatus } from '@aurelia/contracts';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class CreateInspectionFollowupDto implements CreateInspectionFollowupRequest {
+  @ApiPropertyOptional({ enum: InspectionFollowupStatus, enumName: 'InspectionFollowupStatus' })
   @IsOptional()
   @IsEnum(InspectionFollowupStatus)
   status?: InspectionFollowupStatus;
