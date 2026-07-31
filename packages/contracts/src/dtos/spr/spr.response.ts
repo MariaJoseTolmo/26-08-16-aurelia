@@ -36,3 +36,22 @@ export interface SprDashboardSummaryResponse {
     missingEvidence: number;
   };
 }
+
+/** Persona activa elegible para firmar el reporte SPR (roster por rol). */
+export interface SprSignerPersonResponse {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  position: string | null;
+}
+
+/**
+ * Roster de firmantes del reporte oficial.
+ * specialists → SPR_SUSTAINABILITY_SPECIALIST
+ * managers → SPR_ENVIRONMENT_MANAGER
+ */
+export interface SprSignersResponse {
+  specialists: SprSignerPersonResponse[];
+  managers: SprSignerPersonResponse[];
+}

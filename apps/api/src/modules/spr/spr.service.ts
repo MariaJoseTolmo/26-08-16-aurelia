@@ -24,6 +24,8 @@ import {
   SprParameterResponse,
   SprRecordApprovalResponse,
   SprRecordStatus,
+  SprSignerPersonResponse,
+  SprSignersResponse,
   SprUnitResponse,
 } from '@aurelia/contracts';
 import { AuditService } from '../audit/audit.service';
@@ -351,20 +353,17 @@ export class SprService {
       );
     }
 
+    // CLOSED already rejected above; TS narrows status without CLOSED here.
     if (dto.level === SprCycleSignatureLevel.SPECIALIST) {
       if (
         cycle.status !== SprCycleStatus.VALIDATING &&
-        cycle.status !== SprCycleStatus.VALIDATION_APPROVED &&
-        cycle.status !== SprCycleStatus.CLOSED
+        cycle.status !== SprCycleStatus.VALIDATION_APPROVED
       ) {
         cycle.status = SprCycleStatus.SIGNING;
         await this.cyclesRepository.save(cycle);
       }
     } else if (dto.level === SprCycleSignatureLevel.ENVIRONMENT_MANAGER) {
-      if (
-        cycle.status !== SprCycleStatus.CLOSED &&
-        cycle.status !== SprCycleStatus.VALIDATION_APPROVED
-      ) {
+      if (cycle.status !== SprCycleStatus.VALIDATION_APPROVED) {
         cycle.status = SprCycleStatus.VALIDATING;
         await this.cyclesRepository.save(cycle);
       }
@@ -616,6 +615,19 @@ export class SprService {
   async findUnits(): Promise<SprUnitResponse[]> {
     const units = await this.unitsRepository.find({ order: { code: 'ASC' } });
     return units.map((unit) => this.toUnitResponse(unit));
+  }
+
+  /**
+   * Roster de firmantes del reporte oficial (usuarios activos por rol).
+   * specialists → SPR_SUSTAINABILITY_SPECIALIST
+   * managers → SPR_ENVIRONMENT_MANAGER
+   */
+  async findSigners(): Promise<SprSignersResponse> {
+    const [specialists, managers] = await Promise.all([
+      this.findActiveUsersByRole(Role.SPR_SUSTAINABILITY_SPECIALIST),
+      this.findActiveUsersByRole(Role.SPR_ENVIRONMENT_MANAGER),
+    ]);
+    return { specialists, managers };
   }
 
   async findParameters(scope: SprCatalogScopeInput): Promise<SprParameterResponse[]> {
@@ -1085,6 +1097,31 @@ export class SprService {
       reopenedAt: validation.reopenedAt?.toISOString() ?? null,
       createdAt: validation.createdAt.toISOString(),
       updatedAt: validation.updatedAt.toISOString(),
+    };
+  }
+
+  private async findActiveUsersByRole(roleCode: Role): Promise<SprSignerPersonResponse[]> {
+    const users = await this.usersRepository
+      .createQueryBuilder('user')
+      .innerJoin('user.userRoles', 'userRole')
+      .innerJoin('userRole.role', 'role')
+      .where('user.isActive = true')
+      .andWhere('role.isActive = true')
+      .andWhere('role.code = :roleCode', { roleCode })
+      .orderBy('user.firstName', 'ASC')
+      .addOrderBy('user.lastName', 'ASC')
+      .getMany();
+
+    return users.map((user) => this.toSignerPersonResponse(user));
+  }
+
+  private toSignerPersonResponse(user: UserEntity): SprSignerPersonResponse {
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: `${user.firstName} ${user.lastName}`.trim(),
+      position: user.position,
     };
   }
 

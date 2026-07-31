@@ -10,6 +10,7 @@ import {
   SprCycleValidationResponse,
   SprMonthlyRecordResponse,
   SprRecordApprovalResponse,
+  SprSignersResponse,
 } from '@aurelia/contracts';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { RequirePermissions } from '../auth/require-permissions.decorator';
@@ -81,6 +82,12 @@ export class SprController {
   @Get('units')
   findUnits() {
     return this.sprService.findUnits();
+  }
+
+  /** Roster de firmantes: especialistas y gerentes MA activos. */
+  @Get('signers')
+  findSigners(): Promise<SprSignersResponse> {
+    return this.sprService.findSigners();
   }
 
   @Get('cycles')
