@@ -1,0 +1,57 @@
+name: Temporary Swagger inspections validation
+
+on:
+  push:
+    branches:
+      - feature/inspecciones/carlo
+    paths:
+      - .github/workflows/tmp-validate-swagger-inspections.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/inspecciones/carlo
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build contracts
+        run: pnpm --filter @aurelia/contracts build
+
+      - name: Run Swagger smoke test
+        run: pnpm --filter api test:swagger
+
+      - name: Build API
+        run: pnpm --filter api build
+
+      - name: Lint API
+        run: pnpm --filter api lint
+
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/tmp-validate-swagger-inspections.yml
+          git add .github/workflows/tmp-validate-swagger-inspections.yml
+          git commit -m "chore: remove temporary Swagger validation workflow"
+          git push origin HEAD:feature/inspecciones/carlo
