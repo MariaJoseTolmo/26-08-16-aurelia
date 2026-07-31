@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import '../modules/inspections/inspection-openapi.metadata';
 import { InspectionsModule } from '../modules/inspections/inspections.module';
 
 export function setupSwaggerDocumentation(app: INestApplication, config: ConfigService): void {
