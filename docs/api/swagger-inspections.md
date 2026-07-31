@@ -2,13 +2,15 @@
 
 ## Objetivo
 
-Esta es la segunda iteración de documentación ejecutable de la API de AurelIA.
+Esta es la tercera iteración de documentación ejecutable de la API de AurelIA.
 El documento OpenAPI generado incluye:
 
 - `AuthModule`;
 - `InspectionsModule`.
 
-Además de rutas, filtros y cuerpos de entrada, esta iteración incorpora modelos explícitos para las respuestas principales de Inspecciones y para el flujo de autenticación.
+Además de rutas, filtros y cuerpos de entrada, la documentación contiene modelos explícitos para las respuestas principales y secundarias del módulo de Inspecciones.
+
+Estas clases son exclusivamente documentales: implementan los contratos de `@aurelia/contracts`, pero no modifican los payloads ni la lógica del backend.
 
 ## Acceso local
 
@@ -66,27 +68,31 @@ La documentación también incluye:
 Swagger conserva temporalmente la autorización en el navegador mediante `persistAuthorization`.
 No deben guardarse tokens reales dentro del repositorio, ejemplos versionados ni capturas públicas.
 
-## Cobertura de Inspecciones
+## Cobertura funcional de Inspecciones
 
 El documento incluye:
 
 - creación, consulta, actualización y cierre de inspecciones;
-- observaciones, seguimientos y reasignación de SLA;
-- respuestas de checklist;
-- procesos de evidencia e IA;
-- dashboard y tabla de gestión;
-- historial;
+- tipos de inspección y plantillas de checklist;
+- usuarios responsables disponibles;
+- observaciones, respuestas de checklist y seguimientos;
+- reasignación de SLA y sus hitos;
+- reenvío de evidencias;
+- evaluaciones y decisiones asistidas por IA;
+- KPIs, tablas, gráficos y análisis por empresa;
+- historial de inspecciones cerradas;
+- evidencias, relaciones y comentarios;
+- payload consolidado para informes;
 - exportaciones PDF y XLSX;
-- evidencias y comentarios;
-- catálogos de hallazgos y criticidad;
+- catálogos de hallazgos, severidades, probabilidades y consecuencias;
 - parámetros UUID, filtros principales y formatos binarios;
 - validaciones de cuerpos DTO mediante el plugin de Swagger y `class-validator`.
 
-## Modelos tipados incorporados
+## Modelos principales
 
-Las interfaces de `@aurelia/contracts` no existen en runtime. Por esta razón se agregaron clases exclusivamente documentales que reflejan los contratos vigentes sin cambiar las respuestas del backend.
+Las interfaces de `@aurelia/contracts` no existen en runtime. Por esta razón se agregaron clases OpenAPI que reflejan los contratos vigentes y permiten generar schemas anidados.
 
-Los schemas principales son:
+Los modelos principales son:
 
 - `InspectionOpenApiModel`;
 - `InspectionFindingOpenApiModel`;
@@ -126,6 +132,80 @@ Los schemas principales son:
 - opciones disponibles para los filtros.
 
 El mismo contrato se utiliza para la tabla de gestión y la tabla histórica.
+
+## Modelos secundarios incorporados
+
+### Catálogos y asignación
+
+- `InspectionTypeCatalogOpenApiModel`;
+- `InspectionChecklistTemplateCatalogOpenApiModel`;
+- `InspectionChecklistSectionCatalogOpenApiModel`;
+- `InspectionChecklistItemCatalogOpenApiModel`;
+- `InspectionResponsibleUserOpenApiModel`;
+- `InspectionFindingTypeCatalogOpenApiModel`;
+- `InspectionFindingSeverityCatalogOpenApiModel`;
+- `InspectionRiskProbabilityCatalogOpenApiModel`;
+- `InspectionRiskConsequenceCatalogOpenApiModel`.
+
+### Operación de inspecciones
+
+- `InspectionChecklistAnswerOpenApiModel`;
+- `InspectionFollowupOpenApiModel`;
+- `InspectionProcessRequestOpenApiModel`;
+- `InspectionAiAssessmentOpenApiModel`.
+
+### Dashboard e historial
+
+- `InspectionManagementKpisOpenApiModel`;
+- `InspectionHistoryKpisOpenApiModel`;
+- `InspectionDashboardChartsOpenApiModel`;
+- `InspectionDashboardCompanyAnalysisOpenApiModel`;
+- `InspectionDashboardOpenFindingsOpenApiModel`.
+
+### Evidencias, comentarios e informes
+
+- `EvidenceOpenApiModel`;
+- `EvidenceLinkOpenApiModel`;
+- `InspectionCommentOpenApiModel`;
+- `InspectionExportPayloadOpenApiModel`.
+
+El payload de exportación describe completamente sus grupos superiores y su resumen. Algunos objetos internos del informe permanecen abiertos porque combinan entidades enriquecidas exclusivamente para la generación PDF.
+
+## Operaciones secundarias tipadas
+
+La tercera iteración asigna respuestas explícitas a:
+
+```text
+GET  /api/inspections/types
+GET  /api/inspections/templates
+GET  /api/inspections/responsible-users
+POST /api/inspections/:id/answers
+POST /api/inspections/findings/:findingId/followups
+PATCH /api/inspections/followups/:followupId
+
+GET  /api/inspections/dashboard/management-kpis
+GET  /api/inspections/dashboard/charts
+GET  /api/inspections/dashboard/company-analysis
+GET  /api/inspections/dashboard/open-findings
+GET  /api/inspections/history/kpis
+
+GET  /api/inspections/:id/evidences
+POST /api/inspections/:id/evidences/:evidenceId/link
+GET  /api/inspections/:id/comments
+POST /api/inspections/:id/comments
+GET  /api/inspections/:id/export
+
+POST  /api/inspections/findings/:findingId/evidence-resubmissions
+POST  /api/inspections/:inspectionId/ai/pre-validation
+GET   /api/inspections/:inspectionId/ai/assessments
+PATCH /api/inspections/ai/assessments/:assessmentId/decision
+
+GET /api/inspections/finding-catalogs
+GET /api/inspections/finding-catalogs/types
+GET /api/inspections/finding-catalogs/severities
+GET /api/inspections/finding-catalogs/risk-probabilities
+GET /api/inspections/finding-catalogs/risk-consequences
+```
 
 ## Errores comunes
 
@@ -168,8 +248,10 @@ Los metadatos y modelos se encuentran en:
 apps/api/src/modules/auth/auth-openapi.metadata.ts
 apps/api/src/modules/auth/auth-openapi.models.ts
 apps/api/src/modules/inspections/inspection-openapi.metadata.ts
-apps/api/src/modules/inspections/inspection-openapi.responses.ts
 apps/api/src/modules/inspections/inspection-openapi.models.ts
+apps/api/src/modules/inspections/inspection-openapi.responses.ts
+apps/api/src/modules/inspections/inspection-openapi-secondary.models.ts
+apps/api/src/modules/inspections/inspection-openapi-secondary.responses.ts
 apps/api/src/openapi/http-error-openapi.model.ts
 ```
 
@@ -195,29 +277,25 @@ Validación manual:
 4. Confirmar que aparezcan los tags Autenticación e Inspecciones.
 5. Ejecutar `POST /api/auth/login` con un usuario de desarrollo.
 6. Autorizar Swagger con el JWT retornado.
-7. Abrir `GET /api/inspections/{id}/detail` y comprobar que muestre schemas anidados, SLA y datos legacy.
-8. Abrir las tablas de gestión e historial y comprobar el schema paginado.
-9. Confirmar que PDF y XLSX aparezcan como descargas binarias.
-10. Confirmar que las rutas de otros módulos todavía no aparezcan.
+7. Abrir `GET /api/inspections/{id}/detail` y comprobar schemas anidados, SLA y datos legacy.
+8. Revisar los schemas de catálogos, evidencias, comentarios y seguimientos.
+9. Revisar KPIs, gráficos, análisis por empresa y observaciones abiertas.
+10. Confirmar que las evaluaciones de IA y solicitudes de reenvío tengan respuestas tipadas.
+11. Confirmar que PDF y XLSX aparezcan como descargas binarias.
+12. Confirmar que las rutas de otros módulos todavía no aparezcan.
 
 ## Limitaciones actuales
 
-Todavía quedan respuestas secundarias documentadas como objetos genéricos, especialmente:
-
-- catálogos completos;
-- comentarios y evidencias;
-- evaluaciones de IA;
-- respuestas individuales de checklist;
-- seguimientos;
-- gráficos y análisis por empresa;
-- KPIs de gestión e historial.
-
-Esto no cambia el contrato real ni el comportamiento de los endpoints; sólo limita el detalle visual disponible en Swagger para esas operaciones.
+- Algunos subobjetos del payload consolidado de exportación son estructuras enriquecidas y permanecen abiertos mediante `additionalProperties`.
+- Los arreglos opcionales de roles, empresas y áreas dentro de usuarios responsables se documentan como objetos genéricos porque pertenecen a contratos organizacionales transversales.
+- La documentación todavía no contiene ejemplos completos anonimizados para cada escenario de éxito y error.
+- El documento OpenAPI todavía no se versiona como artefacto estático de CI ni se compara automáticamente para detectar breaking changes.
+- Los módulos Incidentes, SPR, Residuos y otros módulos todavía no forman parte del documento.
 
 ## Próximas iteraciones sugeridas
 
-1. Modelar las respuestas secundarias restantes de Inspecciones.
-2. Agregar ejemplos anonimizados por operación y escenarios de error.
-3. Versionar una copia estática de OpenAPI JSON como artefacto de CI.
-4. Incorporar validación de breaking changes del contrato OpenAPI.
+1. Agregar ejemplos anonimizados por operación y escenarios de error.
+2. Exportar y versionar el OpenAPI JSON como artefacto de CI.
+3. Incorporar validación automática de breaking changes del contrato.
+4. Modelar completamente los subobjetos enriquecidos del payload de exportación.
 5. Documentar gradualmente Incidentes, SPR, Residuos y los demás módulos.
