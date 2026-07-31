@@ -6,6 +6,56 @@ import {
   type DatabaseMaintenanceRunResponse,
 } from '../../shared/services/database-maintenance.service';
 
+/** Etiquetas legibles para la lista de seeds en /migrations. */
+const SEED_CATALOG: Record<string, { label: string; description: string }> = {
+  bootstrap: {
+    label: 'bootstrap',
+    description: 'Cadena completa de seeds base (phase1 → demo → … → notificaciones).',
+  },
+  phase1: {
+    label: 'phase1',
+    description: 'Roles, permisos y datos estructurales iniciales.',
+  },
+  demo: {
+    label: 'demo',
+    description: 'Usuarios y áreas demo Gold Fields / contratistas.',
+  },
+  'finding-classifications': {
+    label: 'finding-classifications',
+    description: 'Clasificaciones de hallazgos de inspección.',
+  },
+  responsibles: {
+    label: 'responsibles',
+    description: 'Responsables de hallazgos / follow-ups.',
+  },
+  'dev-password-reset': {
+    label: 'dev-password-reset',
+    description: 'Reset de password demo (AureliaDemo123!) en usuarios conocidos.',
+  },
+  'notifications-permissions': {
+    label: 'notifications-permissions',
+    description: 'Permisos de notificaciones por rol.',
+  },
+  'inspections-master': {
+    label: 'inspections-master',
+    description: 'Master data de inspecciones.',
+  },
+  'spr-homology': {
+    label: 'spr-homology',
+    description:
+      'Homologación SPR: usuarios reales (matriz de negocio), áreas, factores y assignments. Password AureliaDemo123!.',
+  },
+};
+
+function seedMeta(seed: string): { label: string; description: string } {
+  return (
+    SEED_CATALOG[seed] ?? {
+      label: seed,
+      description: 'Seed registrado en el backend.',
+    }
+  );
+}
+
 function statusLabel(status: string): string {
   switch (status) {
     case 'ready':
@@ -273,13 +323,64 @@ export function MigrationsPage() {
           <div style={{ display: 'grid', gap: 10 }}>
             {plan?.availableSeeds.length ? plan.availableSeeds.map((seed) => {
               const checked = selectedSeeds.includes(seed);
+              const meta = seedMeta(seed);
+              const isHomology = seed === 'spr-homology';
               return (
-                <label key={seed} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 14, border: '1px solid rgba(12, 31, 56, 0.08)', padding: '12px 14px', background: checked ? 'rgba(0,179,152,0.08)' : '#fbfdff', cursor: 'pointer' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleSeed(seed)} />
-                    <span style={{ fontWeight: 700, color: '#001e39' }}>{seed}</span>
+                <label
+                  key={seed}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    borderRadius: 14,
+                    border: isHomology
+                      ? '1.5px solid rgba(0, 179, 152, 0.45)'
+                      : '1px solid rgba(12, 31, 56, 0.08)',
+                    padding: '12px 14px',
+                    background: checked
+                      ? 'rgba(0,179,152,0.08)'
+                      : isHomology
+                        ? 'rgba(0,179,152,0.04)'
+                        : '#fbfdff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSeed(seed)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontWeight: 700, color: '#001e39' }}>
+                        {meta.label}
+                      </span>
+                      <span
+                        style={{
+                          display: 'block',
+                          marginTop: 4,
+                          fontSize: 12,
+                          lineHeight: 1.45,
+                          color: '#617183',
+                        }}
+                      >
+                        {meta.description}
+                      </span>
+                    </span>
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: checked ? '#00b398' : '#7c8da1' }}>{checked ? 'Seleccionado' : 'Disponible'}</span>
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: checked ? '#00b398' : '#7c8da1',
+                      paddingTop: 2,
+                    }}
+                  >
+                    {checked ? 'Seleccionado' : 'Disponible'}
+                  </span>
                 </label>
               );
             }) : <p style={{ color: '#617183', fontSize: 14 }}>No hay seeds listados todavía.</p>}

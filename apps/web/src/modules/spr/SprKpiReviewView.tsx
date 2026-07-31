@@ -198,9 +198,9 @@ export function SprKpiReviewView({
   }
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#f7f7f7]">
-      <div className="shrink-0 border-b border-[#e3e3e3] bg-white">
-        <div className="flex items-center justify-between gap-[12px] px-[22px] py-[10px]">
+    <div className="flex h-[calc(100vh-56px)] w-full min-w-0 flex-col bg-[#f7f7f7]">
+      <div className="w-full shrink-0 border-b border-[#e3e3e3] bg-white">
+        <div className="flex w-full items-center justify-between gap-[12px] px-[22px] py-[10px]">
           <div className="flex min-w-0 items-center gap-[10px]">
             <button
               type="button"
@@ -220,8 +220,8 @@ export function SprKpiReviewView({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-[14px] px-[22px] py-[18px] pb-[80px]">
+      <div className="min-h-0 w-full min-w-0 flex-1 overflow-y-auto">
+        <div className="flex w-full flex-col gap-[14px] px-[22px] py-[18px] pb-[80px]">
           <SprKpiReviewReportBanner cycleLabel={resolvedCycleLabel} />
           {cards.length === 0 ? (
             <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
@@ -254,8 +254,8 @@ export function SprKpiReviewView({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[#e3e3e3] bg-white px-[22px] py-[12px]">
-        <div className="flex flex-wrap items-center justify-between gap-[10px]">
+      <div className="w-full shrink-0 border-t border-[#e3e3e3] bg-white px-[22px] py-[12px]">
+        <div className="flex w-full flex-wrap items-center justify-between gap-[10px]">
           <div className="flex items-center gap-[6px]">
             <SprFooterInfoIcon className="h-[11px] w-[13.75px] shrink-0 text-[#646464]" />
             <p className="font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">

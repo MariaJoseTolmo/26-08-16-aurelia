@@ -344,8 +344,8 @@ export function SprKpiReviewCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
-      <header className="flex items-start justify-between gap-[12px] border-b border-[#e3e3e3] px-[15px] py-[12px]">
+    <article className="w-full min-w-0 overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
+      <header className="flex w-full items-start justify-between gap-[12px] border-b border-[#e3e3e3] px-[15px] py-[12px]">
         <div className="min-w-0">
           <p className="font-['Inter:Bold',sans-serif] text-[12.5px] font-bold text-[#001e39]">{card.title}</p>
           <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[9.5px] text-[#646464]">{card.subtitle}</p>
@@ -353,7 +353,7 @@ export function SprKpiReviewCard({
         <HeaderBadge response={response} />
       </header>
 
-      <div className="flex flex-col gap-[12px] px-[15px] py-[13px]">
+      <div className="flex w-full flex-col gap-[12px] px-[15px] py-[13px]">
         {card.type === 'direct' ? <DirectComparisonPanel card={card} /> : <CalculatedComparisonPanel card={card} />}
         {showActionArea ? (
           isReportingDiscrepancy ? (
@@ -387,7 +387,7 @@ export function SprKpiReviewCard({
 export function SprKpiReviewReportBanner({ cycleLabel }: { cycleLabel?: string }) {
   const label = cycleLabel ?? SPR_ACTIVE_CYCLE.label;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-[12px] rounded-[9px] bg-[#001e39] px-[18px] py-[14px]">
+    <div className="flex w-full flex-wrap items-center justify-between gap-[12px] rounded-[9px] bg-[#001e39] px-[18px] py-[14px]">
       <div className="flex min-w-0 items-center gap-[12px]">
         <div className="flex size-[40px] shrink-0 items-center justify-center rounded-[9px] bg-[rgba(255,255,255,0.1)]">
           <SprPdfFileIcon className="h-[18px] w-[22.5px] text-white" />
