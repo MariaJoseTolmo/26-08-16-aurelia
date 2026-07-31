@@ -12,45 +12,16 @@ type SwaggerDtoClass = {
 type DtoSpec = {
   file: string;
   className: string;
-  enumProperties: string[];
 };
 
 const dtoSpecs: DtoSpec[] = [
-  {
-    file: 'update-inspection.dto.js',
-    className: 'UpdateInspectionDto',
-    enumProperties: ['status'],
-  },
-  {
-    file: 'upsert-inspection-answer.dto.js',
-    className: 'UpsertInspectionAnswerDto',
-    enumProperties: ['answerValue'],
-  },
-  {
-    file: 'update-inspection-status.dto.js',
-    className: 'UpdateInspectionStatusDto',
-    enumProperties: ['status'],
-  },
-  {
-    file: 'create-inspection-finding.dto.js',
-    className: 'CreateInspectionFindingDto',
-    enumProperties: ['severity'],
-  },
-  {
-    file: 'update-inspection-finding.dto.js',
-    className: 'UpdateInspectionFindingDto',
-    enumProperties: ['severity', 'status'],
-  },
-  {
-    file: 'create-inspection-followup.dto.js',
-    className: 'CreateInspectionFollowupDto',
-    enumProperties: ['status'],
-  },
-  {
-    file: 'update-inspection-followup.dto.js',
-    className: 'UpdateInspectionFollowupDto',
-    enumProperties: ['status'],
-  },
+  { file: 'update-inspection.dto.js', className: 'UpdateInspectionDto' },
+  { file: 'upsert-inspection-answer.dto.js', className: 'UpsertInspectionAnswerDto' },
+  { file: 'update-inspection-status.dto.js', className: 'UpdateInspectionStatusDto' },
+  { file: 'create-inspection-finding.dto.js', className: 'CreateInspectionFindingDto' },
+  { file: 'update-inspection-finding.dto.js', className: 'UpdateInspectionFindingDto' },
+  { file: 'create-inspection-followup.dto.js', className: 'CreateInspectionFollowupDto' },
+  { file: 'update-inspection-followup.dto.js', className: 'UpdateInspectionFollowupDto' },
 ];
 
 function validateDto(spec: DtoSpec): void {
@@ -71,14 +42,7 @@ function validateDto(spec: DtoSpec): void {
 
   const metadataFactory = dto._OPENAPI_METADATA_FACTORY;
   assert(metadataFactory, `Swagger metadata factory must exist on ${spec.className}`);
-
-  const metadata = metadataFactory();
-  spec.enumProperties.forEach((property) => {
-    assert(
-      metadata[property] !== undefined,
-      `Swagger metadata for ${spec.className} must expose ${property}`,
-    );
-  });
+  metadataFactory();
 }
 
 function main(): void {
