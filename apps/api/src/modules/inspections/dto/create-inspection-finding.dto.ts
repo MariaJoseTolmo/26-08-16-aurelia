@@ -1,6 +1,6 @@
-import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { CreateInspectionFindingRequest, InspectionFindingSeverity } from '@aurelia/contracts';
-import { IsArray } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsArray, IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class CreateInspectionFindingDto implements CreateInspectionFindingRequest {
   @IsOptional()
@@ -44,6 +44,7 @@ export class CreateInspectionFindingDto implements CreateInspectionFindingReques
   @MaxLength(4000)
   proposedCorrectiveAction?: string | null;
 
+  @ApiProperty({ enum: InspectionFindingSeverity, enumName: 'InspectionFindingSeverity' })
   @IsEnum(InspectionFindingSeverity)
   severity: InspectionFindingSeverity;
 
