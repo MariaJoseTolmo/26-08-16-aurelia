@@ -63,7 +63,6 @@ export class LoginOpenApiResponse {
 
   @ApiProperty({
     description: 'Token opaco utilizado exclusivamente para renovar la sesión.',
-    writeOnly: true,
     example: '4a3b83b0-9d0c-49ea-bac3-5faf4fb0a331.secret',
   })
   refreshToken: string;
