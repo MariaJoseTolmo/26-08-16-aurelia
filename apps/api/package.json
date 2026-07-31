@@ -31,7 +31,8 @@
     "seed:functional-roles": "ts-node src/database/seeds/007-seed-functional-roles.ts",
     "seed:demo": "ts-node src/database/seeds/001-seed-phase1.ts && ts-node src/database/seeds/002-seed-demo-data.ts",
     "seed:all": "pnpm run seed && ts-node src/database/seeds/005-seed-dev-password-reset.ts && ts-node src/database/seeds/006-seed-notifications-permissions.ts",
-    "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts"
+    "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts",
+    "export:master-data-matrix": "ts-node src/cli/export-master-data-matrix.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
