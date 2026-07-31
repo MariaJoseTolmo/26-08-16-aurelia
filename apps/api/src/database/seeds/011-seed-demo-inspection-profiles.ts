@@ -3,7 +3,6 @@ import { pbkdf2, randomBytes } from 'crypto';
 import { config } from 'dotenv';
 import { promisify } from 'util';
 import type { DataSource, QueryRunner } from 'typeorm';
-import { readApiEnv } from '../../config/env';
 import { AppDataSource } from '../data-source';
 
 config();
@@ -14,6 +13,7 @@ const ITERATIONS = 210000;
 const KEY_LENGTH = 32;
 const TEST_EECC_COMPANY_CODE = 'EECC-TEST';
 const TEST_EECC_COMPANY_NAME = 'EECC Testing';
+const DEMO_PASSWORD = 'AureliaDemo123!';
 
 async function createPasswordHash(secret: string): Promise<string> {
   const salt = randomBytes(16);
@@ -106,8 +106,7 @@ const demoProfiles: DemoProfile[] = [
 ];
 
 export async function runDemoInspectionProfilesSeed(ds: DataSource): Promise<void> {
-  const demoPassword = readApiEnv().auth.demoUserPassword;
-  const demoPasswordHash = await createPasswordHash(demoPassword);
+  const demoPasswordHash = await createPasswordHash(DEMO_PASSWORD);
   const qr = ds.createQueryRunner();
   await qr.connect();
   await qr.startTransaction();
