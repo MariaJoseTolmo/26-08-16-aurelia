@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCreateSprCycleValidation } from '../../shared/hooks/useSprCycleValidations';
+import { useSprSigners } from '../../shared/hooks/useSprSigners';
 import { SprFooterInfoIcon, SprSubmitIcon } from './icons/SprIcons';
 import {
   SprKpiReviewCard,
@@ -21,6 +22,7 @@ import {
   type SprKpiReviewCardConfig,
 } from './spr.constants';
 import { buildSoxValidationPayload } from './sprKpiReviewCards';
+import { buildSpecialistRecipientLabel } from './sprSignerLabels';
 
 interface SprKpiReviewViewProps {
   onBack: () => void;
@@ -110,6 +112,11 @@ export function SprKpiReviewView({
   const resolvedCycleLabel = cycleLabel ?? SPR_ACTIVE_CYCLE.label;
   const resolvedMetaLabel = metaLabel ?? SPR_KPI_REVIEW.metaLabel;
   const resolvedAreaName = areaName ?? SPR_KPI_REVIEW_FINALIZE_MODAL.areaLabelFallback;
+  const signersQuery = useSprSigners();
+  const specialistLabel = useMemo(
+    () => buildSpecialistRecipientLabel(signersQuery.specialists),
+    [signersQuery.specialists],
+  );
 
   const createValidation = useCreateSprCycleValidation(cycleId);
 
@@ -276,6 +283,7 @@ export function SprKpiReviewView({
         summary={reviewSummary}
         kpiCount={cards.length || SPR_KPI_REVIEW_FINALIZE_MODAL.kpiCount}
         areaLabel={resolvedAreaName}
+        specialistLabel={specialistLabel}
         isSubmitting={isSubmitting}
         onClose={() => {
           if (isSubmitting) return;

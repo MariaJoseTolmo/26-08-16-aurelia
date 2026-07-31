@@ -69,7 +69,7 @@ export const SPR_RESPONSIBLE_KPI_VALIDATION_STATUS = {
   formStatusHelper: 'Aprobado por tu Gerente',
   reportStatusLabel: 'Firmado oficialmente',
   reportSignDateFallback: '09-06-2026',
-  reportSignerFallback: 'Gabriel Fuenzalida',
+  reportSignerFallback: 'Gerente de Sustentabilidad',
   reportSignHelper: (dateLabel: string, signerLabel: string) => `${dateLabel} · ${signerLabel}`,
   kpiValidationStepTitle: (cycleLabel: string) => `Validación de KPIs — Reporte SPR ${cycleLabel}`,
   kpiValidationStepHelper:
@@ -85,7 +85,7 @@ export const SPR_RESPONSIBLE_KPI_REVIEW_SUBMITTED_STATUS = {
   formStatusHelper: 'Aprobado por tu Gerente',
   reportStatusLabel: 'Firmado oficialmente',
   reportSignDateFallback: '09-06-2026',
-  reportSignerFallback: 'Gabriel Fuenzalida',
+  reportSignerFallback: 'Gerente de Sustentabilidad',
   reportSignHelper: (dateLabel: string, signerLabel: string) => `${dateLabel} · ${signerLabel}`,
   discrepancyStepTitle: (cycleLabel: string) =>
     `Formulario SPR ${cycleLabel} - Has reportado una discrepancia`,
@@ -247,7 +247,7 @@ export type SprKpiReviewCardConfig =
 // Conectado con 1672:14978 (entrada) y especialista 1942:63546 (firmas-completas).
 export const SPR_KPI_REVIEW = {
   pageTitle: (cycleLabel: string) => `Revisión de datos SPR — ${cycleLabel}`,
-  metaLabel: 'Servicios Técnicos · Enviado por Tania Galarce · 09-06-2026',
+  metaLabel: 'Servicios Técnicos · Enviado por Especialista de Sustentabilidad · 09-06-2026',
   reportBannerTitle: (cycleLabel: string) => `Reporte SPR ${cycleLabel} — Firmado oficialmente`,
   reportBannerDescription:
     'Revisa que los valores de tu área son correctos y descarga el PDF como evidencia para tus controles SOX.',
@@ -336,7 +336,7 @@ export const SPR_KPI_REVIEW_FINALIZE_MODAL = {
   submitLabel: 'Enviar revisión',
   submittingLabel: 'Enviando…',
   areaLabelFallback: 'Servicios Técnicos',
-  specialistLabelFallback: 'Tania Galarce',
+  specialistLabelFallback: 'Especialista de Sustentabilidad',
   kpiCount: 3,
 } as const;
 
@@ -590,7 +590,7 @@ export const SPR_REPORT_TIMELINE_STEPS = [
     step: 4,
     title: 'Firma del reporte SAC',
     dateLabel: '10-06-2026 · 5 días',
-    description: 'Tania/Cata/Marjorie firman primero · Gabriel o Elisa dan el alta oficial.',
+    description: 'El Especialista firma primero · el Gerente MA da el alta oficial.',
     actorLabel: 'Esp. Sust. → Gte. MA',
     status: 'upcoming' as SprReportTimelineStepStatus,
     progress: 0,
@@ -655,7 +655,7 @@ export const SPR_REPORT_STATUS_ROWS = [
     actionHref: '/spr/reporte/consolidado?estado=consolidado-enviado&tab=sac',
   },
   {
-    title: 'Firma del reporte oficial — Orden: Tania/Cata/Marjorie → Gabriel/Elisa',
+    title: 'Firma del reporte oficial — Orden: Esp. Sust. → Gte. MA',
     helper: 'Disponible cuando el SAC genere el reporte · El Especialista firma primero',
     badge: 'Pendiente',
     badgeTone: 'muted' as const,
@@ -1926,17 +1926,18 @@ export const SPR_CONSOLIDATED_REPORT = {
       'Una vez el reporte SAC esté nuevamente disponible, este apartado se disponibilizará para que pueda ser firmado.',
   },
   // Figma 1570:6144 — tab Firma del reporte (lista para firmar).
+  // Nombres de personas: camino real usa GET /spr/signers; aquí solo fallbacks por rol (demos).
   firmaReady: {
     infoBefore: 'El reporte requiere ',
     infoBold: 'dos firmas en orden',
     infoAfter:
-      ': primero debe firmar un Especialista de Sustentabilidad (Tania, Catalina o Marjorie), y una vez completada esa firma, queda habilitada la firma del Gerente MA o Gerente de Sustentabilidad para dar el alta oficial.',
+      ': primero debe firmar un Especialista de Sustentabilidad, y una vez completada esa firma, queda habilitada la firma del Gerente MA o Gerente de Sustentabilidad para dar el alta oficial.',
     cardTitle: 'Firma oficial del Reporte SPR — Mayo 2026',
     cardBadge: '2 firmas requeridas',
     step1Title: 'Firma del Especialista de Sustentabilidad',
     step1Badge: 'Pendiente · Tú puedes firmar',
     step1Helper: 'Cualquiera de los siguientes Especialistas puede firmar en este paso:',
-    step1Cta: 'Haz clic para firmar como Tania Galarce',
+    step1Cta: 'Haz clic para firmar digitalmente',
     step1Footer: 'Al firmar, se habilitará la firma del Gerente MA o Gerente de Sustentabilidad',
     bridgeHelper:
       'La firma del Gerente se habilita después de la firma del Especialista y de la revisión por parte de las áreas de “Servicios técnicos” y “Optimización de activos”.',
@@ -1945,43 +1946,19 @@ export const SPR_CONSOLIDATED_REPORT = {
     step2Helper: 'Disponible una vez que el Especialista complete el paso 1:',
     step2Footer: 'Al firmar el Gerente, el reporte queda oficial y se notifica a las áreas SOX',
     pendingLabel: 'Pendiente',
-    specialists: [
-      {
-        id: 'tania',
-        initials: 'TG',
-        name: 'Tania Galarce',
-        role: 'Especialista Sustentabilidad · Sesión activa',
-        active: true,
-      },
-      {
-        id: 'catalina',
-        initials: 'CC',
-        name: 'Catalina Cortés',
-        role: 'Especialista Sustentabilidad',
-        active: false,
-      },
-      {
-        id: 'marjorie',
-        initials: 'MR',
-        name: 'Marjorie Reyes',
-        role: 'Especialista Sustentabilidad',
-        active: false,
-      },
-    ],
-    managers: [
-      {
-        id: 'gabriel',
-        initials: 'GF',
-        name: 'Gabriel Fuenzalida',
-        role: 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
-      },
-      {
-        id: 'elisa',
-        initials: 'EG',
-        name: 'Elisa González',
-        role: 'Gerente de Medio Ambiente',
-      },
-    ],
+    specialists: [] as Array<{
+      id: string;
+      initials: string;
+      name: string;
+      role: string;
+      active: boolean;
+    }>,
+    managers: [] as Array<{
+      id: string;
+      initials: string;
+      name: string;
+      role: string;
+    }>,
   },
   // Figma 1570:6712 — modal Firma del Especialista (paso 1 de 2).
   firmaEspecialistaModal: {
@@ -1994,8 +1971,8 @@ export const SPR_CONSOLIDATED_REPORT = {
     kpisValue: '22 adicionales',
     digitalTitle: 'Firma digital — Paso 1',
     digitalCta: 'Haz clic para firmar digitalmente',
-    digitalSigned: 'Firmado digitalmente · Tania Galarce',
-    digitalMeta: 'Tania Galarce · Especialista Sustentabilidad · Fecha y hora automática',
+    digitalSigned: 'Firmado digitalmente',
+    digitalMeta: 'Especialista Sustentabilidad · Fecha y hora automática',
     cancelLabel: 'Cancelar',
     confirmLabel: 'Confirmar firma',
   },
@@ -2352,7 +2329,7 @@ export const SPR_CONSOLIDATED_REPORT = {
       badgeTone: 'muted' as const satisfies SprConsolidatedTabBadgeTone,
     },
   ],
-  // Figma 1942:61722 — especialista firmó; gerente habilitado (CTA Gabriel).
+  // Figma 1942:61722 — especialista firmó; gerente habilitado.
   firmaGerente: {
     step1Badge: 'Firmado ✓',
     step1Helper: 'Firmado por',
@@ -2360,7 +2337,7 @@ export const SPR_CONSOLIDATED_REPORT = {
     step2Badge: 'Pendiente · Habilitado',
     step2Helper: 'Disponible una vez que el Especialista complete el paso 1:',
     managerAction: 'Pendiente →',
-    step2Cta: 'Haz clic para firmar como Gabriel Fuenzalida',
+    step2Cta: 'Haz clic para firmar digitalmente',
   },
   // Figma 1942:62087 / 1942:62490 — modal Firma del Gerente (paso 2 de 2).
   firmaGerenteModal: {
@@ -2373,9 +2350,8 @@ export const SPR_CONSOLIDATED_REPORT = {
     kpisValue: '22 adicionales',
     digitalTitle: 'Firma digital',
     digitalCta: 'Haz clic para firmar digitalmente',
-    digitalSigned: 'Firmado digitalmente · Gabriel Fuenzalida',
-    digitalMeta:
-      'Gabriel Fuenzalida · Gerente de Sustentabilidad y Cumplimiento Ambiental · Fecha y hora automática',
+    digitalSigned: 'Firmado digitalmente',
+    digitalMeta: 'Gerente de Sustentabilidad y Cumplimiento Ambiental · Fecha y hora automática',
     cancelLabel: 'Cancelar',
     confirmLabel: 'Confirmar firma',
   },

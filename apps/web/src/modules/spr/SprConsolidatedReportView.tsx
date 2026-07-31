@@ -10,6 +10,7 @@ import {
 } from '../../shared/hooks/useSprCycleSignatures';
 import { useSprCycleValidations } from '../../shared/hooks/useSprCycleValidations';
 import { useSprReportDashboardReal } from '../../shared/hooks/useSprReportDashboardReal';
+import { useSprSigners } from '../../shared/hooks/useSprSigners';
 import { useSessionStore } from '../../shared/stores/session.store';
 import {
   SPR_ACTIVE_CYCLE,
@@ -70,6 +71,11 @@ import {
   resolveSprSoxValidationPhase,
 } from './sprConsolidatedValidationLayout';
 import { buildSprDay9PendingAvailability, resolveSprCycleSacBannerMessage } from './sprReportDay9';
+import {
+  buildFirmaInfoAfter,
+  buildFirmaPersonCards,
+  buildSignInAsHint,
+} from './sprSignerLabels';
 import { SprConsolidatedValidationApproved } from './components/SprConsolidatedValidationApproved';
 import { SprConsolidatedValidationDiscrepancy } from './components/SprConsolidatedValidationDiscrepancy';
 import { SprCycleClosedModal } from './components/SprCycleClosedModal';
@@ -639,11 +645,16 @@ function FirmasCompletasPanel({
 }) {
   const base = SPR_CONSOLIDATED_REPORT.firmaReady;
   const copy = SPR_CONSOLIDATED_REPORT.firmasCompletas;
-  const specialist =
-    specialistSigner ??
-    base.specialists.find((person) => person.active) ??
-    base.specialists[0];
-  const manager = managerSigner ?? base.managers[0];
+  const specialist = specialistSigner ?? {
+    name: 'Especialista de Sustentabilidad',
+    initials: 'ES',
+    role: 'Especialista Sustentabilidad',
+  };
+  const manager = managerSigner ?? {
+    name: 'Gerente MA',
+    initials: 'GM',
+    role: 'Gerente de Sustentabilidad',
+  };
 
   return (
     <>
@@ -859,20 +870,29 @@ function FirmaGerenteModal({
 function FirmaGerenteReadyPanel({
   onOpenFirmaModal,
   specialistSigner,
+  managers = [],
+  infoAfter,
   step2Cta,
   canSign = true,
+  signInHint,
 }: {
   onOpenFirmaModal: () => void;
   specialistSigner?: SprFirmaPersonView | null;
+  managers?: Array<{ id: string; initials: string; name: string; role: string }>;
+  infoAfter?: string;
   step2Cta?: string;
   canSign?: boolean;
+  signInHint?: string;
 }) {
   const base = SPR_CONSOLIDATED_REPORT.firmaReady;
   const copy = SPR_CONSOLIDATED_REPORT.firmaGerente;
-  const signer =
-    specialistSigner ??
-    base.specialists.find((person) => person.active) ??
-    base.specialists[0];
+  const signer = specialistSigner ?? {
+    name: 'Especialista de Sustentabilidad',
+    initials: 'ES',
+    role: 'Especialista Sustentabilidad',
+  };
+  const managerCards = managers;
+  const infoAfterText = infoAfter ?? base.infoAfter;
   const ctaLabel = step2Cta ?? copy.step2Cta;
 
   return (
@@ -884,7 +904,7 @@ function FirmaGerenteReadyPanel({
         <p className="font-['Inter:Regular',sans-serif] text-[10.5px] leading-[15.75px] text-[#0d3862]">
           {base.infoBefore}
           <span className="font-['Inter:Bold',sans-serif] font-bold">{base.infoBold}</span>
-          {base.infoAfter}
+          {infoAfterText}
         </p>
       </div>
 
@@ -953,7 +973,7 @@ function FirmaGerenteReadyPanel({
                 {copy.step2Helper}
               </p>
 
-              {base.managers.map((person) => (
+              {managerCards.map((person) => (
                 <div
                   key={person.id}
                   className="flex items-center gap-[10px] rounded-[8px] border border-[#e3e3e3] bg-[#f9fafb] px-[12px] py-[10px]"
@@ -989,7 +1009,8 @@ function FirmaGerenteReadyPanel({
                 </button>
               ) : (
                 <p className="mt-[4px] text-center font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
-                  Inicia sesión como Gerente MA (Gabriel Fuenzalida) para firmar este paso.
+                  {signInHint ??
+                    'Inicia sesión como Gerente MA o Gerente de Sustentabilidad para firmar este paso.'}
                 </p>
               )}
             </div>
@@ -1002,15 +1023,24 @@ function FirmaGerenteReadyPanel({
 
 function FirmaReadyPanel({
   onOpenFirmaModal,
+  specialists = [],
+  managers = [],
+  infoAfter,
   step1Cta,
   canSign = true,
+  signInHint,
 }: {
   onOpenFirmaModal: () => void;
+  specialists?: Array<{ id: string; initials: string; name: string; role: string; active?: boolean }>;
+  managers?: Array<{ id: string; initials: string; name: string; role: string }>;
+  infoAfter?: string;
   step1Cta?: string;
   canSign?: boolean;
+  signInHint?: string;
 }) {
   const copy = SPR_CONSOLIDATED_REPORT.firmaReady;
   const ctaLabel = step1Cta ?? copy.step1Cta;
+  const infoAfterText = infoAfter ?? copy.infoAfter;
 
   return (
     <>
@@ -1021,7 +1051,7 @@ function FirmaReadyPanel({
         <p className="font-['Inter:Regular',sans-serif] text-[10.5px] leading-[15.75px] text-[#0d3862]">
           {copy.infoBefore}
           <span className="font-['Inter:Bold',sans-serif] font-bold">{copy.infoBold}</span>
-          {copy.infoAfter}
+          {infoAfterText}
         </p>
       </div>
 
@@ -1052,7 +1082,7 @@ function FirmaReadyPanel({
                 {copy.step1Helper}
               </p>
 
-              {copy.specialists.map((person) => (
+              {specialists.map((person) => (
                 <div
                   key={person.id}
                   className={`flex items-center gap-[10px] rounded-[8px] border px-[12px] py-[10px] ${
@@ -1101,7 +1131,8 @@ function FirmaReadyPanel({
                 </button>
               ) : (
                 <p className="mt-[4px] text-center font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
-                  Inicia sesión como Especialista de Sustentabilidad (Tania Galarce) para firmar este paso.
+                  {signInHint ??
+                    'Inicia sesión como Especialista de Sustentabilidad para firmar este paso.'}
                 </p>
               )}
               <p className="text-center font-['Inter:Regular',sans-serif] text-[9px] text-[#acacac]">{copy.step1Footer}</p>
@@ -1135,7 +1166,7 @@ function FirmaReadyPanel({
                 {copy.step2Helper}
               </p>
 
-              {copy.managers.map((person) => (
+              {managers.map((person) => (
                 <div
                   key={person.id}
                   className="flex items-center gap-[10px] rounded-[8px] border border-dashed border-[#e3e3e3] bg-[#f7f7f7] px-[12px] py-[10px]"
@@ -1822,6 +1853,7 @@ export function SprConsolidatedReportView() {
   const validationsQuery = useSprCycleValidations(sprCycleQuery.cycle?.id);
   const createSignatureMutation = useCreateSprCycleSignature(sprCycleQuery.cycle?.id);
   const dashboardReal = useSprReportDashboardReal(cycle.periodYear, cycle.periodMonth);
+  const signersQuery = useSprSigners();
   const areaProgress = countSprAreasInConsolidado(dashboardReal.areaCards);
   const drivenBySac = isConsolidatedFlowDrivenBySac(flow);
   const sacLayoutMode = resolveConsolidatedSacLayoutMode(sacQuery.submission);
@@ -1871,6 +1903,35 @@ export function SprConsolidatedReportView() {
             : 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
       }
     : null;
+
+  const firmaInfoAfter = useMemo(
+    () => buildFirmaInfoAfter(signersQuery.specialists, signersQuery.managers),
+    [signersQuery.specialists, signersQuery.managers],
+  );
+  const specialistCards = useMemo(
+    () =>
+      buildFirmaPersonCards(signersQuery.specialists, 'Especialista Sustentabilidad', {
+        highlightUserId: sessionUser?.id,
+        activeSessionLabel: 'Sesión activa',
+      }),
+    [signersQuery.specialists, sessionUser?.id],
+  );
+  const managerCards = useMemo(
+    () =>
+      buildFirmaPersonCards(
+        signersQuery.managers,
+        'Gerente de Sustentabilidad y Cumplimiento Ambiental',
+      ),
+    [signersQuery.managers],
+  );
+  const specialistSignInHint = useMemo(
+    () => buildSignInAsHint('Especialista de Sustentabilidad', signersQuery.specialists),
+    [signersQuery.specialists],
+  );
+  const managerSignInHint = useMemo(
+    () => buildSignInAsHint('Gerente MA', signersQuery.managers),
+    [signersQuery.managers],
+  );
 
   const isConsolidadoSieteAreas = flow === SPR_CONSOLIDATED_FLOW.consolidadoSieteAreas;
   const isSacReabierto = flow === SPR_CONSOLIDATED_FLOW.sacReabierto;
@@ -2427,7 +2488,11 @@ export function SprConsolidatedReportView() {
         activeTab === 'firma' &&
         !isFirmaBlockedByReopen &&
         isValidacionDiscrepancia ? (
-          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+          <FirmaGerenteReadyPanel
+            onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
+          />
         ) : null}
         {!isSacPreparing &&
         activeTab === 'firma' &&
@@ -2455,7 +2520,11 @@ export function SprConsolidatedReportView() {
         activeTab === 'firma' &&
         !isFirmaBlockedByReopen &&
         isFirmaGerente ? (
-          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+          <FirmaGerenteReadyPanel
+            onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
+          />
         ) : null}
         {/* Camino real Fase 3: fases por firmas GET/POST (no placeholder pendiente). */}
         {!isSacPreparing &&
@@ -2480,8 +2549,11 @@ export function SprConsolidatedReportView() {
               setFirmaGerenteModalOpen(true);
             }}
             specialistSigner={specialistSignerView}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
             step2Cta={`Haz clic para firmar como ${sessionFullName}`}
             canSign={canSignManager}
+            signInHint={managerSignInHint}
           />
         ) : null}
         {!isSacPreparing &&
@@ -2494,8 +2566,12 @@ export function SprConsolidatedReportView() {
               setFirmaError(null);
               setFirmaModalOpen(true);
             }}
+            specialists={specialistCards}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
             step1Cta={`Haz clic para firmar como ${sessionFullName}`}
             canSign={canSignSpecialist}
+            signInHint={specialistSignInHint}
           />
         ) : null}
         {!isSacPreparing &&
@@ -2504,14 +2580,24 @@ export function SprConsolidatedReportView() {
         (isConsolidadoEnviado || isSacDisponible) &&
         !showFirmasCompletasPanel &&
         !isRealSacEnviado ? (
-          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+          <FirmaReadyPanel
+            onOpenFirmaModal={() => setFirmaModalOpen(true)}
+            specialists={specialistCards}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
+          />
         ) : null}
         {!isSacPreparing &&
         activeTab === 'firma' &&
         !isFirmaBlockedByReopen &&
         isSacReabierto &&
         isFirmaListaProcesoReabierto ? (
-          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+          <FirmaReadyPanel
+            onOpenFirmaModal={() => setFirmaModalOpen(true)}
+            specialists={specialistCards}
+            managers={managerCards}
+            infoAfter={firmaInfoAfter}
+          />
         ) : null}
         {!isSacPreparing &&
         activeTab === 'firma' &&

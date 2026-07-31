@@ -4,6 +4,7 @@ import { SprCycleStatus } from '@aurelia/contracts';
 import { useSprCycle } from '../../shared/hooks/useSprCycle';
 import { useSprCycleSacSubmission } from '../../shared/hooks/useSprCycleSacSubmission';
 import { useSprReportDashboardReal } from '../../shared/hooks/useSprReportDashboardReal';
+import { useSprSigners } from '../../shared/hooks/useSprSigners';
 import {
   SPR_REPORT_DASHBOARD,
   SPR_REPORT_FLOW_QUERY,
@@ -23,6 +24,7 @@ import {
 } from './sprReportCycles';
 import { resolveSprCycleSacBannerMessage } from './sprReportDay9';
 import { buildSprReportHonestStatusRows } from './sprReportStatusRows.real';
+import { buildFirmaTimelineDescription } from './sprSignerLabels';
 import { SprProcessStatusApprovedIcon, SprTimelineStepIcon, SprWarningTriangleIcon } from './icons/SprIcons';
 
 /** Sin `?estado=`, el chrome sigue el status real del ciclo (closed / validation_approved). */
@@ -131,6 +133,7 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
   const cycleLabel = sprCycleQuery.cycle?.label ?? cycle.label;
   const realDashboard = useSprReportDashboardReal(cycle.periodYear, cycle.periodMonth);
   const sacQuery = useSprCycleSacSubmission(sprCycleQuery.cycle?.id);
+  const signersQuery = useSprSigners();
   const day9Countdown = sprCycleQuery.countdown;
   const sacBannerMessage = resolveSprCycleSacBannerMessage(day9Countdown, sacQuery.submission);
 
@@ -154,8 +157,34 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
         sacSubmission: sacQuery.submission,
         consolidadoHref,
         consolidadoActionVariant: isAdvancedFlow ? 'primary' : 'outline',
+        specialists: signersQuery.specialists,
+        managers: signersQuery.managers,
       }),
-    [areaCards, day9Countdown, sacQuery.submission, consolidadoHref, isAdvancedFlow],
+    [
+      areaCards,
+      day9Countdown,
+      sacQuery.submission,
+      consolidadoHref,
+      isAdvancedFlow,
+      signersQuery.specialists,
+      signersQuery.managers,
+    ],
+  );
+
+  const timelineSteps = useMemo(
+    () =>
+      SPR_REPORT_TIMELINE_STEPS.map((step) =>
+        step.step === 4
+          ? {
+              ...step,
+              description: buildFirmaTimelineDescription(
+                signersQuery.specialists,
+                signersQuery.managers,
+              ),
+            }
+          : step,
+      ),
+    [signersQuery.specialists, signersQuery.managers],
   );
 
   return (
@@ -255,7 +284,7 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
         {/* PLACEHOLDER/MOCK: timeline del ciclo — sin spr_reporting_cycles aún */}
         {config.showTimeline ? (
           <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[8px] border border-[#e3e3e3] bg-[#e3e3e3] sm:grid-cols-2 lg:grid-cols-5">
-            {SPR_REPORT_TIMELINE_STEPS.map((step) => (
+            {timelineSteps.map((step) => (
               <div
                 key={step.step}
                 className={`flex flex-col border-t-[3px] bg-white px-[14px] py-[11px] ${timelineAccentClass(step.accent)}`}

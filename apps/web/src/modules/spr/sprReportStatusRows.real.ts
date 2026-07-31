@@ -1,19 +1,24 @@
-import type { SprCycleSacSubmissionResponse } from '@aurelia/contracts';
+import type { SprCycleSacSubmissionResponse, SprSignerPersonResponse } from '@aurelia/contracts';
 import { SprCycleSacSubmissionStatus } from '@aurelia/contracts';
 import type { SprReportStatusRow } from './spr.constants';
 import { isSprSacSubmissionSent } from './sprConsolidatedSacLayout';
 import type { SprReportDay9Countdown } from './sprReportDay9';
 import type { SprReportRealAreaCard } from './sprReportDashboard.real';
+import { buildFirmaOrderTitle } from './sprSignerLabels';
 
-/** Fila Firma mock en-curso — no afirma envío ni firma completada. */
-const FIRMA_PENDING_ROW: SprReportStatusRow = {
-  title: 'Firma del reporte oficial — Orden: Tania/Cata/Marjorie → Gabriel/Elisa',
-  helper: 'Disponible cuando el SAC genere el reporte · El Especialista firma primero',
-  badge: 'Pendiente',
-  badgeTone: 'muted',
-  actionLabel: null,
-  actionHref: null,
-};
+function buildFirmaPendingRow(
+  specialists: readonly SprSignerPersonResponse[],
+  managers: readonly SprSignerPersonResponse[],
+): SprReportStatusRow {
+  return {
+    title: buildFirmaOrderTitle(specialists, managers),
+    helper: 'Disponible cuando el SAC genere el reporte · El Especialista firma primero',
+    badge: 'Pendiente',
+    badgeTone: 'muted',
+    actionLabel: null,
+    actionHref: null,
+  };
+}
 
 function formatIsoToDayMonthYear(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -27,7 +32,7 @@ function formatIsoToDayMonthYear(iso: string | null | undefined): string {
  * Filas "Estado del Reporte SPR" alineadas a datos reales / countdown desde spr_cycles.
  * - Consolidado: N/8 desde areaCards (submitted+|approved).
  * - Envío SAC: sac.status real (misma regla que el banner azul); sin CTA.
- * - Firma: pendiente mock (sin tabla de firmas de ciclo).
+ * - Firma: orden con nombres reales de firmantes (GET /spr/signers).
  */
 export function buildSprReportHonestStatusRows(input: {
   areaCards: SprReportRealAreaCard[] | null;
@@ -35,6 +40,8 @@ export function buildSprReportHonestStatusRows(input: {
   sacSubmission?: SprCycleSacSubmissionResponse | null;
   consolidadoHref: string;
   consolidadoActionVariant?: 'outline' | 'primary';
+  specialists?: readonly SprSignerPersonResponse[];
+  managers?: readonly SprSignerPersonResponse[];
 }): SprReportStatusRow[] {
   const totalAreas = input.areaCards?.length ?? 8;
   const areasInConsolidado = input.areaCards
@@ -109,5 +116,9 @@ export function buildSprReportHonestStatusRows(input: {
     };
   }
 
-  return [consolidadoRow, sacRow, FIRMA_PENDING_ROW];
+  return [
+    consolidadoRow,
+    sacRow,
+    buildFirmaPendingRow(input.specialists ?? [], input.managers ?? []),
+  ];
 }
