@@ -16,6 +16,7 @@ import type {
   SprParameterResponse,
   SprRecordActionRequest,
   SprRecordApprovalResponse,
+  SprSignersResponse,
   SprUnitResponse,
   UpdateSprMonthlyRecordRequest,
 } from '@aurelia/contracts';
@@ -60,6 +61,11 @@ export function getSprAssignments(query?: SprCatalogQuery): Promise<SprParameter
 
 export function getSprUnits(): Promise<SprUnitResponse[]> {
   return httpGet<SprUnitResponse[]>('/spr/units');
+}
+
+/** Roster de firmantes (especialistas + gerentes MA activos). */
+export function getSprSigners(): Promise<SprSignersResponse> {
+  return httpGet<SprSignersResponse>('/spr/signers');
 }
 
 export function getSprGroups(): Promise<SprMeasureGroupResponse[]> {
