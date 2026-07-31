@@ -97,13 +97,14 @@ import { InspectionsService } from './inspections.service';
     ]),
   ],
   controllers: [
-    InspectionsController,
-    InspectionProcessController,
-    InspectionDashboardController,
-    InspectionHistoryController,
-    InspectionTransversalController,
+    // Register controllers with static prefixes before the generic /inspections/:id route.
     InspectionFindingCatalogController,
     InspectionCriticalityCatalogController,
+    InspectionDashboardController,
+    InspectionHistoryController,
+    InspectionProcessController,
+    InspectionTransversalController,
+    InspectionsController,
   ],
   providers: [
     InspectionsService,

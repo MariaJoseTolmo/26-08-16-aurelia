@@ -1,0 +1,41 @@
+{
+  "sourceSystem": "legacy_environmental_inspections_spreadsheet",
+  "totalRows": 2308,
+  "dispositions": {
+    "READY": 0,
+    "WARNING": 2308,
+    "QUARANTINE": 0,
+    "BLOCKED": 0,
+    "ALREADY_IMPORTED": 0
+  },
+  "modes": {
+    "finding": 1997,
+    "checklist": 311,
+    "unresolved": 0
+  },
+  "statuses": {
+    "closed": 2253,
+    "inProgress": 55,
+    "unresolved": 0
+  },
+  "totals": {
+    "findingsCount": 18214,
+    "closedFindingsCount": 18048,
+    "openFindingsCount": 166,
+    "milestoneS1": 1611,
+    "milestoneS2": 134,
+    "milestoneS3": 14
+  },
+  "catalogResolutions": {
+    "DIRECT_MATCH": 3011,
+    "ALIAS_MATCH": 857,
+    "CREATE_ACTIVE": 5428,
+    "KEEP_TEXT_ONLY": 3,
+    "MANUAL_REVIEW": 0,
+    "BLOCKED": 0
+  },
+  "invariant": {
+    "classifiedRows": 2308,
+    "allRowsClassified": true
+  }
+}

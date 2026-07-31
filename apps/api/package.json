@@ -15,6 +15,9 @@
     "test:inspection-scope": "ts-node src/test/api-inspection-creation-scope-smoke.ts",
     "test:inspection-table-filters": "ts-node src/test/api-inspection-table-filters-smoke.ts",
     "test:inspection-sla-reassignment": "ts-node src/test/api-inspection-sla-reassignment-smoke.ts",
+    "test:swagger": "ts-node src/test/api-swagger-inspections-smoke.ts && ts-node src/test/api-swagger-route-audit.ts",
+    "test:swagger-routes": "ts-node src/test/api-swagger-route-audit.ts",
+    "test:swagger-runtime": "ts-node src/test/api-swagger-runtime-smoke.ts",
     "test:auth-access": "ts-node src/test/api-inspector-web-login-smoke.ts",
     "test:legacy-projection": "ts-node src/test/api-legacy-inspections-table-projection-smoke.ts",
     "test:legacy-export": "ts-node src/test/api-legacy-inspection-periodic-report-smoke.ts",
@@ -31,7 +34,8 @@
     "seed:functional-roles": "ts-node src/database/seeds/007-seed-functional-roles.ts",
     "seed:demo": "ts-node src/database/seeds/001-seed-phase1.ts && ts-node src/database/seeds/002-seed-demo-data.ts",
     "seed:all": "pnpm run seed && ts-node src/database/seeds/005-seed-dev-password-reset.ts && ts-node src/database/seeds/006-seed-notifications-permissions.ts",
-    "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts"
+    "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts",
+    "export:master-data-matrix": "ts-node src/cli/export-master-data-matrix.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
@@ -42,6 +46,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.4.6",
     "@nestjs/typeorm": "^11.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",

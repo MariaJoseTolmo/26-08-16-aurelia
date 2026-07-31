@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
+import { setupSwaggerDocumentation } from './config/swagger';
 import { ResourceScopeInterceptor } from './modules/access-control/resource-scope.interceptor';
 import { ResourceScopeService } from './modules/access-control/resource-scope.service';
 import { IncidentEntity } from './modules/incidents/entities/incident.entity';
@@ -71,6 +72,8 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
   });
+
+  setupSwaggerDocumentation(app, config);
   await app.listen(port);
 }
 
