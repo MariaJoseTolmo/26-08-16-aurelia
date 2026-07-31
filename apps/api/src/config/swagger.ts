@@ -5,6 +5,7 @@ import '../modules/auth/auth-openapi.metadata';
 import { AuthModule } from '../modules/auth/auth.module';
 import '../modules/inspections/inspection-openapi.metadata';
 import '../modules/inspections/inspection-openapi.responses';
+import '../modules/inspections/inspection-openapi-secondary.responses';
 import { InspectionsModule } from '../modules/inspections/inspections.module';
 
 export function setupSwaggerDocumentation(app: INestApplication, config: ConfigService): void {
@@ -15,9 +16,9 @@ export function setupSwaggerDocumentation(app: INestApplication, config: ConfigS
   const documentConfig = new DocumentBuilder()
     .setTitle('AurelIA API')
     .setDescription(
-      'Documentación técnica de la API de AurelIA. Esta iteración cubre autenticación y el módulo de Inspecciones con modelos de respuesta tipados.',
+      'Documentación técnica de la API de AurelIA. Esta iteración cubre autenticación y el módulo de Inspecciones con modelos tipados para operaciones principales y secundarias.',
     )
-    .setVersion('0.2.0')
+    .setVersion('0.3.0')
     .addBearerAuth(
       {
         type: 'http',

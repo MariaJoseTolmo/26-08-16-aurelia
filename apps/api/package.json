@@ -16,6 +16,7 @@
     "test:inspection-table-filters": "ts-node src/test/api-inspection-table-filters-smoke.ts",
     "test:inspection-sla-reassignment": "ts-node src/test/api-inspection-sla-reassignment-smoke.ts",
     "test:swagger": "ts-node src/test/api-swagger-inspections-smoke.ts",
+    "test:swagger-runtime": "ts-node src/test/api-swagger-runtime-smoke.ts",
     "test:auth-access": "ts-node src/test/api-inspector-web-login-smoke.ts",
     "test:legacy-projection": "ts-node src/test/api-legacy-inspections-table-projection-smoke.ts",
     "test:legacy-export": "ts-node src/test/api-legacy-inspection-periodic-report-smoke.ts",
