@@ -1,6 +1,7 @@
+import { InspectionConstraints, InspectionStatus, UpdateInspectionRequest } from '@aurelia/contracts';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
-import { InspectionConstraints, InspectionStatus, UpdateInspectionRequest } from '@aurelia/contracts';
 
 export class UpdateInspectionDto implements UpdateInspectionRequest {
   @IsOptional()
@@ -38,6 +39,7 @@ export class UpdateInspectionDto implements UpdateInspectionRequest {
   @MaxLength(InspectionConstraints.description.maxLength)
   description?: string | null;
 
+  @ApiPropertyOptional({ enum: InspectionStatus, enumName: 'InspectionStatus' })
   @IsOptional()
   @IsEnum(InspectionStatus)
   status?: InspectionStatus;
