@@ -132,7 +132,7 @@ export function readApiEnv(source: EnvSource = process.env): ApiEnv {
       anthropicApiKey: readOptionalString(source, 'ANTHROPIC_API_KEY'),
     },
     swagger: {
-      enabled: readOptionalBoolean(source, 'SWAGGER_ENABLED', source.NODE_ENV !== 'production'),
+      enabled: readOptionalBoolean(source, 'SWAGGER_ENABLED', true),
       path: readSwaggerPath(source),
     },
   };
