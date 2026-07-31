@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @aurelia/contracts build && nest start --watch",
-    "build": "nest build",
+    "build": "nest build && node scripts/normalize-swagger-contract-imports.mjs",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "migration:run:prod": "node dist/database/run-migrations.js",
