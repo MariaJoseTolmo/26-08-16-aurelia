@@ -44,7 +44,10 @@ function main(): void {
   assert(swaggerSource.includes("addTag('Autenticación'"), 'Swagger must expose the authentication tag');
   assert(swaggerSource.includes('addBearerAuth('), 'Swagger document must define Bearer JWT authentication');
   assert(swaggerSource.includes('useGlobalPrefix: true'), 'Swagger UI must respect the /api global prefix');
-  assert(envSource.includes("source.NODE_ENV !== 'production'"), 'Swagger must default to disabled in production');
+  assert(
+    envSource.includes("readOptionalBoolean(source, 'SWAGGER_ENABLED', true)"),
+    'Swagger must be enabled by default in every environment',
+  );
   assert(nestCli.includes('@nestjs/swagger/plugin'), 'Nest Swagger CLI plugin must generate DTO schemas');
 
   [
