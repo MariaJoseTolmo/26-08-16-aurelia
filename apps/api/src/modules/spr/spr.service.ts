@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -8,6 +8,16 @@ import {
   RecordStatus,
   Role,
   SprApprovalStatus,
+  SprCycleResponse,
+  SprCycleSacSubmissionResponse,
+  SprCycleSacSubmissionStatus,
+  SprCycleSignatureLevel,
+  SprCycleSignatureResponse,
+  SprCycleSignatureStatus,
+  SprCycleStatus,
+  SprCycleValidationDecision,
+  SprCycleValidationResponse,
+  SprCycleValidationStatus,
   SprMeasureGroupResponse,
   SprMonthlyRecordResponse,
   SprParameterAreaAssignmentResponse,
@@ -19,19 +29,45 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { CommentsService } from '../comments/comments.service';
 import { EvidencesService } from '../evidences/evidences.service';
+import { AreaEntity } from '../organization/entities/area.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { CreateSprCycleSignatureDto } from './dto/create-spr-cycle-signature.dto';
+import { CreateSprCycleValidationDto } from './dto/create-spr-cycle-validation.dto';
 import { CreateSprMonthlyRecordDto } from './dto/create-spr-monthly-record.dto';
 import { CreateSprRecordCommentDto } from './dto/create-spr-record-comment.dto';
 import { LinkSprRecordEvidenceDto } from './dto/link-spr-record-evidence.dto';
 import { SprRecordActionDto } from './dto/spr-record-action.dto';
 import { UpdateSprMonthlyRecordStatusDto } from './dto/update-spr-monthly-record-status.dto';
 import { UpdateSprMonthlyRecordDto } from './dto/update-spr-monthly-record.dto';
+import { SprCycleSacSubmissionEntity } from './entities/spr-cycle-sac-submission.entity';
+import { SprCycleSignatureEntity } from './entities/spr-cycle-signature.entity';
+import { SprCycleValidationEntity } from './entities/spr-cycle-validation.entity';
+import { SprCycleEntity } from './entities/spr-cycle.entity';
 import { SprMeasureGroupEntity } from './entities/spr-measure-group.entity';
 import { SprMonthlyRecordEntity } from './entities/spr-monthly-record.entity';
 import { SprParameterAreaAssignmentEntity } from './entities/spr-parameter-area-assignment.entity';
 import { SprParameterEntity } from './entities/spr-parameter.entity';
 import { SprRecordApprovalEntity } from './entities/spr-record-approval.entity';
 import { SprUnitEntity } from './entities/spr-unit.entity';
+
+/** Áreas SOX del paso 5 — únicas que pueden validar el reporte. */
+export const SPR_SOX_AREA_CODES = ['AREA-STECNICOS', 'AREA-OPTACTIVOS'] as const;
+
+/**
+ * Universo Dashboard / cierre de ciclo (mismo orden que FE SPR_REPORT_AREA_CATALOG).
+ * Cierre formal (`closed`) exige que las 8 tengan todos sus assignments con record approved.
+ * Fase 4 (estimados) aún no existe: “sin estimaciones” se aproxima con 8/8 datos reales approved.
+ */
+export const SPR_REPORT_AREA_CODES = [
+  'AREA-STECNICOS',
+  'AREA-OPTACTIVOS',
+  'AREA-MINA',
+  'AREA-FINANZAS',
+  'AREA-PLANTA',
+  'AREA-MAMBIENTE',
+  'AREA-SUSTENTABILIDAD',
+  'AREA-SOPERACIONALES',
+] as const;
 
 const SPR_RECORD_ENTITY_TYPE = 'spr_record';
 
@@ -46,6 +82,12 @@ type SprCatalogScopeInput = {
   areaId?: string;
   roles: string[];
   userId: string;
+};
+
+type SprCyclesQuery = {
+  periodYear?: string;
+  periodMonth?: string;
+  status?: string;
 };
 
 @Injectable()
@@ -63,12 +105,508 @@ export class SprService {
     private readonly monthlyRecordsRepository: Repository<SprMonthlyRecordEntity>,
     @InjectRepository(SprRecordApprovalEntity)
     private readonly approvalsRepository: Repository<SprRecordApprovalEntity>,
+    @InjectRepository(SprCycleEntity)
+    private readonly cyclesRepository: Repository<SprCycleEntity>,
+    @InjectRepository(SprCycleSacSubmissionEntity)
+    private readonly sacSubmissionsRepository: Repository<SprCycleSacSubmissionEntity>,
+    @InjectRepository(SprCycleSignatureEntity)
+    private readonly signaturesRepository: Repository<SprCycleSignatureEntity>,
+    @InjectRepository(SprCycleValidationEntity)
+    private readonly validationsRepository: Repository<SprCycleValidationEntity>,
+    @InjectRepository(AreaEntity)
+    private readonly areasRepository: Repository<AreaEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
     private readonly evidencesService: EvidencesService,
     private readonly commentsService: CommentsService,
     private readonly auditService: AuditService,
   ) {}
+
+  async findCycles(query: SprCyclesQuery = {}): Promise<SprCycleResponse[]> {
+    const where: { periodYear?: number; periodMonth?: number; status?: SprCycleStatus } = {};
+
+    if (query.periodYear !== undefined && query.periodYear !== '') {
+      const periodYear = Number(query.periodYear);
+      if (!Number.isInteger(periodYear) || periodYear < 2000 || periodYear > 2100) {
+        throw new BadRequestException('periodYear must be an integer between 2000 and 2100');
+      }
+      where.periodYear = periodYear;
+    }
+
+    if (query.periodMonth !== undefined && query.periodMonth !== '') {
+      const periodMonth = Number(query.periodMonth);
+      if (!Number.isInteger(periodMonth) || periodMonth < 1 || periodMonth > 12) {
+        throw new BadRequestException('periodMonth must be an integer between 1 and 12');
+      }
+      where.periodMonth = periodMonth;
+    }
+
+    if (query.status !== undefined && query.status !== '') {
+      if (!Object.values(SprCycleStatus).includes(query.status as SprCycleStatus)) {
+        throw new BadRequestException(`status must be one of: ${Object.values(SprCycleStatus).join(', ')}`);
+      }
+      where.status = query.status as SprCycleStatus;
+    }
+
+    const cycles = await this.cyclesRepository.find({
+      where,
+      order: { periodYear: 'DESC', periodMonth: 'DESC' },
+    });
+    return cycles.map((cycle) => this.toCycleResponse(cycle));
+  }
+
+  async findCycle(id: string): Promise<SprCycleResponse> {
+    const cycle = await this.cyclesRepository.findOne({ where: { id } });
+    if (!cycle) throw new NotFoundException('SPR cycle not found');
+    return this.toCycleResponse(cycle);
+  }
+
+  /** Fase 2: submission SAC del ciclo. Sin fila → 404 (Mayo/Junio demo). */
+  async findCycleSacSubmission(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+    await this.requireCycle(cycleId);
+    const submission = await this.sacSubmissionsRepository.findOne({ where: { cycleId } });
+    if (!submission) throw new NotFoundException('SPR cycle SAC submission not found');
+    return this.toSacSubmissionResponse(submission);
+  }
+
+  /**
+   * Stub demo: pending → preparing (crea fila si no existe).
+   * Actualiza ciclo a sac_preparing. No integra SAC externo.
+   *
+   * Producción (futuro): el disparo es automático el día 9 — sin botón “preparar”
+   * en la UI. Este endpoint puede seguir existiendo solo para demos/smoke.
+   *
+   * Fase 4 (pendiente, no implementado): durante este mismo paso `preparing`
+   * debe calcularse el promedio histórico de 6 meses para áreas sin dato real
+   * (estimados). Ese cálculo debería vivir aquí o en el job de día 9 que deja
+   * el ciclo/submission en preparing — no en un paso posterior.
+   */
+  async prepareCycleSacSubmission(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+    const cycle = await this.requireCycle(cycleId);
+    let submission = await this.sacSubmissionsRepository.findOne({ where: { cycleId } });
+
+    if (submission?.status === SprCycleSacSubmissionStatus.REPORT_READY) {
+      throw new ConflictException('SAC report is already ready for this cycle');
+    }
+    if (submission?.status === SprCycleSacSubmissionStatus.FAILED) {
+      throw new ConflictException('SAC submission is failed; reset is not implemented in Fase 2');
+    }
+
+    if (!submission) {
+      submission = this.sacSubmissionsRepository.create({
+        cycleId,
+        status: SprCycleSacSubmissionStatus.PREPARING,
+        sentAt: null,
+        reportReadyAt: null,
+        externalRef: null,
+        payloadSnapshot: null,
+      });
+    } else if (
+      submission.status === SprCycleSacSubmissionStatus.PENDING ||
+      submission.status === SprCycleSacSubmissionStatus.PREPARING
+    ) {
+      submission.status = SprCycleSacSubmissionStatus.PREPARING;
+    } else if (submission.status === SprCycleSacSubmissionStatus.SENT) {
+      throw new ConflictException('SAC submission already sent; use mark-ready to expose report');
+    }
+
+    const saved = await this.sacSubmissionsRepository.save(submission);
+    if (cycle.status !== SprCycleStatus.SAC_PREPARING && cycle.status !== SprCycleStatus.SAC_AVAILABLE) {
+      cycle.status = SprCycleStatus.SAC_PREPARING;
+      await this.cyclesRepository.save(cycle);
+    }
+    return this.toSacSubmissionResponse(saved);
+  }
+
+  /**
+   * Stub demo: marca report_ready y ciclo → sac_available.
+   * Crea fila si no existe. No integra SAC externo.
+   */
+  async markCycleSacReportReady(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+    const cycle = await this.requireCycle(cycleId);
+    let submission = await this.sacSubmissionsRepository.findOne({ where: { cycleId } });
+    const now = new Date();
+
+    if (!submission) {
+      submission = this.sacSubmissionsRepository.create({
+        cycleId,
+        status: SprCycleSacSubmissionStatus.REPORT_READY,
+        sentAt: now,
+        reportReadyAt: now,
+        externalRef: null,
+        payloadSnapshot: null,
+      });
+    } else if (submission.status === SprCycleSacSubmissionStatus.FAILED) {
+      throw new ConflictException('SAC submission is failed; reset is not implemented in Fase 2');
+    } else {
+      submission.status = SprCycleSacSubmissionStatus.REPORT_READY;
+      submission.sentAt = submission.sentAt ?? now;
+      submission.reportReadyAt = now;
+    }
+
+    const saved = await this.sacSubmissionsRepository.save(submission);
+    cycle.status = SprCycleStatus.SAC_AVAILABLE;
+    await this.cyclesRepository.save(cycle);
+    return this.toSacSubmissionResponse(saved);
+  }
+
+  /** Fase 3: firmas del ciclo. Sin filas → []. */
+  async findCycleSignatures(cycleId: string): Promise<SprCycleSignatureResponse[]> {
+    await this.requireCycle(cycleId);
+    const signatures = await this.signaturesRepository.find({
+      where: { cycleId },
+      relations: { signer: true },
+      order: { signedAt: 'ASC', createdAt: 'ASC' },
+    });
+    return signatures.map((signature) => this.toSignatureResponse(signature));
+  }
+
+  /**
+   * Fase 3: firma specialist | environment_manager.
+   * Prerrequisitos: SAC sent|report_ready; gerente solo tras especialista.
+   * Ciclo: specialist → signing; ambos → validating.
+   */
+  async createCycleSignature(
+    cycleId: string,
+    dto: CreateSprCycleSignatureDto,
+    actor: { userId: string; roles: string[] },
+  ): Promise<SprCycleSignatureResponse> {
+    const cycle = await this.requireCycle(cycleId);
+    if (cycle.status === SprCycleStatus.CLOSED) {
+      throw new ConflictException('Closed cycles cannot accept new signatures');
+    }
+    this.assertSignerRoleForLevel(dto.level, actor.roles);
+
+    const existing = await this.signaturesRepository.findOne({
+      where: { cycleId, level: dto.level },
+    });
+    if (existing?.status === SprCycleSignatureStatus.SIGNED) {
+      throw new ConflictException(`Cycle already has a signed ${dto.level} signature`);
+    }
+
+    const sac = await this.sacSubmissionsRepository.findOne({ where: { cycleId } });
+    const sacReady =
+      sac?.status === SprCycleSacSubmissionStatus.SENT ||
+      sac?.status === SprCycleSacSubmissionStatus.REPORT_READY;
+    if (!sacReady) {
+      throw new ConflictException(
+        'Cycle SAC submission must be sent or report_ready before signing the report',
+      );
+    }
+
+    const reopenedValidations = await this.validationsRepository.find({
+      where: { cycleId, status: SprCycleValidationStatus.REOPENED },
+    });
+    for (const reopened of reopenedValidations) {
+      const areaRecords = await this.monthlyRecordsRepository.find({
+        where: {
+          areaId: reopened.areaId,
+          periodYear: cycle.periodYear,
+          periodMonth: cycle.periodMonth,
+        },
+      });
+      const correctionPending =
+        areaRecords.length === 0 ||
+        areaRecords.some((record) => record.status !== SprRecordStatus.APPROVED);
+      if (correctionPending) {
+        throw new ConflictException(
+          'Cannot sign while a SOX area is reopened and its monthly records are not all approved again',
+        );
+      }
+    }
+
+    if (dto.level === SprCycleSignatureLevel.ENVIRONMENT_MANAGER) {
+      const specialist = await this.signaturesRepository.findOne({
+        where: {
+          cycleId,
+          level: SprCycleSignatureLevel.SPECIALIST,
+          status: SprCycleSignatureStatus.SIGNED,
+        },
+      });
+      if (!specialist) {
+        throw new ConflictException(
+          'Environment manager can only sign after the sustainability specialist has signed',
+        );
+      }
+    }
+
+    const now = new Date();
+    let saved: SprCycleSignatureEntity;
+    if (existing?.status === SprCycleSignatureStatus.REVOKED) {
+      existing.status = SprCycleSignatureStatus.SIGNED;
+      existing.signerUserId = actor.userId;
+      existing.signedAt = now;
+      saved = await this.signaturesRepository.save(existing);
+    } else if (existing) {
+      throw new ConflictException(`Signature row already exists for level ${dto.level}`);
+    } else {
+      saved = await this.signaturesRepository.save(
+        this.signaturesRepository.create({
+          cycleId,
+          level: dto.level,
+          status: SprCycleSignatureStatus.SIGNED,
+          signerUserId: actor.userId,
+          signedAt: now,
+        }),
+      );
+    }
+
+    if (dto.level === SprCycleSignatureLevel.SPECIALIST) {
+      if (
+        cycle.status !== SprCycleStatus.VALIDATING &&
+        cycle.status !== SprCycleStatus.VALIDATION_APPROVED &&
+        cycle.status !== SprCycleStatus.CLOSED
+      ) {
+        cycle.status = SprCycleStatus.SIGNING;
+        await this.cyclesRepository.save(cycle);
+      }
+    } else if (dto.level === SprCycleSignatureLevel.ENVIRONMENT_MANAGER) {
+      if (
+        cycle.status !== SprCycleStatus.CLOSED &&
+        cycle.status !== SprCycleStatus.VALIDATION_APPROVED
+      ) {
+        cycle.status = SprCycleStatus.VALIDATING;
+        await this.cyclesRepository.save(cycle);
+      }
+    }
+
+    const withSigner = await this.signaturesRepository.findOne({
+      where: { id: saved.id },
+      relations: { signer: true },
+    });
+    return this.toSignatureResponse(withSigner ?? saved);
+  }
+
+  /** Fase 5: validaciones SOX. Sin filas → []. */
+  async findCycleValidations(cycleId: string): Promise<SprCycleValidationResponse[]> {
+    await this.requireCycle(cycleId);
+    const validations = await this.validationsRepository.find({
+      where: { cycleId },
+      relations: { area: true, actor: true },
+      order: { decidedAt: 'ASC', createdAt: 'ASC' },
+    });
+    return validations.map((validation) => this.toValidationResponse(validation));
+  }
+
+  /**
+   * Fase 5: Responsable SOX aprueba o reporta discrepancia (una fila por área).
+   * Si la fila está reopened → UPDATE con la nueva decisión.
+   * Ambas SOX approved → validation_approved; si además 8/8 áreas fully approved → closed.
+   */
+  async createCycleValidation(
+    cycleId: string,
+    dto: CreateSprCycleValidationDto,
+    actor: { userId: string; roles: string[] },
+  ): Promise<SprCycleValidationResponse> {
+    const cycle = await this.requireCycle(cycleId);
+    if (
+      cycle.status !== SprCycleStatus.VALIDATING &&
+      cycle.status !== SprCycleStatus.VALIDATION_APPROVED
+    ) {
+      throw new ConflictException(
+        'Cycle must be validating (or validation_approved) before SOX area validation',
+      );
+    }
+
+    const area = await this.areasRepository.findOne({ where: { id: dto.areaId } });
+    if (!area) throw new NotFoundException('Area not found');
+    if (!(SPR_SOX_AREA_CODES as readonly string[]).includes(area.code)) {
+      throw new BadRequestException(
+        `Only SOX areas can validate the report: ${SPR_SOX_AREA_CODES.join(', ')}`,
+      );
+    }
+
+    await this.assertSoxValidatorForArea(actor, area.id);
+
+    const specialist = await this.signaturesRepository.findOne({
+      where: {
+        cycleId,
+        level: SprCycleSignatureLevel.SPECIALIST,
+        status: SprCycleSignatureStatus.SIGNED,
+      },
+    });
+    const manager = await this.signaturesRepository.findOne({
+      where: {
+        cycleId,
+        level: SprCycleSignatureLevel.ENVIRONMENT_MANAGER,
+        status: SprCycleSignatureStatus.SIGNED,
+      },
+    });
+    if (!specialist || !manager) {
+      throw new ConflictException(
+        'Both specialist and environment_manager signatures are required before SOX validation',
+      );
+    }
+
+    const existing = await this.validationsRepository.findOne({
+      where: { cycleId, areaId: dto.areaId },
+    });
+    if (existing && existing.status !== SprCycleValidationStatus.REOPENED) {
+      throw new ConflictException(`Validation already exists for area ${area.code} on this cycle`);
+    }
+
+    if (dto.decision === SprCycleValidationDecision.DISCREPANCY_REPORTED) {
+      const comments = dto.comments?.trim() ?? '';
+      if (!comments) {
+        throw new BadRequestException('comments are required when reporting a discrepancy');
+      }
+    }
+
+    const now = new Date();
+    const status =
+      dto.decision === SprCycleValidationDecision.APPROVED
+        ? SprCycleValidationStatus.APPROVED
+        : SprCycleValidationStatus.DISCREPANCY_REPORTED;
+    const comments =
+      dto.decision === SprCycleValidationDecision.DISCREPANCY_REPORTED
+        ? (dto.comments?.trim() ?? null)
+        : dto.comments?.trim() || null;
+
+    let saved: SprCycleValidationEntity;
+    if (existing?.status === SprCycleValidationStatus.REOPENED) {
+      existing.status = status;
+      existing.actorUserId = actor.userId;
+      existing.comments = comments;
+      existing.decidedAt = now;
+      existing.reopenedAt = null;
+      saved = await this.validationsRepository.save(existing);
+    } else {
+      saved = await this.validationsRepository.save(
+        this.validationsRepository.create({
+          cycleId,
+          areaId: dto.areaId,
+          status,
+          actorUserId: actor.userId,
+          comments,
+          decidedAt: now,
+        }),
+      );
+    }
+
+    if (status === SprCycleValidationStatus.APPROVED) {
+      await this.maybeMarkValidationApproved(cycle);
+    }
+
+    const withRelations = await this.validationsRepository.findOne({
+      where: { id: saved.id },
+      relations: { area: true, actor: true },
+    });
+    return this.toValidationResponse(withRelations ?? saved);
+  }
+
+  /**
+   * Fase 5.1: Especialista reabre un área SOX con discrepancy_reported.
+   * - validation → reopened
+   * - monthly records del área+período → rejected (+ approval)
+   * - firmas del ciclo → revoked
+   * - ciclo → signing
+   * Otras áreas SOX no se tocan.
+   */
+  async reopenCycleValidation(
+    cycleId: string,
+    areaId: string,
+    actor: { userId: string; roles: string[] },
+    dto?: { comments?: string | null },
+  ): Promise<SprCycleValidationResponse> {
+    if (!actor.roles.includes(Role.ADMIN) && !actor.roles.includes(Role.SPR_SUSTAINABILITY_SPECIALIST)) {
+      throw new ForbiddenException('Only sustainability specialists can reopen SOX validations');
+    }
+
+    const cycle = await this.requireCycle(cycleId);
+    if (cycle.status === SprCycleStatus.CLOSED) {
+      throw new ConflictException('Closed cycles cannot be reopened');
+    }
+    if (cycle.status !== SprCycleStatus.VALIDATING && cycle.status !== SprCycleStatus.VALIDATION_APPROVED) {
+      throw new ConflictException('Cycle must be validating (or validation_approved) to reopen an area');
+    }
+
+    const area = await this.areasRepository.findOne({ where: { id: areaId } });
+    if (!area) throw new NotFoundException('Area not found');
+    if (!(SPR_SOX_AREA_CODES as readonly string[]).includes(area.code)) {
+      throw new BadRequestException(
+        `Only SOX areas can be reopened: ${SPR_SOX_AREA_CODES.join(', ')}`,
+      );
+    }
+
+    const validation = await this.validationsRepository.findOne({
+      where: { cycleId, areaId },
+    });
+    if (!validation) {
+      throw new NotFoundException(`No SOX validation found for area ${area.code} on this cycle`);
+    }
+    if (validation.status === SprCycleValidationStatus.REOPENED) {
+      throw new ConflictException(`Validation for area ${area.code} is already reopened`);
+    }
+    if (validation.status !== SprCycleValidationStatus.DISCREPANCY_REPORTED) {
+      throw new ConflictException(
+        `Only discrepancy_reported validations can be reopened (current: ${validation.status})`,
+      );
+    }
+
+    const specialistNote = dto?.comments?.trim() ?? '';
+    const reopenComment = specialistNote
+      ? `Reapertura SOX por Especialista de Sustentabilidad.\n${specialistNote}`
+      : 'Reapertura SOX por Especialista de Sustentabilidad.';
+
+    if (validation.comments?.trim()) {
+      validation.comments = `${validation.comments.trim()}\n\n[${reopenComment}]`;
+    } else {
+      validation.comments = `[${reopenComment}]`;
+    }
+    validation.status = SprCycleValidationStatus.REOPENED;
+    validation.reopenedAt = new Date();
+    await this.validationsRepository.save(validation);
+
+    const records = await this.monthlyRecordsRepository.find({
+      where: {
+        areaId,
+        periodYear: cycle.periodYear,
+        periodMonth: cycle.periodMonth,
+      },
+    });
+    for (const record of records) {
+      if (record.status === SprRecordStatus.REJECTED || record.status === SprRecordStatus.DRAFT) {
+        continue;
+      }
+      record.status = SprRecordStatus.REJECTED;
+      record.approvedByUserId = null;
+      record.approvedAt = null;
+      const savedRecord = await this.monthlyRecordsRepository.save(record);
+      await this.approvalsRepository.save(
+        this.approvalsRepository.create({
+          recordId: savedRecord.id,
+          approverUserId: actor.userId,
+          status: SprApprovalStatus.REJECTED,
+          comments: reopenComment,
+          decidedAt: new Date(),
+        }),
+      );
+    }
+
+    const signatures = await this.signaturesRepository.find({ where: { cycleId } });
+    for (const signature of signatures) {
+      if (signature.status !== SprCycleSignatureStatus.SIGNED) continue;
+      signature.status = SprCycleSignatureStatus.REVOKED;
+      signature.signerUserId = null;
+      signature.signedAt = null;
+      await this.signaturesRepository.save(signature);
+    }
+
+    cycle.status = SprCycleStatus.SIGNING;
+    await this.cyclesRepository.save(cycle);
+
+    await this.logAudit('spr.cycle.validation.reopened', validation.id, actor.userId, undefined, {
+      cycleId,
+      areaId,
+      areaCode: area.code,
+    });
+
+    const withRelations = await this.validationsRepository.findOne({
+      where: { id: validation.id },
+      relations: { area: true, actor: true },
+    });
+    return this.toValidationResponse(withRelations ?? validation);
+  }
 
   async findGroups(): Promise<SprMeasureGroupResponse[]> {
     const groups = await this.measureGroupsRepository.find({ order: { sortOrder: 'ASC', code: 'ASC' } });
@@ -284,6 +822,15 @@ export class SprService {
     const saved = await this.monthlyRecordsRepository.save(record);
     await this.upsertApproval(saved, SprApprovalStatus.APPROVED, dto.approverUserId ?? saved.approvedByUserId, dto.comments ?? dto.notes ?? null);
     await this.logAudit('spr.record.approved', recordId, dto.approverUserId ?? null, oldValue, this.toMonthlyRecordResponse(saved));
+
+    // Si el ciclo ya está validation_approved y esta era la última área → closed.
+    const cycle = await this.cyclesRepository.findOne({
+      where: { periodYear: saved.periodYear, periodMonth: saved.periodMonth },
+    });
+    if (cycle) {
+      await this.maybeMarkValidationApproved(cycle);
+    }
+
     return this.toMonthlyRecordResponse(saved);
   }
 
@@ -473,6 +1020,208 @@ export class SprService {
       updatedAt: approval.updatedAt.toISOString(),
       decidedAt: approval.decidedAt?.toISOString() ?? null,
     };
+  }
+
+  private toCycleResponse(cycle: SprCycleEntity): SprCycleResponse {
+    return {
+      id: cycle.id,
+      periodYear: cycle.periodYear,
+      periodMonth: cycle.periodMonth,
+      label: cycle.label,
+      status: cycle.status,
+      day9At: this.toDateOnlyIso(cycle.day9At),
+      closedAt: cycle.closedAt?.toISOString() ?? null,
+      createdAt: cycle.createdAt.toISOString(),
+      updatedAt: cycle.updatedAt.toISOString(),
+    };
+  }
+
+  private toSacSubmissionResponse(submission: SprCycleSacSubmissionEntity): SprCycleSacSubmissionResponse {
+    return {
+      id: submission.id,
+      cycleId: submission.cycleId,
+      status: submission.status,
+      sentAt: submission.sentAt?.toISOString() ?? null,
+      reportReadyAt: submission.reportReadyAt?.toISOString() ?? null,
+      externalRef: submission.externalRef,
+      payloadSnapshot: submission.payloadSnapshot,
+      createdAt: submission.createdAt.toISOString(),
+      updatedAt: submission.updatedAt.toISOString(),
+    };
+  }
+
+  private toSignatureResponse(signature: SprCycleSignatureEntity): SprCycleSignatureResponse {
+    const signerFullName = signature.signer
+      ? `${signature.signer.firstName} ${signature.signer.lastName}`.trim()
+      : null;
+    return {
+      id: signature.id,
+      cycleId: signature.cycleId,
+      level: signature.level,
+      status: signature.status,
+      signerUserId: signature.signerUserId,
+      signerFullName,
+      signedAt: signature.signedAt?.toISOString() ?? null,
+      createdAt: signature.createdAt.toISOString(),
+      updatedAt: signature.updatedAt.toISOString(),
+    };
+  }
+
+  private toValidationResponse(validation: SprCycleValidationEntity): SprCycleValidationResponse {
+    const actorFullName = validation.actor
+      ? `${validation.actor.firstName} ${validation.actor.lastName}`.trim()
+      : null;
+    return {
+      id: validation.id,
+      cycleId: validation.cycleId,
+      areaId: validation.areaId,
+      areaCode: validation.area?.code ?? '',
+      areaName: validation.area?.name ?? '',
+      status: validation.status,
+      actorUserId: validation.actorUserId,
+      actorFullName,
+      comments: validation.comments,
+      decidedAt: validation.decidedAt?.toISOString() ?? null,
+      reopenedAt: validation.reopenedAt?.toISOString() ?? null,
+      createdAt: validation.createdAt.toISOString(),
+      updatedAt: validation.updatedAt.toISOString(),
+    };
+  }
+
+  private async assertSoxValidatorForArea(
+    actor: { userId: string; roles: string[] },
+    areaId: string,
+  ): Promise<void> {
+    if (actor.roles.includes(Role.ADMIN)) return;
+    if (!actor.roles.includes(Role.SPR_RESPONSIBLE)) {
+      throw new ForbiddenException('Only area responsibles can submit SOX validations');
+    }
+    const user = await this.usersRepository.findOne({ where: { id: actor.userId } });
+    if (!user?.areaId || user.areaId !== areaId) {
+      throw new ForbiddenException('You can only validate the SOX report for your own area');
+    }
+  }
+
+  /**
+   * Tras última SOX approved (o último record approved del período):
+   * - 2/2 SOX approved + 8/8 áreas fully approved → `closed` (+ closedAt)
+   * - 2/2 SOX approved sin 8/8 → `validation_approved`
+   * Sin Fase 4: “sin estimaciones” = todas las áreas del catálogo SPR con 100% records approved.
+   */
+  private async maybeMarkValidationApproved(cycle: SprCycleEntity): Promise<void> {
+    if (cycle.status === SprCycleStatus.CLOSED) return;
+
+    const soxOk = await this.areAllSoxValidationsApproved(cycle.id);
+    if (!soxOk) return;
+
+    const areasOk = await this.areAllSprAreasFullyApproved(cycle);
+    if (areasOk) {
+      cycle.status = SprCycleStatus.CLOSED;
+      cycle.closedAt = new Date();
+      await this.cyclesRepository.save(cycle);
+      return;
+    }
+
+    if (cycle.status !== SprCycleStatus.VALIDATION_APPROVED) {
+      cycle.status = SprCycleStatus.VALIDATION_APPROVED;
+      await this.cyclesRepository.save(cycle);
+    }
+  }
+
+  private async areAllSoxValidationsApproved(cycleId: string): Promise<boolean> {
+    const soxAreas = await this.areasRepository.find({
+      where: { code: In([...SPR_SOX_AREA_CODES]) },
+    });
+    if (soxAreas.length < SPR_SOX_AREA_CODES.length) return false;
+
+    const approved = await this.validationsRepository.find({
+      where: {
+        cycleId,
+        status: SprCycleValidationStatus.APPROVED,
+        areaId: In(soxAreas.map((area) => area.id)),
+      },
+    });
+    const approvedAreaIds = new Set(approved.map((row) => row.areaId));
+    return soxAreas.every((area) => approvedAreaIds.has(area.id));
+  }
+
+  /** Cada área SPR tiene ≥1 assignment activo y todos esos params tienen record approved del ciclo. */
+  private async areAllSprAreasFullyApproved(cycle: SprCycleEntity): Promise<boolean> {
+    const areas = await this.areasRepository.find({
+      where: { code: In([...SPR_REPORT_AREA_CODES]) },
+    });
+    if (areas.length < SPR_REPORT_AREA_CODES.length) return false;
+
+    const areaIds = areas.map((area) => area.id);
+    const assignments = await this.assignmentsRepository.find({
+      where: { areaId: In(areaIds), status: RecordStatus.ACTIVE },
+    });
+
+    const assignmentsByAreaId = new Map<string, SprParameterAreaAssignmentEntity[]>();
+    for (const assignment of assignments) {
+      if (!assignment.areaId) continue;
+      const list = assignmentsByAreaId.get(assignment.areaId) ?? [];
+      list.push(assignment);
+      assignmentsByAreaId.set(assignment.areaId, list);
+    }
+
+    for (const area of areas) {
+      if ((assignmentsByAreaId.get(area.id) ?? []).length === 0) return false;
+    }
+
+    const approvedRecords = await this.monthlyRecordsRepository.find({
+      where: {
+        periodYear: cycle.periodYear,
+        periodMonth: cycle.periodMonth,
+        areaId: In(areaIds),
+        status: SprRecordStatus.APPROVED,
+      },
+    });
+    const approvedKeys = new Set(
+      approvedRecords.map((record) => `${record.areaId}:${record.parameterId}`),
+    );
+
+    for (const area of areas) {
+      for (const assignment of assignmentsByAreaId.get(area.id) ?? []) {
+        if (!approvedKeys.has(`${area.id}:${assignment.parameterId}`)) return false;
+      }
+    }
+    return true;
+  }
+
+  private assertSignerRoleForLevel(level: SprCycleSignatureLevel, roles: string[]): void {
+    const isAdmin = roles.includes(Role.ADMIN);
+    if (isAdmin) return;
+
+    if (level === SprCycleSignatureLevel.SPECIALIST) {
+      if (!roles.includes(Role.SPR_SUSTAINABILITY_SPECIALIST)) {
+        throw new ForbiddenException('Only sustainability specialists can sign at specialist level');
+      }
+      return;
+    }
+
+    if (level === SprCycleSignatureLevel.ENVIRONMENT_MANAGER) {
+      if (!roles.includes(Role.SPR_ENVIRONMENT_MANAGER)) {
+        throw new ForbiddenException('Only environment managers can sign at environment_manager level');
+      }
+    }
+  }
+
+  private async requireCycle(cycleId: string): Promise<SprCycleEntity> {
+    const cycle = await this.cyclesRepository.findOne({ where: { id: cycleId } });
+    if (!cycle) throw new NotFoundException('SPR cycle not found');
+    return cycle;
+  }
+
+  /** Normaliza DATE de PG (string o Date) a YYYY-MM-DD. */
+  private toDateOnlyIso(value: string | Date): string {
+    if (typeof value === 'string') {
+      return value.slice(0, 10);
+    }
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private async logAudit(

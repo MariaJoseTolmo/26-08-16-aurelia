@@ -232,7 +232,7 @@ export function buildSprReportDashboardFromRecords(input: {
     {
       value: areasWithManagerScope === 0 ? '0/0' : `${fullyApprovedCount}/${areasWithManagerScope}`,
       valueTone: 'amber',
-      label: 'Aprobados por Gerente',
+      label: 'Aprobados por Gerente de Área',
       helper:
         areasWithManagerScope === 0
           ? 'Sin formularios recibidos aún'

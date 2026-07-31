@@ -58,6 +58,10 @@ import { PermissionEntity } from '../modules/roles/entities/permission.entity';
 import { RolePermissionEntity } from '../modules/roles/entities/role-permission.entity';
 import { RoleEntity } from '../modules/roles/entities/role.entity';
 import { SprConsolidationRuleEntity } from '../modules/spr/entities/spr-consolidation-rule.entity';
+import { SprCycleSacSubmissionEntity } from '../modules/spr/entities/spr-cycle-sac-submission.entity';
+import { SprCycleSignatureEntity } from '../modules/spr/entities/spr-cycle-signature.entity';
+import { SprCycleValidationEntity } from '../modules/spr/entities/spr-cycle-validation.entity';
+import { SprCycleEntity } from '../modules/spr/entities/spr-cycle.entity';
 import { SprMeasureGroupEntity } from '../modules/spr/entities/spr-measure-group.entity';
 import { SprMonthlyRecordEntity } from '../modules/spr/entities/spr-monthly-record.entity';
 import { SprParameterAreaAssignmentEntity } from '../modules/spr/entities/spr-parameter-area-assignment.entity';
@@ -156,6 +160,10 @@ export const AppDataSource = new DataSource({
     SprMonthlyRecordEntity,
     SprRecordApprovalEntity,
     SprConsolidationRuleEntity,
+    SprCycleEntity,
+    SprCycleSacSubmissionEntity,
+    SprCycleSignatureEntity,
+    SprCycleValidationEntity,
   ],
   migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
   synchronize: env.database.synchronize,

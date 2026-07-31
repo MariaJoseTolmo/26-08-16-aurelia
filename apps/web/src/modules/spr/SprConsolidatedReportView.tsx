@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Role, SprCycleSignatureLevel, SprCycleStatus } from '@aurelia/contracts';
+import { useSprReportConsolidatedReal } from '../../shared/hooks/useSprReportConsolidatedReal';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+import { useSprCycleSacSubmission } from '../../shared/hooks/useSprCycleSacSubmission';
+import {
+  useCreateSprCycleSignature,
+  useSprCycleSignatures,
+} from '../../shared/hooks/useSprCycleSignatures';
+import { useSprCycleValidations } from '../../shared/hooks/useSprCycleValidations';
+import { useSprReportDashboardReal } from '../../shared/hooks/useSprReportDashboardReal';
+import { useSessionStore } from '../../shared/stores/session.store';
 import {
   SPR_ACTIVE_CYCLE,
   SPR_CONSOLIDATED_DEMO_CASE_QUERY,
@@ -31,12 +42,41 @@ import {
   SPR_REPORT_CYCLE_QUERY,
   buildSprReportAreaHref,
   resolveSprReportCycle,
+  resolveSprReportCycleContext,
 } from './sprReportCycles';
+import {
+  countSprAreasInConsolidado,
+  buildConsolidadoEnCursoTimeline,
+  buildConsolidadoPreparingStatusTabs,
+  buildConsolidadoPreparingTimelineFromSac,
+  isConsolidatedFlowDrivenBySac,
+  resolveConsolidatedSacLayoutMode,
+} from './sprConsolidatedSacLayout';
+import {
+  buildConsolidadoEnviadoStatusTabsFromSignatures,
+  buildConsolidadoEnviadoTimelineFromSignatures,
+  findSignedSignature,
+  initialsFromFullName,
+  resolveSprSignaturePhase,
+} from './sprConsolidatedSignatureLayout';
+import {
+  applyProcesoReabiertoToStatusTabs,
+  applyProcesoReabiertoToTimeline,
+  applySoxValidationToStatusTabs,
+  applySoxValidationToTimeline,
+  buildSprReopenElapsedAvailability,
+  findReopenedSoxValidation,
+  isSprSignatureBlockedByReopenCorrection,
+  resolveSprSoxValidationPhase,
+} from './sprConsolidatedValidationLayout';
+import { buildSprDay9PendingAvailability, resolveSprCycleSacBannerMessage } from './sprReportDay9';
 import { SprConsolidatedValidationApproved } from './components/SprConsolidatedValidationApproved';
 import { SprConsolidatedValidationDiscrepancy } from './components/SprConsolidatedValidationDiscrepancy';
 import { SprCycleClosedModal } from './components/SprCycleClosedModal';
 import { SprCycleIncompleteModal } from './components/SprCycleIncompleteModal';
-import { SprInfoCircleIcon } from './icons/SprIcons';
+import { SprSoxValidationDiscrepancyPanel } from './components/SprSoxValidationDiscrepancyPanel';
+import { SprSoxValidationPanel } from './components/SprSoxValidationPanel';
+import { SprInfoCircleIcon, SprTimelineStepIconById } from './icons/SprIcons';
 import sacReportTableMock from './assets/sac-report-table-mayo-2026.png';
 
 type SentFilter = 'all' | 'real' | 'estimated';
@@ -52,7 +92,8 @@ function trendClass(trend: SprConsolidatedTrend) {
   return 'bg-[#f2f2f2] text-[#646464]';
 }
 
-function originLabel(origin: SprConsolidatedOrigin) {
+function originLabel(origin: SprConsolidatedOrigin | null | undefined) {
+  if (origin == null) return '—';
   if (origin === 'automatico') return 'Automático';
   if (origin === 'multiple') return 'Múltiple';
   return 'Formulario';
@@ -104,6 +145,16 @@ function timelineConnectorClass(fromStatus: SprConsolidatedTimelineStatus) {
 
 function SacPendingPanel() {
   const { sacPending } = SPR_CONSOLIDATED_REPORT;
+  const [searchParams] = useSearchParams();
+  const { cycle } = resolveSprReportCycleContext(
+    searchParams.get(SPR_REPORT_CYCLE_QUERY),
+    searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY),
+  );
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const availability = buildSprDay9PendingAvailability(sprCycleQuery.countdown);
+  const dateLabel = availability?.dateLabel ?? '…';
+  const availableLabel = availability?.availableLabel ?? sacPending.availableLabel;
+  const daysLabel = availability?.daysLabel ?? '…';
 
   return (
     <div className="flex items-start justify-between gap-[16px] rounded-[10px] bg-[#062f2c] px-[18px] py-[16px]">
@@ -117,22 +168,20 @@ function SacPendingPanel() {
           <p className="font-['Inter:Bold',sans-serif] text-[12px] font-bold text-white">{sacPending.title}</p>
           <p className="pt-[3px] font-['Inter:Regular',sans-serif] text-[10.5px] leading-[15.75px] text-white/60">
             {sacPending.bodyBefore}
-            <span className="font-['Inter:Bold',sans-serif] font-bold text-[#c8a064]">{sacPending.dateLabel}</span>
+            <span className="font-['Inter:Bold',sans-serif] font-bold text-[#c8a064]">{dateLabel}</span>
             {sacPending.bodyAfter}
           </p>
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{sacPending.availableLabel}</p>
-        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">
-          {sacPending.daysLabel}
-        </p>
+        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{availableLabel}</p>
+        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">{daysLabel}</p>
       </div>
     </div>
   );
 }
 
-function SacReportPanel() {
+function SacReportPanel({ showMockArtifact = true }: { showMockArtifact?: boolean }) {
   const copy = SPR_CONSOLIDATED_REPORT.consolidadoEnviado;
 
   return (
@@ -145,42 +194,61 @@ function SacReportPanel() {
           <p className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#001e39]">{copy.sacReportTitle}</p>
         </div>
         <div className="flex items-center gap-[12px]">
-          <span className="rounded-[5px] bg-[#e0ffd3] px-[7px] py-[2px] font-['Inter:Bold',sans-serif] text-[10px] font-bold text-[#2a5c16]">
-            {copy.sacReportBadge}
-          </span>
-          <button
-            type="button"
-            className="flex h-[27px] items-center gap-[5px] rounded-[6px] border border-[#e3e3e3] bg-white px-[12px] font-['Inter:Semi_Bold',sans-serif] text-[10.5px] font-semibold text-[#646464]"
+          <span
+            className={`rounded-[5px] px-[7px] py-[2px] font-['Inter:Bold',sans-serif] text-[10px] font-bold ${
+              showMockArtifact ? 'bg-[#e0ffd3] text-[#2a5c16]' : 'bg-[#ffeab8] text-[#8e6e3e]'
+            }`}
           >
-            <span aria-hidden>↓</span>
-            {copy.sacReportExport}
-          </button>
+            {showMockArtifact ? copy.sacReportBadge : copy.sacArtifactPendingBadge}
+          </span>
+          {showMockArtifact ? (
+            <button
+              type="button"
+              className="flex h-[27px] items-center gap-[5px] rounded-[6px] border border-[#e3e3e3] bg-white px-[12px] font-['Inter:Semi_Bold',sans-serif] text-[10.5px] font-semibold text-[#646464]"
+            >
+              <span aria-hidden>↓</span>
+              {copy.sacReportExport}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className="max-h-[402px] overflow-auto">
-        {/* Figma 1760:32949 / 1570:5335 — captura del grid SAC como mock hasta API. */}
-        <img
-          src={sacReportTableMock}
-          alt="Tabla mock Reporte SAC Mayo 2026"
-          className="block w-full min-w-[980px] object-cover object-left-top"
-        />
-      </div>
+      {showMockArtifact ? (
+        <div className="max-h-[402px] overflow-auto">
+          {/* PLACEHOLDER Figma 1760:32949 / 1570:5335 — solo demos ?estado=; no usar en camino SAC real. */}
+          <img
+            src={sacReportTableMock}
+            alt="Tabla mock Reporte SAC Mayo 2026"
+            className="block w-full min-w-[980px] object-cover object-left-top"
+          />
+        </div>
+      ) : (
+        <div className="px-[18px] py-[28px] text-center">
+          <p className="font-['Inter:Bold',sans-serif] text-[13px] font-bold text-[#001e39]">
+            {copy.sacArtifactPendingTitle}
+          </p>
+          <p className="mx-auto max-w-[420px] pt-[8px] font-['Inter:Regular',sans-serif] text-[11px] leading-[16px] text-[#646464]">
+            {copy.sacArtifactPendingBody}
+          </p>
+        </div>
+      )}
 
-      <div className="flex flex-wrap items-center gap-[12px] border-t border-[#e3e3e3] px-[14px] py-[11px]">
-        <div className="flex items-center gap-[5px]">
-          <span className="rounded-[3px] bg-[#f7f7f7] px-[5px] py-px font-['Inter:Semi_Bold',sans-serif] text-[9px] font-semibold text-[#acacac] ring-1 ring-[#e3e3e3]">
-            {copy.sacReportLegendIngresado}
-          </span>
-          <p className="font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">{copy.sacReportLegendIngresadoHelper}</p>
+      {showMockArtifact ? (
+        <div className="flex flex-wrap items-center gap-[12px] border-t border-[#e3e3e3] px-[14px] py-[11px]">
+          <div className="flex items-center gap-[5px]">
+            <span className="rounded-[3px] bg-[#f7f7f7] px-[5px] py-px font-['Inter:Semi_Bold',sans-serif] text-[9px] font-semibold text-[#acacac] ring-1 ring-[#e3e3e3]">
+              {copy.sacReportLegendIngresado}
+            </span>
+            <p className="font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">{copy.sacReportLegendIngresadoHelper}</p>
+          </div>
+          <div className="flex items-center gap-[5px]">
+            <span className="rounded-[3px] bg-[#e6f3ff] px-[5px] py-px font-['Inter:Semi_Bold',sans-serif] text-[9px] font-semibold text-[#0d3862]">
+              {copy.sacReportLegendCalculado}
+            </span>
+            <p className="font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">{copy.sacReportLegendCalculadoHelper}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-[5px]">
-          <span className="rounded-[3px] bg-[#e6f3ff] px-[5px] py-px font-['Inter:Semi_Bold',sans-serif] text-[9px] font-semibold text-[#0d3862]">
-            {copy.sacReportLegendCalculado}
-          </span>
-          <p className="font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">{copy.sacReportLegendCalculadoHelper}</p>
-        </div>
-      </div>
+      ) : null}
     </section>
   );
 }
@@ -211,10 +279,10 @@ function ValidacionAprobadaInfoBanner() {
   );
 }
 
-function CicloCerradoInfoBanner() {
+function CicloCerradoInfoBanner({ cycleLabel }: { cycleLabel: string }) {
   return (
     <SprConsolidatedGreenInfoBanner
-      message={SPR_CONSOLIDATED_REPORT.cicloCerrado.tabInfoBanner(SPR_ACTIVE_CYCLE.label)}
+      message={SPR_CONSOLIDATED_REPORT.cicloCerrado.tabInfoBanner(cycleLabel)}
     />
   );
 }
@@ -237,53 +305,143 @@ function ValidacionAprobadaFirmaPanel() {
   );
 }
 
-function CicloCerradoConsolidadoPanel({ defaultAreaDetailOpen }: { defaultAreaDetailOpen: boolean }) {
+function CicloCerradoConsolidadoPanel({
+  defaultAreaDetailOpen,
+  cycleLabel,
+}: {
+  defaultAreaDetailOpen: boolean;
+  cycleLabel: string;
+}) {
   return (
     <div className="flex flex-col gap-[14px]">
-      <CicloCerradoInfoBanner />
+      <CicloCerradoInfoBanner cycleLabel={cycleLabel} />
       <ConsolidadoEnviadoPanel variant="ciclo-cerrado" defaultAreaDetailOpen={defaultAreaDetailOpen} />
     </div>
   );
 }
 
-function CicloCerradoFirmaPanel() {
+function CicloCerradoFirmaPanel({
+  cycleLabel,
+  specialistSigner = null,
+  managerSigner = null,
+}: {
+  cycleLabel: string;
+  specialistSigner?: SprFirmaPersonView | null;
+  managerSigner?: SprFirmaPersonView | null;
+}) {
   return (
     <div className="flex flex-col gap-[14px]">
-      <CicloCerradoInfoBanner />
-      <FirmasCompletasPanel hideInfoBanner />
+      <CicloCerradoInfoBanner cycleLabel={cycleLabel} />
+      <FirmasCompletasPanel
+        hideInfoBanner
+        specialistSigner={specialistSigner}
+        managerSigner={managerSigner}
+      />
     </div>
   );
 }
 
 function CicloCerradoValidacionPanel({
   defaultExpandedRowId,
+  cycleLabel,
+  kpiCards = null,
+  areas = null,
+  validations = null,
+  dashboardLoading = false,
+  dashboardError = false,
 }: {
   defaultExpandedRowId?: string | null;
+  cycleLabel: string;
+  kpiCards?: Parameters<typeof SprConsolidatedValidationApproved>[0]['kpiCards'];
+  areas?: Parameters<typeof SprConsolidatedValidationApproved>[0]['areas'];
+  validations?: Parameters<typeof SprConsolidatedValidationApproved>[0]['validations'];
+  dashboardLoading?: boolean;
+  dashboardError?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-[14px]">
-      <CicloCerradoInfoBanner />
-      <SprConsolidatedValidationApproved hideInfoBanner defaultExpandedRowId={defaultExpandedRowId} />
+      <CicloCerradoInfoBanner cycleLabel={cycleLabel} />
+      <SprConsolidatedValidationApproved
+        hideInfoBanner
+        defaultExpandedRowId={defaultExpandedRowId}
+        kpiCards={kpiCards}
+        areas={areas}
+        validations={validations}
+        dashboardLoading={dashboardLoading}
+        dashboardError={dashboardError}
+      />
     </div>
   );
 }
 
-function SacReabiertoReportPanel() {
-  const alert = SPR_CONSOLIDATED_REPORT.sacReabierto;
+function ProcesoReabiertoAlert({
+  variant,
+  areaName,
+  reopenedAt,
+  demoDaysElapsed,
+}: {
+  variant: 'consolidado' | 'sac';
+  areaName: string;
+  reopenedAt: string | null;
+  demoDaysElapsed?: number;
+}) {
+  const copy = SPR_CONSOLIDATED_REPORT.sacReabierto;
+  const title = variant === 'consolidado' ? copy.consolidadoAlertTitle : copy.alertTitle;
+  const body = variant === 'consolidado' ? copy.consolidadoAlertBody(areaName) : copy.alertBody(areaName);
+  const elapsed =
+    buildSprReopenElapsedAvailability(reopenedAt) ??
+    (demoDaysElapsed != null
+      ? {
+          elapsedLabel: copy.countdownLabel,
+          daysLabel: demoDaysElapsed === 1 ? '1 día' : `${demoDaysElapsed} días`,
+          daysElapsed: demoDaysElapsed,
+        }
+      : null);
 
   return (
-    <div className="flex flex-col gap-[14px]">
-      <div className="flex items-start gap-[9px] rounded-[8px] border border-[#570b1d] bg-[#ffd0db] px-[15px] py-[11px]">
+    <div className="flex items-start justify-between gap-[16px] rounded-[8px] border border-[#570b1d] bg-[#ffd0db] px-[15px] py-[11px]">
+      <div className="flex min-w-0 flex-1 items-start gap-[9px]">
         <SprInfoCircleIcon className="mt-px size-[17.5px] shrink-0 text-[#570b1d]" />
-        <div>
+        <div className="min-w-0">
           <p className="font-['Inter:Bold',sans-serif] text-[10.5px] font-bold leading-[15.75px] text-[#570b1d]">
-            {alert.alertTitle}
+            {title}
           </p>
           <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[10.5px] leading-[15.75px] text-[#570b1d]">
-            {alert.alertBody}
+            {body}
           </p>
         </div>
       </div>
+      {elapsed ? (
+        <div className="shrink-0 text-right">
+          <p className="font-['Inter:Regular',sans-serif] text-[10px] text-[#570b1d]/70">
+            {elapsed.elapsedLabel}
+          </p>
+          <p className="pt-[2px] font-['Inter:Bold',sans-serif] text-[18px] font-bold text-[#570b1d]">
+            {elapsed.daysLabel}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SacReabiertoReportPanel({
+  areaName,
+  reopenedAt,
+  demoDaysElapsed,
+}: {
+  areaName: string;
+  reopenedAt: string | null;
+  demoDaysElapsed?: number;
+}) {
+  return (
+    <div className="flex flex-col gap-[14px]">
+      <ProcesoReabiertoAlert
+        variant="sac"
+        areaName={areaName}
+        reopenedAt={reopenedAt}
+        demoDaysElapsed={demoDaysElapsed}
+      />
       <SacReportPanel />
     </div>
   );
@@ -309,6 +467,15 @@ function FirmaSacUpdatePendingPanel() {
 
 function FirmaPendingPanel() {
   const { firmaPending } = SPR_CONSOLIDATED_REPORT;
+  const [searchParams] = useSearchParams();
+  const { cycle } = resolveSprReportCycleContext(
+    searchParams.get(SPR_REPORT_CYCLE_QUERY),
+    searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY),
+  );
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const availability = buildSprDay9PendingAvailability(sprCycleQuery.countdown);
+  const availableLabel = availability?.availableLabel ?? firmaPending.availableLabel;
+  const daysLabel = availability?.daysLabel ?? '…';
 
   return (
     <div className="flex items-start justify-between gap-[16px] rounded-[10px] bg-[#062f2c] px-[18px] py-[16px]">
@@ -326,10 +493,8 @@ function FirmaPendingPanel() {
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{firmaPending.availableLabel}</p>
-        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">
-          {firmaPending.daysLabel}
-        </p>
+        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{availableLabel}</p>
+        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">{daysLabel}</p>
       </div>
     </div>
   );
@@ -340,14 +505,26 @@ function FirmaEspecialistaModal({
   onClose,
   onConfirmed,
   initiallySigned = false,
+  signerName,
+  confirming = false,
+  errorMessage = null,
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirmed?: () => void;
+  onConfirmed?: () => void | Promise<void>;
   initiallySigned?: boolean;
+  signerName?: string;
+  confirming?: boolean;
+  errorMessage?: string | null;
 }) {
   const copy = SPR_CONSOLIDATED_REPORT.firmaEspecialistaModal;
   const [signed, setSigned] = useState(initiallySigned);
+  const digitalSigned = signerName
+    ? `Firmado digitalmente · ${signerName}`
+    : copy.digitalSigned;
+  const digitalMeta = signerName
+    ? `${signerName} · Especialista Sustentabilidad · Fecha y hora automática`
+    : copy.digitalMeta;
 
   if (!open) return null;
 
@@ -389,6 +566,7 @@ function FirmaEspecialistaModal({
           </p>
           <button
             type="button"
+            disabled={confirming}
             onClick={() => setSigned(true)}
             className={`mt-[8px] flex h-[52px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed font-['Inter',sans-serif] text-[11px] ${
               signed
@@ -397,16 +575,23 @@ function FirmaEspecialistaModal({
             }`}
           >
             <span aria-hidden>{signed ? '✓' : '✎'}</span>
-            {signed ? copy.digitalSigned : copy.digitalCta}
+            {signed ? digitalSigned : copy.digitalCta}
           </button>
           <p className="pt-[8px] text-center font-['Inter:Regular',sans-serif] text-[9px] text-[#acacac]">
-            {copy.digitalMeta}
+            {digitalMeta}
           </p>
         </div>
+
+        {errorMessage ? (
+          <p className="pt-[12px] font-['Inter:Regular',sans-serif] text-[11px] text-[#b42318]" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         <div className="flex items-center justify-end gap-[10px] pt-[16px]">
           <button
             type="button"
+            disabled={confirming}
             onClick={() => {
               setSigned(false);
               onClose();
@@ -417,18 +602,19 @@ function FirmaEspecialistaModal({
           </button>
           <button
             type="button"
-            disabled={!signed}
+            disabled={!signed || confirming}
             onClick={() => {
-              setSigned(false);
-              onClose();
-              onConfirmed?.();
+              void (async () => {
+                await onConfirmed?.();
+                setSigned(false);
+              })();
             }}
             className={`flex h-[34px] items-center gap-[6px] rounded-[7px] px-[16px] font-['Inter:Bold',sans-serif] text-[12px] font-bold ${
-              signed ? 'bg-[#c8a064] text-[#001e39]' : 'bg-[#e3e3e3] text-[#acacac]'
+              signed && !confirming ? 'bg-[#c8a064] text-[#001e39]' : 'bg-[#e3e3e3] text-[#acacac]'
             }`}
           >
             <span aria-hidden>✓</span>
-            {copy.confirmLabel}
+            {confirming ? 'Firmando…' : copy.confirmLabel}
           </button>
         </div>
       </div>
@@ -436,11 +622,28 @@ function FirmaEspecialistaModal({
   );
 }
 
-function FirmasCompletasPanel({ hideInfoBanner = false }: { hideInfoBanner?: boolean }) {
+type SprFirmaPersonView = {
+  name: string;
+  initials: string;
+  role: string;
+};
+
+function FirmasCompletasPanel({
+  hideInfoBanner = false,
+  specialistSigner,
+  managerSigner,
+}: {
+  hideInfoBanner?: boolean;
+  specialistSigner?: SprFirmaPersonView | null;
+  managerSigner?: SprFirmaPersonView | null;
+}) {
   const base = SPR_CONSOLIDATED_REPORT.firmaReady;
   const copy = SPR_CONSOLIDATED_REPORT.firmasCompletas;
-  const specialist = base.specialists.find((person) => person.active) ?? base.specialists[0];
-  const manager = base.managers[0];
+  const specialist =
+    specialistSigner ??
+    base.specialists.find((person) => person.active) ??
+    base.specialists[0];
+  const manager = managerSigner ?? base.managers[0];
 
   return (
     <>
@@ -536,14 +739,26 @@ function FirmaGerenteModal({
   onClose,
   onConfirmed,
   initiallySigned = false,
+  signerName,
+  confirming = false,
+  errorMessage = null,
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirmed: () => void;
+  onConfirmed: () => void | Promise<void>;
   initiallySigned?: boolean;
+  signerName?: string;
+  confirming?: boolean;
+  errorMessage?: string | null;
 }) {
   const copy = SPR_CONSOLIDATED_REPORT.firmaGerenteModal;
   const [signed, setSigned] = useState(initiallySigned);
+  const digitalSigned = signerName
+    ? `Firmado digitalmente · ${signerName}`
+    : copy.digitalSigned;
+  const digitalMeta = signerName
+    ? `${signerName} · Gerente de Sustentabilidad y Cumplimiento Ambiental · Fecha y hora automática`
+    : copy.digitalMeta;
 
   if (!open) return null;
 
@@ -585,6 +800,7 @@ function FirmaGerenteModal({
           </p>
           <button
             type="button"
+            disabled={confirming}
             onClick={() => setSigned(true)}
             className={`mt-[8px] flex h-[52px] w-full items-center justify-center gap-[6px] rounded-[8px] border-[1.5px] border-dashed font-['Inter',sans-serif] text-[11px] ${
               signed
@@ -593,16 +809,23 @@ function FirmaGerenteModal({
             }`}
           >
             <span aria-hidden>{signed ? '✓' : '✎'}</span>
-            {signed ? copy.digitalSigned : copy.digitalCta}
+            {signed ? digitalSigned : copy.digitalCta}
           </button>
           <p className="pt-[8px] text-center font-['Inter:Regular',sans-serif] text-[9px] text-[#acacac]">
-            {copy.digitalMeta}
+            {digitalMeta}
           </p>
         </div>
+
+        {errorMessage ? (
+          <p className="pt-[12px] font-['Inter:Regular',sans-serif] text-[11px] text-[#b42318]" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         <div className="flex items-center justify-end gap-[10px] pt-[16px]">
           <button
             type="button"
+            disabled={confirming}
             onClick={() => {
               setSigned(false);
               onClose();
@@ -613,17 +836,19 @@ function FirmaGerenteModal({
           </button>
           <button
             type="button"
-            disabled={!signed}
+            disabled={!signed || confirming}
             onClick={() => {
-              setSigned(false);
-              onConfirmed();
+              void (async () => {
+                await onConfirmed();
+                setSigned(false);
+              })();
             }}
             className={`flex h-[34px] items-center gap-[6px] rounded-[7px] px-[16px] font-['Inter:Bold',sans-serif] text-[12px] font-bold ${
-              signed ? 'bg-[#c8a064] text-[#001e39]' : 'bg-[#e3e3e3] text-[#acacac]'
+              signed && !confirming ? 'bg-[#c8a064] text-[#001e39]' : 'bg-[#e3e3e3] text-[#acacac]'
             }`}
           >
             <span aria-hidden>✓</span>
-            {copy.confirmLabel}
+            {confirming ? 'Firmando…' : copy.confirmLabel}
           </button>
         </div>
       </div>
@@ -631,10 +856,24 @@ function FirmaGerenteModal({
   );
 }
 
-function FirmaGerenteReadyPanel({ onOpenFirmaModal }: { onOpenFirmaModal: () => void }) {
+function FirmaGerenteReadyPanel({
+  onOpenFirmaModal,
+  specialistSigner,
+  step2Cta,
+  canSign = true,
+}: {
+  onOpenFirmaModal: () => void;
+  specialistSigner?: SprFirmaPersonView | null;
+  step2Cta?: string;
+  canSign?: boolean;
+}) {
   const base = SPR_CONSOLIDATED_REPORT.firmaReady;
   const copy = SPR_CONSOLIDATED_REPORT.firmaGerente;
-  const signer = base.specialists.find((person) => person.active) ?? base.specialists[0];
+  const signer =
+    specialistSigner ??
+    base.specialists.find((person) => person.active) ??
+    base.specialists[0];
+  const ctaLabel = step2Cta ?? copy.step2Cta;
 
   return (
     <>
@@ -730,22 +969,29 @@ function FirmaGerenteReadyPanel({ onOpenFirmaModal }: { onOpenFirmaModal: () => 
                   </div>
                   <button
                     type="button"
-                    onClick={onOpenFirmaModal}
-                    className="rounded-[4px] bg-[#ffeab8] px-[7px] py-[2px] font-['Inter:Bold',sans-serif] text-[9px] font-bold text-[#8e6e3e]"
+                    onClick={canSign ? onOpenFirmaModal : undefined}
+                    disabled={!canSign}
+                    className="rounded-[4px] bg-[#ffeab8] px-[7px] py-[2px] font-['Inter:Bold',sans-serif] text-[9px] font-bold text-[#8e6e3e] disabled:opacity-50"
                   >
                     {copy.managerAction}
                   </button>
                 </div>
               ))}
 
-              <button
-                type="button"
-                onClick={onOpenFirmaModal}
-                className="mt-[4px] flex h-[44px] w-full items-center justify-center gap-[6px] rounded-[8px] border border-dashed border-[#c8a064] bg-[#fdf8ef] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#8e6e3e]"
-              >
-                <span aria-hidden>✎</span>
-                {copy.step2Cta}
-              </button>
+              {canSign ? (
+                <button
+                  type="button"
+                  onClick={onOpenFirmaModal}
+                  className="mt-[4px] flex h-[44px] w-full items-center justify-center gap-[6px] rounded-[8px] border border-dashed border-[#c8a064] bg-[#fdf8ef] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#8e6e3e]"
+                >
+                  <span aria-hidden>✎</span>
+                  {ctaLabel}
+                </button>
+              ) : (
+                <p className="mt-[4px] text-center font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
+                  Inicia sesión como Gerente MA (Gabriel Fuenzalida) para firmar este paso.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -754,8 +1000,17 @@ function FirmaGerenteReadyPanel({ onOpenFirmaModal }: { onOpenFirmaModal: () => 
   );
 }
 
-function FirmaReadyPanel({ onOpenFirmaModal }: { onOpenFirmaModal: () => void }) {
+function FirmaReadyPanel({
+  onOpenFirmaModal,
+  step1Cta,
+  canSign = true,
+}: {
+  onOpenFirmaModal: () => void;
+  step1Cta?: string;
+  canSign?: boolean;
+}) {
   const copy = SPR_CONSOLIDATED_REPORT.firmaReady;
+  const ctaLabel = step1Cta ?? copy.step1Cta;
 
   return (
     <>
@@ -835,14 +1090,20 @@ function FirmaReadyPanel({ onOpenFirmaModal }: { onOpenFirmaModal: () => void })
                 </div>
               ))}
 
-              <button
-                type="button"
-                onClick={onOpenFirmaModal}
-                className="mt-[4px] flex h-[50px] w-full items-center justify-center gap-[7px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] font-['Inter:Regular',sans-serif] text-[11px] text-[#acacac] hover:border-[#c8a064] hover:text-[#8e6e3e]"
-              >
-                <span aria-hidden>✎</span>
-                {copy.step1Cta}
-              </button>
+              {canSign ? (
+                <button
+                  type="button"
+                  onClick={onOpenFirmaModal}
+                  className="mt-[4px] flex h-[50px] w-full items-center justify-center gap-[7px] rounded-[8px] border-[1.5px] border-dashed border-[#d1d1d1] font-['Inter:Regular',sans-serif] text-[11px] text-[#acacac] hover:border-[#c8a064] hover:text-[#8e6e3e]"
+                >
+                  <span aria-hidden>✎</span>
+                  {ctaLabel}
+                </button>
+              ) : (
+                <p className="mt-[4px] text-center font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
+                  Inicia sesión como Especialista de Sustentabilidad (Tania Galarce) para firmar este paso.
+                </p>
+              )}
               <p className="text-center font-['Inter:Regular',sans-serif] text-[9px] text-[#acacac]">{copy.step1Footer}</p>
             </div>
           </div>
@@ -931,6 +1192,15 @@ function SacDisponibleValidationPanel() {
 
 function ValidationPendingPanel() {
   const { validationPending } = SPR_CONSOLIDATED_REPORT;
+  const [searchParams] = useSearchParams();
+  const { cycle } = resolveSprReportCycleContext(
+    searchParams.get(SPR_REPORT_CYCLE_QUERY),
+    searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY),
+  );
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const availability = buildSprDay9PendingAvailability(sprCycleQuery.countdown);
+  const availableLabel = availability?.availableLabel ?? validationPending.availableLabel;
+  const daysLabel = availability?.daysLabel ?? '…';
 
   return (
     <div className="flex items-start justify-between gap-[16px] rounded-[10px] bg-[#062f2c] px-[18px] py-[16px]">
@@ -948,10 +1218,8 @@ function ValidationPendingPanel() {
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{validationPending.availableLabel}</p>
-        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">
-          {validationPending.daysLabel}
-        </p>
+        <p className="font-['Inter:Regular',sans-serif] text-[10px] text-white/40">{availableLabel}</p>
+        <p className="pt-[4px] font-['Inter:Bold',sans-serif] text-[22px] font-bold text-[#c8a064]">{daysLabel}</p>
       </div>
     </div>
   );
@@ -991,7 +1259,47 @@ function SacPreparingPanel() {
 }
 
 function ConsolidadoTablePanel() {
-  const dataRowCount = SPR_CONSOLIDATED_TABLE_ROWS.filter((row) => row.kind === 'data').length;
+  const [searchParams] = useSearchParams();
+  const { cycle } = resolveSprReportCycleContext(
+    searchParams.get(SPR_REPORT_CYCLE_QUERY),
+    searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY),
+  );
+  const { isLoading, isError, table } = useSprReportConsolidatedReal(cycle.periodYear, cycle.periodMonth);
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const sacQuery = useSprCycleSacSubmission(sprCycleQuery.cycle?.id);
+  const day9Countdown = sprCycleQuery.countdown;
+  const sacBannerMessage = resolveSprCycleSacBannerMessage(day9Countdown, sacQuery.submission);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-[8px] border border-[#e3e3e3] bg-white px-[16px] py-[20px]">
+        <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">
+          {SPR_CONSOLIDATED_REPORT.tableLoadingLabel}
+        </p>
+      </div>
+    );
+  }
+
+  if (isError || !table) {
+    return (
+      <div
+        role="alert"
+        className="rounded-[8px] border border-[#ffd0db] bg-[#fff5f7] px-[16px] py-[16px]"
+      >
+        <p className="font-['Inter:Bold',sans-serif] text-[13px] font-bold text-[#570b1d]">
+          {SPR_CONSOLIDATED_REPORT.dataLoadErrorTitle}
+        </p>
+        <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[12px] text-[#570b1d]">
+          {SPR_CONSOLIDATED_REPORT.dataLoadErrorDescription}
+        </p>
+      </div>
+    );
+  }
+
+  const pendingLabel =
+    table.pendingAreaNames.length > 0
+      ? table.pendingAreaNames.join(' · ')
+      : SPR_CONSOLIDATED_REPORT.pendingAreasNone;
 
   return (
     <>
@@ -1001,23 +1309,33 @@ function ConsolidadoTablePanel() {
         </span>
         <div>
           <p className="font-['Inter:Bold',sans-serif] text-[12px] font-bold text-[#0d3862]">
-            {SPR_CONSOLIDATED_REPORT.bannerTitle(SPR_ACTIVE_CYCLE.label)}
+            {SPR_CONSOLIDATED_REPORT.bannerTitle(cycle.label)}
           </p>
           <p className="pt-[2px] font-['Inter:Regular',sans-serif] text-[11px] leading-[16px] text-[#24588b]">
             {SPR_CONSOLIDATED_REPORT.bannerHelper}
           </p>
+          {sprCycleQuery.isLoading || sacQuery.isLoading ? (
+            <p className="pt-[6px] font-['Inter:Regular',sans-serif] text-[11px] text-[#24588b]">
+              {SPR_CONSOLIDATED_REPORT.cycleLoadingLabel}
+            </p>
+          ) : sprCycleQuery.isError || !sacBannerMessage ? (
+            <p className="pt-[6px] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#570b1d]">
+              {SPR_CONSOLIDATED_REPORT.cycleLoadErrorDescription}
+            </p>
+          ) : (
+            <p className="pt-[6px] font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#0d3862]">
+              {sacBannerMessage}
+            </p>
+          )}
         </div>
       </div>
 
       <section className="overflow-hidden rounded-[8px] border border-[#e3e3e3] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-[8px] border-b border-[#ebebeb] px-[12px] py-[10px]">
           <p className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#131313]">
-            {SPR_CONSOLIDATED_REPORT.tableTitle}
+            {table.tableTitle}
           </p>
-          <span className="inline-flex items-center gap-[6px] rounded-[5px] border border-[#f5c4a0] bg-[#fff0e6] px-[9px] py-[3px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#e8720c]">
-            <span className="size-[8px] rounded-full bg-[#e8720c]" aria-hidden />
-            {SPR_CONSOLIDATED_REPORT.alertBadge}
-          </span>
+          {/* PLACEHOLDER: alerta histórica (promedio 6M) — oculto hasta datos reales */}
         </div>
 
         <div className="overflow-x-auto">
@@ -1048,7 +1366,7 @@ function ConsolidadoTablePanel() {
               </tr>
             </thead>
             <tbody>
-              {SPR_CONSOLIDATED_TABLE_ROWS.map((row) => {
+              {table.rows.map((row) => {
                 if (row.kind === 'group') {
                   return (
                     <tr key={row.id} className="bg-[#fafbfc]">
@@ -1063,19 +1381,11 @@ function ConsolidadoTablePanel() {
                 }
 
                 return (
-                  <tr
-                    key={row.id}
-                    className={`border-b border-[#f4f6f9] ${row.highlight ? 'bg-[#fff8f0]' : 'bg-white'}`}
-                  >
+                  <tr key={row.id} className="border-b border-[#f4f6f9] bg-white">
                     <td className="px-[10px] py-[8px]">
                       <p className="font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold text-[#131313]">
                         {row.name}
                       </p>
-                      {row.subtitle ? (
-                        <p className="pt-px font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
-                          {row.subtitle}
-                        </p>
-                      ) : null}
                     </td>
                     <td className="px-[10px] py-[8px]">
                       <span className="inline-flex rounded-[4px] bg-[#eef2f7] px-[7px] py-[3px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#24588b]">
@@ -1085,13 +1395,18 @@ function ConsolidadoTablePanel() {
                     <td className="px-[10px] py-[8px] font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
                       {row.category}
                     </td>
-                    <td className="px-[10px] py-[8px] text-right font-['Inter:Bold',sans-serif] text-[11px] font-bold text-[#131313]">
+                    <td
+                      className={`px-[10px] py-[8px] text-right font-['Inter:Bold',sans-serif] text-[11px] font-bold ${
+                        row.hasValue ? 'text-[#131313]' : 'text-[#646464]'
+                      }`}
+                    >
                       {row.value}
                     </td>
                     <td className="px-[10px] py-[8px] font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
                       {row.unit}
                     </td>
                     <td className="px-[10px] py-[8px]">
+                      {/* PLACEHOLDER tendencia */}
                       <span
                         className={`inline-flex rounded-[4px] px-[6px] py-[2px] font-['Inter:Bold',sans-serif] text-[10px] font-bold ${trendClass(row.trend)}`}
                       >
@@ -1112,14 +1427,14 @@ function ConsolidadoTablePanel() {
 
         <div className="flex flex-wrap items-center justify-between gap-[10px] border-t border-[#ebebeb] px-[14px] py-[11px]">
           <p className="font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">
-            Mostrando {dataRowCount} de {dataRowCount} parámetros consolidados
+            Mostrando {table.dataRowCount} de {table.dataRowCount} filas · {table.filledRowCount} con dato
           </p>
           <div className="flex flex-wrap items-center gap-[6px]">
             <span className="font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
               {SPR_CONSOLIDATED_REPORT.pendingAreasLabel}
             </span>
             <span className="rounded-[4px] bg-[#ffd0db] px-[7px] py-[2px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#570b1d]">
-              {SPR_CONSOLIDATED_REPORT.pendingAreasValue}
+              {pendingLabel}
             </span>
           </div>
         </div>
@@ -1151,9 +1466,12 @@ function areaCardBadgeClass(badge: string) {
 function ConsolidadoEnviadoPanel({
   variant = 'enviado',
   defaultAreaDetailOpen = true,
+  hideInfoBanner = false,
 }: {
   variant?: 'enviado' | 'detalle-7-8' | 'validacion-aprobada' | 'ciclo-cerrado';
   defaultAreaDetailOpen?: boolean;
+  /** Cuando el padre ya muestra ProcesoReabiertoAlert (Figma 24680). */
+  hideInfoBanner?: boolean;
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1194,7 +1512,7 @@ function ConsolidadoEnviadoPanel({
 
   return (
     <>
-      {variant === 'validacion-aprobada' ? (
+      {hideInfoBanner ? null : variant === 'validacion-aprobada' ? (
         <div className="mb-[14px] flex items-start gap-[10px] rounded-[9px] border-[1.5px] border-[#c9aeff] bg-[#f3eeff] px-[15.5px] py-[13.5px]">
           <SprInfoCircleIcon className="mt-px h-[15px] w-[18.75px] shrink-0 text-[#7b4fbf]" />
           <div>
@@ -1488,24 +1806,120 @@ function ConsolidadoEnviadoPanel({
   );
 }
 
-// Flujo mock: en-curso | consolidado-7-8 | sac-preparando | consolidado-enviado | ... via ?estado=
+// Flujo: en-curso / consolidado-enviado se resuelven con cycle + SAC + firmas reales (Fase 2–3).
+// Otros ?estado= (firma, validación, etc.) siguen mock de demo.
 export function SprConsolidatedReportView() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const sessionUser = useSessionStore((state) => state.user);
   const flow = resolveSprConsolidatedFlow(searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY));
+  const { cycle } = resolveSprReportCycleContext(
+    searchParams.get(SPR_REPORT_CYCLE_QUERY),
+    searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY),
+  );
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const sacQuery = useSprCycleSacSubmission(sprCycleQuery.cycle?.id);
+  const signaturesQuery = useSprCycleSignatures(sprCycleQuery.cycle?.id);
+  const validationsQuery = useSprCycleValidations(sprCycleQuery.cycle?.id);
+  const createSignatureMutation = useCreateSprCycleSignature(sprCycleQuery.cycle?.id);
+  const dashboardReal = useSprReportDashboardReal(cycle.periodYear, cycle.periodMonth);
+  const areaProgress = countSprAreasInConsolidado(dashboardReal.areaCards);
+  const drivenBySac = isConsolidatedFlowDrivenBySac(flow);
+  const sacLayoutMode = resolveConsolidatedSacLayoutMode(sacQuery.submission);
+  /** Figma 2109:30986 — layout enviado solo si SAC está sent/report_ready. */
+  const isRealSacEnviado = drivenBySac && sacLayoutMode === 'enviado' && Boolean(sacQuery.submission);
+  /** SAC preparing real (día 9) — panel + timeline En curso, sin tiempos en copy. */
+  const isRealSacPreparing = drivenBySac && sacLayoutMode === 'preparing';
+  const signaturePhase = resolveSprSignaturePhase({
+    submission: sacQuery.submission,
+    signatures: signaturesQuery.signatures,
+  });
+  const soxValidationPhase = resolveSprSoxValidationPhase({
+    bothSignaturesDone: signaturePhase === 'ambas-firmadas',
+    validations: validationsQuery.validations,
+    cycleStatus: sprCycleQuery.cycle?.status,
+  });
+  const specialistSignature = findSignedSignature(
+    signaturesQuery.signatures,
+    SprCycleSignatureLevel.SPECIALIST,
+  );
+  const managerSignature = findSignedSignature(
+    signaturesQuery.signatures,
+    SprCycleSignatureLevel.ENVIRONMENT_MANAGER,
+  );
+  const roles = sessionUser?.roles ?? [];
+  const sessionFullName = sessionUser?.fullName ?? 'Usuario';
+  const sessionActiveSuffix = SPR_CONSOLIDATED_REPORT.firmasCompletas.sessionActiveSuffix;
+  const specialistSignerView: SprFirmaPersonView | null = specialistSignature
+    ? {
+        name: specialistSignature.signerFullName ?? 'Especialista de Sustentabilidad',
+        initials: initialsFromFullName(
+          specialistSignature.signerFullName ?? 'Especialista Sustentabilidad',
+        ),
+        role:
+          specialistSignature.signerUserId === sessionUser?.id
+            ? `Especialista Sustentabilidad${sessionActiveSuffix}`
+            : 'Especialista Sustentabilidad',
+      }
+    : null;
+  const managerSignerView: SprFirmaPersonView | null = managerSignature
+    ? {
+        name: managerSignature.signerFullName ?? 'Gerente MA',
+        initials: initialsFromFullName(managerSignature.signerFullName ?? 'Gerente MA'),
+        role:
+          managerSignature.signerUserId === sessionUser?.id
+            ? `Gerente de Sustentabilidad y Cumplimiento Ambiental${sessionActiveSuffix}`
+            : 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
+      }
+    : null;
+
   const isConsolidadoSieteAreas = flow === SPR_CONSOLIDATED_FLOW.consolidadoSieteAreas;
   const isSacReabierto = flow === SPR_CONSOLIDATED_FLOW.sacReabierto;
+  const reopenedValidation = findReopenedSoxValidation(validationsQuery.validations);
+  /** Camino real: validation SOX en reopened (chrome 24680/25200/25798). */
+  const isProcesoReabiertoReal = soxValidationPhase === 'awaiting-correction';
+  const isProcesoReabierto = isSacReabierto || isProcesoReabiertoReal;
+  /**
+   * Figma post-reopen: firma bloqueada solo mientras corrección de records pendiente.
+   * Si records del área reopened ya están approved → se puede re-firmar (validation sigue reopened).
+   */
+  const isFirmaBlockedByReopen = isSprSignatureBlockedByReopenCorrection({
+    validations: validationsQuery.validations,
+    areas: dashboardReal.areas,
+    areaCards: dashboardReal.areaCards,
+  });
+  /** Figma 25499: no firmar mientras corrección de área reopened esté pendiente. */
+  const canSignSpecialist =
+    (roles.includes(Role.SPR_SUSTAINABILITY_SPECIALIST) || roles.includes(Role.ADMIN)) &&
+    !isFirmaBlockedByReopen;
+  const canSignManager =
+    (roles.includes(Role.SPR_ENVIRONMENT_MANAGER) || roles.includes(Role.ADMIN)) &&
+    !isFirmaBlockedByReopen;
+  const reopenAreaName =
+    reopenedValidation?.areaName?.trim() ||
+    SPR_CONSOLIDATED_REPORT.sacReabierto.demoAreaName;
+  const reopenAtIso = reopenedValidation?.reopenedAt ?? null;
   const isSacDisponible = flow === SPR_CONSOLIDATED_FLOW.sacDisponible;
-  const isConsolidadoParcial =
-    isConsolidadoSieteAreas || isSacReabierto;
-  const isSacPreparing = flow === SPR_CONSOLIDATED_FLOW.sacPreparando;
-  const isConsolidadoEnviado = flow === SPR_CONSOLIDATED_FLOW.consolidadoEnviado;
+  const isConsolidadoParcial = isConsolidadoSieteAreas || isSacReabierto;
+  const isSacPreparing =
+    isRealSacPreparing || flow === SPR_CONSOLIDATED_FLOW.sacPreparando;
+  const isConsolidadoEnviado = drivenBySac
+    ? isRealSacEnviado
+    : flow === SPR_CONSOLIDATED_FLOW.consolidadoEnviado;
   const isFirmaGerente = flow === SPR_CONSOLIDATED_FLOW.firmaGerente;
   const isFirmasCompletas = flow === SPR_CONSOLIDATED_FLOW.firmasCompletas;
   const isValidacionDiscrepancia = flow === SPR_CONSOLIDATED_FLOW.validacionDiscrepancia;
   const isValidacionDiscrepanciaPostFirma = flow === SPR_CONSOLIDATED_FLOW.validacionDiscrepanciaPostFirma;
   const isValidacionAprobada = flow === SPR_CONSOLIDATED_FLOW.validacionAprobada;
-  const isCicloCerrado = flow === SPR_CONSOLIDATED_FLOW.cicloCerrado;
-  const isCicloCompleto = isValidacionAprobada || isCicloCerrado;
+  const isCicloCerradoMock = flow === SPR_CONSOLIDATED_FLOW.cicloCerrado;
+  /** Camino real: cycle.status === closed (8/8 approved + 2/2 SOX). */
+  const isCycleClosedReal = sprCycleQuery.cycle?.status === SprCycleStatus.CLOSED;
+  const isCicloCerrado = isCicloCerradoMock || isCycleClosedReal;
+  /** Camino real: validation_approved sin cierre formal. */
+  const isValidationApprovedReal =
+    soxValidationPhase === 'validation-approved' && !isCycleClosedReal;
+  const isCicloCompleto =
+    isValidacionAprobada || isCicloCerrado || isValidationApprovedReal;
+  const cycleLabel = sprCycleQuery.cycle?.label ?? cycle.label;
   const showValidationDiscrepancy = isValidacionDiscrepancia || isValidacionDiscrepanciaPostFirma;
   const isPostEnvio =
     isConsolidadoEnviado ||
@@ -1534,7 +1948,18 @@ export function SprConsolidatedReportView() {
       ? 'freshwater-intensity'
       : null;
 
-  const timelineSteps = isSacPreparing
+  const timelineStepsRaw = isRealSacEnviado && sacQuery.submission
+    ? applySoxValidationToTimeline(
+        buildConsolidadoEnviadoTimelineFromSignatures(
+          sacQuery.submission,
+          signaturesQuery.signatures,
+        ),
+        soxValidationPhase,
+        validationsQuery.validations,
+      )
+    : isRealSacPreparing
+    ? buildConsolidadoPreparingTimelineFromSac()
+    : isSacPreparing
     ? SPR_CONSOLIDATED_REPORT.sacPreparingTimelineSteps
     : isSacReabierto
       ? SPR_CONSOLIDATED_REPORT.sacReabiertoTimelineSteps
@@ -1554,8 +1979,30 @@ export function SprConsolidatedReportView() {
                   ? SPR_CONSOLIDATED_REPORT.consolidadoEnviadoTimelineSteps
                   : isConsolidadoParcial
                     ? SPR_CONSOLIDATED_REPORT.consolidadoSieteAreasTimelineSteps
-                    : SPR_CONSOLIDATED_REPORT.timelineSteps;
-  const statusTabs = isSacPreparing
+                    : drivenBySac
+                      ? buildConsolidadoEnCursoTimeline({
+                          withData: areaProgress?.withData ?? null,
+                          total: areaProgress?.total ?? null,
+                          day9: sprCycleQuery.countdown
+                            ? {
+                                daysUntil: sprCycleQuery.countdown.daysUntil,
+                                day9Label: sprCycleQuery.countdown.day9Label,
+                              }
+                            : null,
+                        })
+                      : SPR_CONSOLIDATED_REPORT.timelineSteps;
+  const statusTabsRaw = isRealSacEnviado && sacQuery.submission
+    ? applySoxValidationToStatusTabs(
+        buildConsolidadoEnviadoStatusTabsFromSignatures(
+          sacQuery.submission,
+          signaturesQuery.signatures,
+        ),
+        soxValidationPhase,
+        validationsQuery.validations,
+      )
+    : isRealSacPreparing
+    ? buildConsolidadoPreparingStatusTabs()
+    : isSacPreparing
     ? SPR_CONSOLIDATED_REPORT.sacPreparingStatusTabs
     : isSacReabierto
       ? SPR_CONSOLIDATED_REPORT.sacReabiertoStatusTabs
@@ -1576,6 +2023,30 @@ export function SprConsolidatedReportView() {
                 : isConsolidadoParcial
                   ? SPR_CONSOLIDATED_REPORT.consolidadoSieteAreasStatusTabs
                   : SPR_CONSOLIDATED_REPORT.statusTabs;
+
+  /** En curso real: N/8 en tabs (timeline ya viene de buildConsolidadoEnCursoTimeline). */
+  const useRealEnCursoAreaProgress =
+    drivenBySac && !isRealSacEnviado && !isSacPreparing && !isConsolidadoParcial && !isPostEnvio;
+  const timelineSteps = isProcesoReabiertoReal
+    ? applyProcesoReabiertoToTimeline(timelineStepsRaw, {
+        withData: areaProgress?.withData ?? null,
+        total: areaProgress?.total ?? null,
+      })
+    : timelineStepsRaw;
+  const statusTabsBase = isProcesoReabiertoReal
+    ? applyProcesoReabiertoToStatusTabs(statusTabsRaw, {
+        withData: areaProgress?.withData ?? null,
+        total: areaProgress?.total ?? null,
+      })
+    : statusTabsRaw;
+  const statusTabs =
+    useRealEnCursoAreaProgress && areaProgress
+      ? statusTabsBase.map((tab) =>
+          tab.id === 'consolidado'
+            ? { ...tab, badge: `${areaProgress.withData}/${areaProgress.total}` }
+            : tab,
+        )
+      : statusTabsBase;
 
   const [activeTab, setActiveTab] = useState<SprConsolidatedTabId>(() => {
     const tabParam = searchParams.get('tab');
@@ -1626,6 +2097,7 @@ export function SprConsolidatedReportView() {
       searchParams.get('modal') === 'firma-gerente-firmado',
   );
   const firmaGerenteModalInitiallySigned = searchParams.get('modal') === 'firma-gerente-firmado';
+  const [firmaError, setFirmaError] = useState<string | null>(null);
 
   function patchSearchParams(mutate: (params: URLSearchParams) => void) {
     setSearchParams(
@@ -1712,9 +2184,55 @@ export function SprConsolidatedReportView() {
   }
 
   const openFirmaGerenteModal = () => {
+    setFirmaError(null);
     setFirmaModalOpen(false);
     setFirmaGerenteModalOpen(true);
   };
+
+  async function confirmSpecialistSignature() {
+    if (isFirmaBlockedByReopen) {
+      setFirmaError('La firma está bloqueada mientras el área SOX reabierta corrige y reaprueba sus registros.');
+      setFirmaModalOpen(false);
+      return;
+    }
+    if (!isRealSacEnviado) {
+      setFirmaModalOpen(false);
+      openFirmaGerenteModal();
+      return;
+    }
+    setFirmaError(null);
+    try {
+      await createSignatureMutation.mutateAsync({ level: SprCycleSignatureLevel.SPECIALIST });
+      setFirmaModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'No se pudo registrar la firma del especialista';
+      setFirmaError(message);
+    }
+  }
+
+  async function confirmManagerSignature() {
+    if (isFirmaBlockedByReopen) {
+      setFirmaError('La firma está bloqueada mientras el área SOX reabierta corrige y reaprueba sus registros.');
+      setFirmaGerenteModalOpen(false);
+      return;
+    }
+    if (!isRealSacEnviado) {
+      goToFirmasCompletas();
+      return;
+    }
+    setFirmaError(null);
+    try {
+      await createSignatureMutation.mutateAsync({
+        level: SprCycleSignatureLevel.ENVIRONMENT_MANAGER,
+      });
+      setFirmaGerenteModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'No se pudo registrar la firma del Gerente MA';
+      setFirmaError(message);
+    }
+  }
 
   return (
     <div className="flex h-[calc(100vh-56px)] w-full flex-col overflow-hidden bg-[#f7f7f7]">
@@ -1731,7 +2249,7 @@ export function SprConsolidatedReportView() {
               <div
                 className={`relative z-[1] flex size-[32px] items-center justify-center rounded-full ${timelineDotClass(step.status)}`}
               >
-                <span className="font-['Inter:Bold',sans-serif] text-[11px] font-bold">{index + 1}</span>
+                <SprTimelineStepIconById stepId={step.id} className="shrink-0" />
               </div>
               <p
                 className={`mt-[8px] whitespace-pre-line text-center font-['Inter',sans-serif] text-[9px] leading-[12px] ${timelineTitleClass(step.status)}`}
@@ -1769,7 +2287,8 @@ export function SprConsolidatedReportView() {
                   <span
                     aria-hidden
                     className={`absolute inset-x-0 bottom-0 h-[3px] rounded-t-[2px] ${
-                      (isValidacionDiscrepanciaPostFirma || isSacReabierto) && tab.id === 'validacion'
+                      (isValidacionDiscrepanciaPostFirma || isProcesoReabierto) &&
+                      tab.id === 'validacion'
                         ? 'bg-[#e8a4b8]'
                         : 'bg-[#c8a064]'
                     }`}
@@ -1790,11 +2309,61 @@ export function SprConsolidatedReportView() {
       >
         {isSacPreparing ? <SacPreparingPanel /> : null}
         {!isSacPreparing && activeTab === 'consolidado' && isConsolidadoParcial ? (
-          <ConsolidadoEnviadoPanel variant="detalle-7-8" />
+          <>
+            {isProcesoReabierto ? (
+              <div className="mb-[14px]">
+                <ProcesoReabiertoAlert
+                  variant="consolidado"
+                  areaName={reopenAreaName}
+                  reopenedAt={reopenAtIso}
+                  demoDaysElapsed={
+                    isSacReabierto && !reopenAtIso
+                      ? SPR_CONSOLIDATED_REPORT.sacReabierto.demoDaysElapsed
+                      : undefined
+                  }
+                />
+              </div>
+            ) : null}
+            <ConsolidadoEnviadoPanel
+              variant="detalle-7-8"
+              hideInfoBanner={isProcesoReabierto}
+            />
+          </>
         ) : null}
-        {!isSacPreparing && activeTab === 'consolidado' && isPostEnvio && !isConsolidadoParcial ? (
+        {/* Figma 2109:30986 real: chrome enviado + tabla consolidado real (no mock SPR_CONSOLIDATED_TABLE_ROWS). */}
+        {!isSacPreparing && activeTab === 'consolidado' && isRealSacEnviado && !isProcesoReabiertoReal ? (
           isCicloCerrado ? (
-            <CicloCerradoConsolidadoPanel defaultAreaDetailOpen={consolidadoAreaDetailOpen} />
+            <div className="flex flex-col gap-[14px]">
+              <CicloCerradoInfoBanner cycleLabel={cycleLabel} />
+              <ConsolidadoTablePanel />
+            </div>
+          ) : (
+            <ConsolidadoTablePanel />
+          )
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'consolidado' &&
+        isProcesoReabiertoReal &&
+        isRealSacEnviado ? (
+          <div className="flex flex-col gap-[14px]">
+            <ProcesoReabiertoAlert
+              variant="consolidado"
+              areaName={reopenAreaName}
+              reopenedAt={reopenAtIso}
+            />
+            <ConsolidadoTablePanel />
+          </div>
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'consolidado' &&
+        isPostEnvio &&
+        !isConsolidadoParcial &&
+        !isRealSacEnviado ? (
+          isCicloCerrado ? (
+            <CicloCerradoConsolidadoPanel
+              defaultAreaDetailOpen={consolidadoAreaDetailOpen}
+              cycleLabel={cycleLabel}
+            />
           ) : (
             <ConsolidadoEnviadoPanel
               variant={isValidacionAprobada ? 'validacion-aprobada' : 'enviado'}
@@ -1806,38 +2375,165 @@ export function SprConsolidatedReportView() {
           <ConsolidadoTablePanel />
         ) : null}
         {!isSacPreparing && activeTab === 'sac' && isValidacionAprobada ? <ValidacionAprobadaSacPanel /> : null}
-        {!isSacPreparing && activeTab === 'sac' && isCicloCerrado ? <SacReportPanel /> : null}
-        {!isSacPreparing && activeTab === 'sac' && isSacReabierto ? <SacReabiertoReportPanel /> : null}
-        {!isSacPreparing && activeTab === 'sac' && isPostEnvio && !isSacReabierto && !isCicloCompleto ? (
-          <SacReportPanel />
+        {!isSacPreparing && activeTab === 'sac' && isValidationApprovedReal ? (
+          <div className="flex flex-col gap-[14px]">
+            <SprConsolidatedGreenInfoBanner
+              message={SPR_CONSOLIDATED_REPORT.validacionAprobada.realApprovedBanner}
+            />
+            <SacReportPanel showMockArtifact={false} />
+          </div>
         ) : null}
-        {!isSacPreparing && activeTab === 'sac' && !isPostEnvio && !isSacReabierto ? <SacPendingPanel /> : null}
-        {!isSacPreparing && activeTab === 'firma' && isValidacionDiscrepancia ? (
-          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+        {!isSacPreparing && activeTab === 'sac' && isCicloCerrado ? (
+          <div className="flex flex-col gap-[14px]">
+            <CicloCerradoInfoBanner cycleLabel={cycleLabel} />
+            <SacReportPanel showMockArtifact={!isRealSacEnviado} />
+          </div>
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && isValidacionAprobada ? <ValidacionAprobadaFirmaPanel /> : null}
-        {!isSacPreparing && activeTab === 'firma' && isCicloCerrado ? <CicloCerradoFirmaPanel /> : null}
-        {!isSacPreparing && activeTab === 'firma' && showFirmasCompletasPanel ? (
-          <FirmasCompletasPanel />
+        {!isSacPreparing && activeTab === 'sac' && isSacReabierto ? (
+          <SacReabiertoReportPanel
+            areaName={reopenAreaName}
+            reopenedAt={reopenAtIso}
+            demoDaysElapsed={
+              !reopenAtIso ? SPR_CONSOLIDATED_REPORT.sacReabierto.demoDaysElapsed : undefined
+            }
+          />
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && isFirmaGerente ? (
-          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+        {!isSacPreparing &&
+        activeTab === 'sac' &&
+        isProcesoReabiertoReal &&
+        !isSacReabierto ? (
+          <SacReabiertoReportPanel areaName={reopenAreaName} reopenedAt={reopenAtIso} />
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && (isConsolidadoEnviado || isSacDisponible) && !showFirmasCompletasPanel ? (
-          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+        {!isSacPreparing &&
+        activeTab === 'sac' &&
+        isPostEnvio &&
+        !isSacReabierto &&
+        !isProcesoReabiertoReal &&
+        !isCicloCompleto ? (
+          <SacReportPanel showMockArtifact={!isRealSacEnviado} />
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && isSacReabierto && isFirmaListaProcesoReabierto ? (
-          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+        {!isSacPreparing &&
+        activeTab === 'sac' &&
+        !isPostEnvio &&
+        !isSacReabierto &&
+        !isProcesoReabiertoReal ? (
+          <SacPendingPanel />
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && isSacReabierto && !isFirmaListaProcesoReabierto ? (
+        {/* Figma 1760:25499 — firma bloqueada mientras hay área SOX reopened. */}
+        {!isSacPreparing && activeTab === 'firma' && isFirmaBlockedByReopen ? (
           <FirmaSacUpdatePendingPanel />
         ) : null}
-        {!isSacPreparing && activeTab === 'firma' && !isPostEnvio && !isSacReabierto ? (
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isValidacionDiscrepancia ? (
+          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isValidacionAprobada ? (
+          <ValidacionAprobadaFirmaPanel />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isCicloCerrado ? (
+          <CicloCerradoFirmaPanel
+            cycleLabel={cycleLabel}
+            specialistSigner={isCycleClosedReal ? specialistSignerView : null}
+            managerSigner={isCycleClosedReal ? managerSignerView : null}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        showFirmasCompletasPanel ? (
+          <FirmasCompletasPanel />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isFirmaGerente ? (
+          <FirmaGerenteReadyPanel onOpenFirmaModal={() => setFirmaGerenteModalOpen(true)} />
+        ) : null}
+        {/* Camino real Fase 3: fases por firmas GET/POST (no placeholder pendiente). */}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isRealSacEnviado &&
+        signaturePhase === 'ambas-firmadas' &&
+        !isCicloCerrado ? (
+          <FirmasCompletasPanel
+            specialistSigner={specialistSignerView}
+            managerSigner={managerSignerView}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isRealSacEnviado &&
+        signaturePhase === 'gerente-habilitado' ? (
+          <FirmaGerenteReadyPanel
+            onOpenFirmaModal={() => {
+              setFirmaError(null);
+              setFirmaGerenteModalOpen(true);
+            }}
+            specialistSigner={specialistSignerView}
+            step2Cta={`Haz clic para firmar como ${sessionFullName}`}
+            canSign={canSignManager}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isRealSacEnviado &&
+        signaturePhase === 'firma-lista' ? (
+          <FirmaReadyPanel
+            onOpenFirmaModal={() => {
+              setFirmaError(null);
+              setFirmaModalOpen(true);
+            }}
+            step1Cta={`Haz clic para firmar como ${sessionFullName}`}
+            canSign={canSignSpecialist}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        (isConsolidadoEnviado || isSacDisponible) &&
+        !showFirmasCompletasPanel &&
+        !isRealSacEnviado ? (
+          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isSacReabierto &&
+        isFirmaListaProcesoReabierto ? (
+          <FirmaReadyPanel onOpenFirmaModal={() => setFirmaModalOpen(true)} />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        isSacReabierto &&
+        !isFirmaListaProcesoReabierto ? (
+          <FirmaSacUpdatePendingPanel />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'firma' &&
+        !isFirmaBlockedByReopen &&
+        !isPostEnvio &&
+        !isSacReabierto ? (
           <FirmaPendingPanel />
         ) : null}
-        {!isSacPreparing && activeTab === 'validacion' && (showValidationDiscrepancy || isSacReabierto) ? (
+        {/* Figma 1760:25798 — panel real SOX en corrección (no mock). */}
+        {!isSacPreparing &&
+        activeTab === 'validacion' &&
+        showValidationDiscrepancy &&
+        !isProcesoReabiertoReal ? (
           <SprConsolidatedValidationDiscrepancy
-            variant={isSacReabierto ? 'awaitingCorrection' : 'requiresReview'}
+            variant="requiresReview"
             showDetail={showValidationDiscrepancyDetail}
             reopenModalOpen={reopenModalOpen}
             onOpenDetail={openValidationDetail}
@@ -1846,21 +2542,93 @@ export function SprConsolidatedReportView() {
             onCloseReopenModal={closeReopenModal}
           />
         ) : null}
+        {!isSacPreparing &&
+        activeTab === 'validacion' &&
+        isSacReabierto &&
+        !isProcesoReabiertoReal ? (
+          <SprConsolidatedValidationDiscrepancy
+            variant="awaitingCorrection"
+            showDetail={showValidationDiscrepancyDetail}
+            reopenModalOpen={reopenModalOpen}
+            onOpenDetail={openValidationDetail}
+            onCloseDetail={closeValidationDetail}
+            onOpenReopenModal={openReopenModal}
+            onCloseReopenModal={closeReopenModal}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'validacion' &&
+        (isRealSacEnviado || isProcesoReabiertoReal) &&
+        (soxValidationPhase === 'has-discrepancy' || soxValidationPhase === 'awaiting-correction') &&
+        !showValidationDiscrepancy &&
+        !isSacReabierto &&
+        sprCycleQuery.cycle?.id ? (
+          <SprSoxValidationDiscrepancyPanel
+            cycleId={sprCycleQuery.cycle.id}
+            areas={dashboardReal.areas}
+            validations={validationsQuery.validations}
+          />
+        ) : null}
+        {!isSacPreparing &&
+        activeTab === 'validacion' &&
+        isRealSacEnviado &&
+        signaturePhase === 'ambas-firmadas' &&
+        soxValidationPhase !== 'has-discrepancy' &&
+        soxValidationPhase !== 'awaiting-correction' &&
+        soxValidationPhase !== 'validation-approved' &&
+        soxValidationPhase !== 'cycle-closed' &&
+        sprCycleQuery.cycle?.id ? (
+          <SprSoxValidationPanel
+            areas={dashboardReal.areas}
+            validations={validationsQuery.validations}
+          />
+        ) : null}
         {!isSacPreparing && activeTab === 'validacion' && isSacDisponibleFirmasCompletas ? (
           <SacDisponibleValidationPanel />
         ) : null}
-        {!isSacPreparing && activeTab === 'validacion' && isValidacionAprobada ? (
-          <SprConsolidatedValidationApproved defaultExpandedRowId={kpiDiscrepancyExpandedId} />
+        {!isSacPreparing &&
+        activeTab === 'validacion' &&
+        (isValidacionAprobada || isValidationApprovedReal) &&
+        !isCicloCerrado ? (
+          <SprConsolidatedValidationApproved
+            defaultExpandedRowId={isValidacionAprobada ? kpiDiscrepancyExpandedId : null}
+            kpiCards={
+              isValidationApprovedReal
+                ? dashboardReal.isLoading
+                  ? undefined
+                  : (dashboardReal.kpiCards ?? [])
+                : null
+            }
+            areas={isValidationApprovedReal ? dashboardReal.areas : null}
+            validations={isValidationApprovedReal ? validationsQuery.validations : null}
+            dashboardLoading={isValidationApprovedReal && dashboardReal.isLoading}
+            dashboardError={isValidationApprovedReal && dashboardReal.isError}
+          />
         ) : null}
         {!isSacPreparing && activeTab === 'validacion' && isCicloCerrado ? (
-          <CicloCerradoValidacionPanel defaultExpandedRowId={kpiDiscrepancyExpandedId} />
+          <CicloCerradoValidacionPanel
+            cycleLabel={cycleLabel}
+            defaultExpandedRowId={isCicloCerradoMock ? kpiDiscrepancyExpandedId : null}
+            kpiCards={
+              isCycleClosedReal
+                ? dashboardReal.isLoading
+                  ? undefined
+                  : (dashboardReal.kpiCards ?? [])
+                : null
+            }
+            areas={isCycleClosedReal ? dashboardReal.areas : null}
+            validations={isCycleClosedReal ? validationsQuery.validations : null}
+            dashboardLoading={isCycleClosedReal && dashboardReal.isLoading}
+            dashboardError={isCycleClosedReal && dashboardReal.isError}
+          />
         ) : null}
         {!isSacPreparing &&
         activeTab === 'validacion' &&
         !showValidationDiscrepancy &&
         !isSacReabierto &&
         !isSacDisponibleFirmasCompletas &&
-        !isCicloCompleto ? (
+        !isCicloCompleto &&
+        !(isRealSacEnviado && signaturePhase === 'ambas-firmadas') ? (
           <ValidationPendingPanel />
         ) : null}
       </div>
@@ -1871,16 +2639,32 @@ export function SprConsolidatedReportView() {
       <FirmaEspecialistaModal
         open={firmaModalOpen}
         initiallySigned={firmaModalInitiallySigned}
-        onClose={() => setFirmaModalOpen(false)}
+        signerName={isRealSacEnviado ? sessionFullName : undefined}
+        confirming={isRealSacEnviado && createSignatureMutation.isPending}
+        errorMessage={firmaModalOpen ? firmaError : null}
+        onClose={() => {
+          setFirmaError(null);
+          setFirmaModalOpen(false);
+        }}
         onConfirmed={
-          isConsolidadoEnviado || isSacDisponible ? openFirmaGerenteModal : undefined
+          isRealSacEnviado
+            ? confirmSpecialistSignature
+            : (isConsolidadoEnviado || isSacDisponible) && !isRealSacEnviado
+              ? openFirmaGerenteModal
+              : undefined
         }
       />
       <FirmaGerenteModal
         open={firmaGerenteModalOpen}
         initiallySigned={firmaGerenteModalInitiallySigned}
-        onClose={() => setFirmaGerenteModalOpen(false)}
-        onConfirmed={goToFirmasCompletas}
+        signerName={isRealSacEnviado ? sessionFullName : undefined}
+        confirming={isRealSacEnviado && createSignatureMutation.isPending}
+        errorMessage={firmaGerenteModalOpen ? firmaError : null}
+        onClose={() => {
+          setFirmaError(null);
+          setFirmaGerenteModalOpen(false);
+        }}
+        onConfirmed={isRealSacEnviado ? confirmManagerSignature : goToFirmasCompletas}
       />
     </div>
   );

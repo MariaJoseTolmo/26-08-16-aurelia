@@ -1,4 +1,14 @@
-import type { RecordStatus, SprApprovalStatus, SprConsolidationMethod, SprRecordStatus } from '../enums';
+import type {
+  RecordStatus,
+  SprApprovalStatus,
+  SprConsolidationMethod,
+  SprCycleSacSubmissionStatus,
+  SprCycleSignatureLevel,
+  SprCycleSignatureStatus,
+  SprCycleStatus,
+  SprCycleValidationStatus,
+  SprRecordStatus,
+} from '../enums';
 import type { ID, ISODateString } from '../types/common';
 import type { BaseEntity } from './entity.interface';
 
@@ -74,4 +84,68 @@ export interface SprConsolidationRule extends BaseEntity {
   method: SprConsolidationMethod;
   config: Record<string, unknown> | null;
   status: RecordStatus;
+}
+
+/**
+ * Ciclo corporativo SPR (Fase 1).
+ * day9At = día 9 del mes siguiente al periodo de datos (date, ISO YYYY-MM-DD).
+ * Estados sac_* / signing / validating reservados para fases posteriores — no afirmar envío/firmas sin tablas.
+ */
+export interface SprCycle extends BaseEntity {
+  periodYear: number;
+  periodMonth: number;
+  label: string;
+  status: SprCycleStatus;
+  /** Día 9 del ciclo (date). */
+  day9At: ISODateString;
+  closedAt: ISODateString | null;
+}
+
+/**
+ * Envío / artefacto SAC por ciclo (Fase 2).
+ * Sin fila o status pending/preparing ≠ SAC disponible en UI.
+ * Firmas / validación SOX = fases posteriores.
+ */
+export interface SprCycleSacSubmission extends BaseEntity {
+  cycleId: ID;
+  status: SprCycleSacSubmissionStatus;
+  sentAt: ISODateString | null;
+  reportReadyAt: ISODateString | null;
+  externalRef: string | null;
+  /** Snapshot opcional del consolidado enviado; null en Response v1 si no se usa. */
+  payloadSnapshot: Record<string, unknown> | null;
+}
+
+/**
+ * Firma del reporte SPR por ciclo (Fase 3).
+ * Sin fila para un level = ese nivel no ha firmado.
+ * Orden: specialist → environment_manager.
+ */
+export interface SprCycleSignature extends BaseEntity {
+  cycleId: ID;
+  level: SprCycleSignatureLevel;
+  status: SprCycleSignatureStatus;
+  signerUserId: ID | null;
+  /** Nombre completo del firmante (join users); null si no hay signer. */
+  signerFullName: string | null;
+  signedAt: ISODateString | null;
+}
+
+/**
+ * Validación SOX del reporte por ciclo + área (Fase 5).
+ * Solo AREA-STECNICOS y AREA-OPTACTIVOS.
+ * Sin fila = esa área aún no decidió (GET [] si nadie actuó).
+ */
+export interface SprCycleValidation extends BaseEntity {
+  cycleId: ID;
+  areaId: ID;
+  areaCode: string;
+  areaName: string;
+  status: SprCycleValidationStatus;
+  actorUserId: ID | null;
+  actorFullName: string | null;
+  comments: string | null;
+  decidedAt: ISODateString | null;
+  /** Momento de reopen (status reopened); null si no está reabierta. */
+  reopenedAt: ISODateString | null;
 }

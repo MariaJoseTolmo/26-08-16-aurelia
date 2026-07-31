@@ -1,4 +1,9 @@
-import { SprRecordStatus, type SprMonthlyRecordResponse } from '@aurelia/contracts';
+import {
+  SprCycleValidationStatus,
+  SprRecordStatus,
+  type SprCycleValidationResponse,
+  type SprMonthlyRecordResponse,
+} from '@aurelia/contracts';
 import { SPR_ACTIVE_CYCLE } from './spr.constants';
 
 export type SprAreaDisplayMode =
@@ -13,7 +18,8 @@ export type SprAreaProcessStatusVariant =
   | 'manager_pending_review'
   | 'manager_rejected_waiting_correction'
   | 'manager_pending_re_review'
-  | 'manager_approved';
+  | 'manager_approved'
+  | 'manager_approved_sox_discrepancy';
 
 export type SprAreaStatusViewMode = Extract<
   SprAreaDisplayMode,
@@ -82,4 +88,17 @@ export function resolveSprAreaEffectiveDisplayMode(
   }
 
   return displayMode;
+}
+
+/** True si el área del gerente tiene validation SOX discrepancy_reported. */
+export function hasSoxDiscrepancyReported(
+  validations: SprCycleValidationResponse[] | undefined,
+  areaId: string | null | undefined,
+): boolean {
+  if (!areaId) return false;
+  return (validations ?? []).some(
+    (validation) =>
+      validation.areaId === areaId &&
+      validation.status === SprCycleValidationStatus.DISCREPANCY_REPORTED,
+  );
 }

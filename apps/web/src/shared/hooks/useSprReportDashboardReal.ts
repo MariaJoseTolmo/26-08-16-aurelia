@@ -38,6 +38,7 @@ export function useSprReportDashboardReal(periodYear: number, periodMonth: numbe
   return {
     isLoading,
     isError,
+    areas: areasQuery.data ?? null,
     kpiCards: summary?.kpiCards ?? null,
     areaCards: summary?.areaCards ?? null,
   };

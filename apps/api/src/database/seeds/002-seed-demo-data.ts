@@ -155,6 +155,14 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
         roles: ['SPR_RESPONSIBLE'],
       },
       {
+        email: 'natalia.herrera@goldfields.com',
+        first: 'Natalia',
+        last: 'Herrera',
+        pos: 'Responsable SPR Optimización de Activos',
+        areaCode: 'AREA-OPTACTIVOS',
+        roles: ['SPR_RESPONSIBLE'],
+      },
+      {
         email: 'miguel.castro@goldfields.com',
         first: 'Miguel',
         last: 'Castro',
@@ -169,6 +177,14 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
         pos: 'Especialista de Sustentabilidad SPR',
         areaCode: null,
         roles: ['SPR_SUSTAINABILITY_SPECIALIST'],
+      },
+      {
+        email: 'gabriel.fuenzalida@goldfields.com',
+        first: 'Gabriel',
+        last: 'Fuenzalida',
+        pos: 'Gerente de Sustentabilidad y Cumplimiento Ambiental',
+        areaCode: null,
+        roles: ['SPR_ENVIRONMENT_MANAGER'],
       },
       {
         email: 'carlos.aguirre@goldfields.com', first: 'Carlos', last: 'Aguirre', pos: 'Administrador Sistema',
@@ -268,7 +284,7 @@ export async function runDemoSeed(ds: DataSource): Promise<void> {
     console.log('Demo seed completed successfully.');
     console.log('  → 12 áreas, 18 sectores');
     console.log('  → 8 empresas contratistas (EECC)');
-    console.log('  → 19 usuarios demo con roles funcionales');
+    console.log('  → 20 usuarios demo con roles funcionales');
   } catch (error) {
     await qr.rollbackTransaction();
     throw error;

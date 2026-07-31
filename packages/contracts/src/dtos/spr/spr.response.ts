@@ -1,5 +1,9 @@
 import type {
   SprConsolidationRule,
+  SprCycle,
+  SprCycleSacSubmission,
+  SprCycleSignature,
+  SprCycleValidation,
   SprMeasureGroup,
   SprMonthlyRecord,
   SprParameter,
@@ -15,6 +19,10 @@ export type SprParameterAreaAssignmentResponse = SprParameterAreaAssignment;
 export type SprMonthlyRecordResponse = SprMonthlyRecord;
 export type SprRecordApprovalResponse = SprRecordApproval;
 export type SprConsolidationRuleResponse = SprConsolidationRule;
+export type SprCycleResponse = SprCycle;
+export type SprCycleSacSubmissionResponse = SprCycleSacSubmission;
+export type SprCycleSignatureResponse = SprCycleSignature;
+export type SprCycleValidationResponse = SprCycleValidation;
 
 export interface SprDashboardSummaryResponse {
   parameters: {

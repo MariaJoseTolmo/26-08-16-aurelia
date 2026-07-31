@@ -1,10 +1,16 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+import { useSprCycleSacSubmission } from '../../shared/hooks/useSprCycleSacSubmission';
 import {
   SPR_CONSOLIDATED_FLOW,
   SPR_CONSOLIDATED_FLOW_QUERY,
   SPR_CONSOLIDATED_REPORT,
   resolveSprConsolidatedFlow,
 } from './spr.constants';
+import {
+  isConsolidatedFlowDrivenBySac,
+  resolveConsolidatedSacLayoutMode,
+} from './sprConsolidatedSacLayout';
 import { SPR_CYCLE_TRACEABILITY_ROUTE } from './sprCycleTraceability.constants';
 import { resolveSprReportCycleContext, SPR_REPORT_CYCLE_QUERY } from './sprReportCycles';
 import { SprReportCycleSelector } from './components/SprReportCycleSelector';
@@ -21,9 +27,19 @@ function SprConsolidatedReportPageHeader() {
     searchParams.get('estado'),
   );
   const flow = resolveSprConsolidatedFlow(searchParams.get(SPR_CONSOLIDATED_FLOW_QUERY));
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const sacQuery = useSprCycleSacSubmission(sprCycleQuery.cycle?.id);
+  const isRealSacEnviado =
+    isConsolidatedFlowDrivenBySac(flow) &&
+    resolveConsolidatedSacLayoutMode(sacQuery.submission) === 'enviado';
+  const isRealSacPreparing =
+    isConsolidatedFlowDrivenBySac(flow) &&
+    resolveConsolidatedSacLayoutMode(sacQuery.submission) === 'preparing';
   const tab = searchParams.get('tab');
   const usesShortSubtitle =
-    flow === SPR_CONSOLIDATED_FLOW.sacDisponible && tab === 'consolidado'
+    isRealSacEnviado ||
+    isRealSacPreparing ||
+    (flow === SPR_CONSOLIDATED_FLOW.sacDisponible && tab === 'consolidado'
       ? false
       : flow === SPR_CONSOLIDATED_FLOW.sacPreparando ||
         flow === SPR_CONSOLIDATED_FLOW.sacDisponible ||
@@ -34,7 +50,7 @@ function SprConsolidatedReportPageHeader() {
         flow === SPR_CONSOLIDATED_FLOW.validacionDiscrepancia ||
         flow === SPR_CONSOLIDATED_FLOW.validacionDiscrepanciaPostFirma ||
         flow === SPR_CONSOLIDATED_FLOW.validacionAprobada ||
-        flow === SPR_CONSOLIDATED_FLOW.cicloCerrado;
+        flow === SPR_CONSOLIDATED_FLOW.cicloCerrado);
   const subtitle = usesShortSubtitle
     ? SPR_CONSOLIDATED_REPORT.pageSubtitleShort(cycle.label)
     : SPR_CONSOLIDATED_REPORT.pageSubtitle(cycle.label);

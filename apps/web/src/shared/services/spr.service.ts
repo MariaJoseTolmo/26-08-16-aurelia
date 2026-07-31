@@ -1,8 +1,16 @@
 import type {
+  CreateSprCycleSignatureRequest,
+  CreateSprCycleValidationRequest,
   CreateSprMonthlyRecordRequest,
   EvidenceLinkResponse,
   EvidenceResponse,
   LinkSprRecordEvidenceRequest,
+  ReopenSprCycleValidationRequest,
+  SprCycleResponse,
+  SprCycleSacSubmissionResponse,
+  SprCycleSignatureResponse,
+  SprCycleValidationResponse,
+  SprMeasureGroupResponse,
   SprMonthlyRecordResponse,
   SprParameterAreaAssignmentResponse,
   SprParameterResponse,
@@ -52,6 +60,99 @@ export function getSprAssignments(query?: SprCatalogQuery): Promise<SprParameter
 
 export function getSprUnits(): Promise<SprUnitResponse[]> {
   return httpGet<SprUnitResponse[]>('/spr/units');
+}
+
+export function getSprGroups(): Promise<SprMeasureGroupResponse[]> {
+  return httpGet<SprMeasureGroupResponse[]>('/spr/groups');
+}
+
+export interface SprCyclesQuery {
+  periodYear?: number;
+  periodMonth?: number;
+  status?: string;
+}
+
+function buildCyclesQuery(query?: SprCyclesQuery) {
+  if (!query) return '';
+  const searchParams = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    searchParams.set(key, String(value));
+  });
+  const serialized = searchParams.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+export function getSprCycles(query?: SprCyclesQuery): Promise<SprCycleResponse[]> {
+  return httpGet<SprCycleResponse[]>(`/spr/cycles${buildCyclesQuery(query)}`);
+}
+
+export function getSprCycle(cycleId: string): Promise<SprCycleResponse> {
+  return httpGet<SprCycleResponse>(`/spr/cycles/${cycleId}`);
+}
+
+export function getSprCycleSacSubmission(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+  return httpGet<SprCycleSacSubmissionResponse>(`/spr/cycles/${cycleId}/sac`);
+}
+
+/** 404 → null (ciclo sin envío SAC registrado). Otros errores → throw. */
+export async function getSprCycleSacSubmissionOrNull(
+  cycleId: string,
+): Promise<SprCycleSacSubmissionResponse | null> {
+  try {
+    return await getSprCycleSacSubmission(cycleId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes(' failed: 404')) return null;
+    throw error;
+  }
+}
+
+export function prepareSprCycleSacSubmission(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+  return httpPost<Record<string, never>, SprCycleSacSubmissionResponse>(`/spr/cycles/${cycleId}/sac/prepare`, {});
+}
+
+export function markSprCycleSacReportReady(cycleId: string): Promise<SprCycleSacSubmissionResponse> {
+  return httpPost<Record<string, never>, SprCycleSacSubmissionResponse>(`/spr/cycles/${cycleId}/sac/mark-ready`, {});
+}
+
+export function getSprCycleSignatures(cycleId: string): Promise<SprCycleSignatureResponse[]> {
+  return httpGet<SprCycleSignatureResponse[]>(`/spr/cycles/${cycleId}/signatures`);
+}
+
+export function createSprCycleSignature(
+  cycleId: string,
+  payload: CreateSprCycleSignatureRequest,
+): Promise<SprCycleSignatureResponse> {
+  return httpPost<CreateSprCycleSignatureRequest, SprCycleSignatureResponse>(
+    `/spr/cycles/${cycleId}/signatures`,
+    payload,
+  );
+}
+
+export function getSprCycleValidations(cycleId: string): Promise<SprCycleValidationResponse[]> {
+  return httpGet<SprCycleValidationResponse[]>(`/spr/cycles/${cycleId}/validations`);
+}
+
+export function createSprCycleValidation(
+  cycleId: string,
+  payload: CreateSprCycleValidationRequest,
+): Promise<SprCycleValidationResponse> {
+  return httpPost<CreateSprCycleValidationRequest, SprCycleValidationResponse>(
+    `/spr/cycles/${cycleId}/validations`,
+    payload,
+  );
+}
+
+export function reopenSprCycleValidation(
+  cycleId: string,
+  areaId: string,
+  payload: ReopenSprCycleValidationRequest = {},
+): Promise<SprCycleValidationResponse> {
+  return httpPost<ReopenSprCycleValidationRequest, SprCycleValidationResponse>(
+    `/spr/cycles/${cycleId}/validations/${areaId}/reopen`,
+    payload,
+  );
 }
 
 export function getSprMonthlyRecords(query?: SprMonthlyRecordsQuery): Promise<SprMonthlyRecordResponse[]> {

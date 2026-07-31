@@ -4,4 +4,7 @@ export * from './approve-spr-monthly-record.request';
 export * from './create-spr-record-comment.request';
 export * from './link-spr-record-evidence.request';
 export * from './spr-record-action.request';
+export * from './create-spr-cycle-signature.request';
+export * from './create-spr-cycle-validation.request';
+export * from './reopen-spr-cycle-validation.request';
 export * from './spr.response';

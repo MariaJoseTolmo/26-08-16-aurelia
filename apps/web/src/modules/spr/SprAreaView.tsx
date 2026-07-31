@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+import { useSprCycleValidations } from '../../shared/hooks/useSprCycleValidations';
 import { useSprParameters } from '../../shared/hooks/useSprParameters';
 import { useSprMonthlyRecords } from '../../shared/hooks/useSprMonthlyRecords';
 import { useSprCycleCorrectionHistory } from '../../shared/hooks/useSprCycleCorrectionHistory';
@@ -11,7 +13,11 @@ import {
   SPR_AREA_DEMO_APPROVED_STATE,
   SPR_AREA_DEMO_STATE_QUERY,
 } from './spr.constants';
-import { resolveSprAreaDisplayMode, resolveSprAreaEffectiveDisplayMode } from './sprAreaStatus';
+import {
+  hasSoxDiscrepancyReported,
+  resolveSprAreaDisplayMode,
+  resolveSprAreaEffectiveDisplayMode,
+} from './sprAreaStatus';
 import {
   getSprFormAreaCatalog,
   isSprFormAreaAutomatic,
@@ -37,6 +43,8 @@ export function SprAreaView() {
     periodMonth: SPR_ACTIVE_CYCLE.periodMonth,
     areaId: areaId ?? undefined,
   });
+  const sprCycleQuery = useSprCycle(SPR_ACTIVE_CYCLE.periodYear, SPR_ACTIVE_CYCLE.periodMonth);
+  const validationsQuery = useSprCycleValidations(sprCycleQuery.cycle?.id);
 
   const totalParameterCount = parametersQuery.data?.length ?? 0;
   const displayMode = useMemo(
@@ -58,10 +66,20 @@ export function SprAreaView() {
     () => resolveSprManagerApprovalDateLabel(recordsQuery.data),
     [recordsQuery.data],
   );
+  const soxDiscrepancyReported = useMemo(
+    () => hasSoxDiscrepancyReported(validationsQuery.validations, areaId),
+    [areaId, validationsQuery.validations],
+  );
 
   const isDemoApproved = demoState === SPR_AREA_DEMO_APPROVED_STATE;
+  const needsSoxValidationData = effectiveDisplayMode === 'approved' && !isDemoApproved;
 
-  if (!isDemoApproved && (parametersQuery.isLoading || recordsQuery.isLoading)) {
+  if (
+    !isDemoApproved &&
+    (parametersQuery.isLoading ||
+      recordsQuery.isLoading ||
+      (needsSoxValidationData && (sprCycleQuery.isLoading || validationsQuery.isLoading)))
+  ) {
     return (
       <div className="flex h-[calc(100vh-56px)] w-full items-center justify-center bg-[#f7f7f7]">
         <p className="font-['Inter:Regular',sans-serif] text-[12px] text-[#646464]">Cargando vista SPR del área…</p>
@@ -129,6 +147,7 @@ export function SprAreaView() {
         managerApprovalDateLabel={managerApprovalDateLabel}
         mode="approved"
         hasCorrectionHistory={correctionHistoryQuery.hasCorrectionHistory}
+        soxDiscrepancyReported={soxDiscrepancyReported}
       />
     );
   }

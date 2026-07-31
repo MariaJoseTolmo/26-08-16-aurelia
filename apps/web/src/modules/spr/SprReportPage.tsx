@@ -1,4 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { SprCycleStatus } from '@aurelia/contracts';
 
 import { SPR_REPORT_FLOW_QUERY, SPR_REPORT_DASHBOARD, getSprReportDashboardConfig } from './spr.constants';
 import { SPR_CYCLE_TRACEABILITY_ROUTE } from './sprCycleTraceability.constants';
@@ -8,6 +9,18 @@ import { SprReportView } from './SprReportView';
 import { SprTraceabilityIcon } from './icons/SprIcons';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+
+function resolveHeaderFlow(
+  flowFromUrl: ReturnType<typeof resolveSprReportCycleContext>['flow'],
+  hasExplicitEstado: boolean,
+  cycleStatus: SprCycleStatus | null | undefined,
+) {
+  if (hasExplicitEstado) return flowFromUrl;
+  if (cycleStatus === SprCycleStatus.CLOSED) return 'ciclo-cerrado' as const;
+  if (cycleStatus === SprCycleStatus.VALIDATION_APPROVED) return 'validacion-aprobada' as const;
+  return 'en-curso' as const;
+}
 
 function SprReportPageHeader() {
   const navigate = useNavigate();
@@ -16,7 +29,14 @@ function SprReportPageHeader() {
     searchParams.get(SPR_REPORT_CYCLE_QUERY),
     searchParams.get(SPR_REPORT_FLOW_QUERY),
   );
-  const config = getSprReportDashboardConfig(flow);
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const effectiveFlow = resolveHeaderFlow(
+    flow,
+    searchParams.has(SPR_REPORT_FLOW_QUERY),
+    sprCycleQuery.cycle?.status,
+  );
+  const config = getSprReportDashboardConfig(effectiveFlow);
+  const cycleLabel = sprCycleQuery.cycle?.label ?? cycle.label;
 
   return (
     <div className="relative h-[56px] w-full shrink-0 bg-white">
@@ -27,7 +47,7 @@ function SprReportPageHeader() {
             {SPR_REPORT_DASHBOARD.pageTitle}
           </p>
           <p className="truncate pt-px font-['Inter:Regular',sans-serif] text-[11px] text-[#646464]">
-            {config.pageSubtitle(cycle.label)}
+            {config.pageSubtitle(cycleLabel)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-[8px]">

@@ -1,7 +1,12 @@
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { SprCycleStatus } from '@aurelia/contracts';
+import { useSprCycle } from '../../shared/hooks/useSprCycle';
+import { useSprCycleSacSubmission } from '../../shared/hooks/useSprCycleSacSubmission';
 import { useSprReportDashboardReal } from '../../shared/hooks/useSprReportDashboardReal';
 import {
   SPR_REPORT_DASHBOARD,
+  SPR_REPORT_FLOW_QUERY,
   SPR_REPORT_TIMELINE_STEPS,
   getSprReportDashboardConfig,
   type SprReportAreaCardStatus,
@@ -16,7 +21,21 @@ import {
   buildSprReportAreaHref,
   type SprReportCycle,
 } from './sprReportCycles';
-import { SprProcessStatusApprovedIcon, SprWarningTriangleIcon } from './icons/SprIcons';
+import { resolveSprCycleSacBannerMessage } from './sprReportDay9';
+import { buildSprReportHonestStatusRows } from './sprReportStatusRows.real';
+import { SprProcessStatusApprovedIcon, SprTimelineStepIcon, SprWarningTriangleIcon } from './icons/SprIcons';
+
+/** Sin `?estado=`, el chrome sigue el status real del ciclo (closed / validation_approved). */
+function resolveSprReportEffectiveFlow(
+  flowFromUrl: SprReportFlowId,
+  hasExplicitEstado: boolean,
+  cycleStatus: SprCycleStatus | null | undefined,
+): SprReportFlowId {
+  if (hasExplicitEstado) return flowFromUrl;
+  if (cycleStatus === SprCycleStatus.CLOSED) return 'ciclo-cerrado';
+  if (cycleStatus === SprCycleStatus.VALIDATION_APPROVED) return 'validacion-aprobada';
+  return 'en-curso';
+}
 
 function statusDotClass(status: SprReportAreaCardStatus) {
   if (status === 'complete') return 'bg-[#3a9b3a]';
@@ -95,19 +114,49 @@ function closureItemBadgeClass(status: 'pending' | 'completed') {
  * Vista consolidada SPR para Especialista (Figma 2109:45162 / 49560 / 1797:46981 / 2109:49077).
  * KPIs + Estado por área: datos reales (assignments + monthly-records del ciclo).
  * Si el fetch falla: mensaje de error (nunca mock de KPIs/cards).
- * PLACEHOLDER/MOCK: timeline, filas SAC/firmas (statusRows) y cierre de ciclo (closure).
+ * Chrome closed / validation_approved: desde cycle.status (sin ?estado=) o mock vía ?estado=.
+ * Real: KPIs/cards + countdown día 9 desde spr_cycles + filas Consolidado N/8 y Envío SAC (honestas).
  */
 export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: SprReportFlowId }) {
   const navigate = useNavigate();
-  const config = getSprReportDashboardConfig(flow);
-  const isAdvancedFlow = flow !== 'en-curso';
-  const cycleLabel = cycle.label;
+  const [searchParams] = useSearchParams();
+  const sprCycleQuery = useSprCycle(cycle.periodYear, cycle.periodMonth);
+  const effectiveFlow = resolveSprReportEffectiveFlow(
+    flow,
+    searchParams.has(SPR_REPORT_FLOW_QUERY),
+    sprCycleQuery.cycle?.status,
+  );
+  const config = getSprReportDashboardConfig(effectiveFlow);
+  const isAdvancedFlow = effectiveFlow !== 'en-curso';
+  const cycleLabel = sprCycleQuery.cycle?.label ?? cycle.label;
   const realDashboard = useSprReportDashboardReal(cycle.periodYear, cycle.periodMonth);
+  const sacQuery = useSprCycleSacSubmission(sprCycleQuery.cycle?.id);
+  const day9Countdown = sprCycleQuery.countdown;
+  const sacBannerMessage = resolveSprCycleSacBannerMessage(day9Countdown, sacQuery.submission);
 
   const dashboardDataError = realDashboard.isError;
   const dashboardDataLoading = realDashboard.isLoading && !dashboardDataError;
   const kpiCards = realDashboard.kpiCards;
   const areaCards = realDashboard.areaCards;
+
+  const consolidadoHref = appendSprReportCycleToHref(
+    effectiveFlow === 'en-curso'
+      ? '/spr/reporte/consolidado?estado=en-curso'
+      : `/spr/reporte/consolidado?estado=${effectiveFlow}`,
+    cycle.id,
+  );
+
+  const statusRows = useMemo(
+    () =>
+      buildSprReportHonestStatusRows({
+        areaCards,
+        day9: day9Countdown,
+        sacSubmission: sacQuery.submission,
+        consolidadoHref,
+        consolidadoActionVariant: isAdvancedFlow ? 'primary' : 'outline',
+      }),
+    [areaCards, day9Countdown, sacQuery.submission, consolidadoHref, isAdvancedFlow],
+  );
 
   return (
     <div className="h-[calc(100vh-56px)] w-full overflow-y-auto bg-[#f7f7f7]">
@@ -125,6 +174,19 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
                     {config.cycleBanner.helper}
                   </p>
                 ) : null}
+                {sprCycleQuery.isLoading || sacQuery.isLoading ? (
+                  <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[10px] text-[rgba(255,255,255,0.55)]">
+                    {SPR_REPORT_DASHBOARD.cycleLoadingLabel}
+                  </p>
+                ) : sprCycleQuery.isError || !sacBannerMessage ? (
+                  <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#ffd0db]">
+                    {SPR_REPORT_DASHBOARD.cycleLoadErrorDescription}
+                  </p>
+                ) : (
+                  <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#c5fff6]">
+                    {sacBannerMessage}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-[12px]">
@@ -149,6 +211,19 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
                 <p className="pt-px font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
                   {config.cycleBanner.helper}
                 </p>
+                {sprCycleQuery.isLoading || sacQuery.isLoading ? (
+                  <p className="pt-[4px] font-['Inter:Regular',sans-serif] text-[10px] text-[#646464]">
+                    {SPR_REPORT_DASHBOARD.cycleLoadingLabel}
+                  </p>
+                ) : sprCycleQuery.isError || !sacBannerMessage ? (
+                  <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#570b1d]">
+                    {SPR_REPORT_DASHBOARD.cycleLoadErrorDescription}
+                  </p>
+                ) : (
+                  <p className="pt-[4px] font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#0d3862]">
+                    {sacBannerMessage}
+                  </p>
+                )}
               </div>
             </div>
             <span className="rounded-[4px] bg-[#e0ffd3] px-[5px] py-[2px] font-['Inter:Bold',sans-serif] text-[9px] font-bold text-[#2a5c16]">
@@ -187,11 +262,11 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
               >
                 <div className="flex items-center gap-[6px]">
                   <span
-                    className={`flex size-[16px] items-center justify-center rounded-full font-['Inter:Bold',sans-serif] text-[9px] font-bold ${
+                    className={`flex size-[16px] items-center justify-center rounded-full ${
                       step.status === 'upcoming' ? 'bg-[#f2f2f2] text-[#acacac]' : 'bg-[#001e39] text-white'
                     }`}
                   >
-                    {step.step}
+                    <SprTimelineStepIcon stepIndex={step.step - 1} width={10} height={8} className="shrink-0" />
                   </span>
                   <p className="font-['Inter:Bold',sans-serif] text-[10px] font-bold text-[#131313]">{step.title}</p>
                 </div>
@@ -278,7 +353,7 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
           </div>
         )}
 
-        {/* PLACEHOLDER/MOCK: estado consolidado / SAC / firmas 2 niveles — sin ciclo ni integración SAC */}
+        {/* Consolidado N/8 + Envío SAC (countdown) reales; Firma pendiente mock */}
         {config.showReportStatus ? (
           <section className="overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
             <div className="border-b border-[#ebebeb] px-[14px] py-[10px]">
@@ -286,13 +361,13 @@ export function SprReportView({ cycle, flow }: { cycle: SprReportCycle; flow: Sp
                 {SPR_REPORT_DASHBOARD.reportSectionTitle(cycleLabel)}
               </p>
             </div>
-            {config.statusRows.map((row) => (
+            {statusRows.map((row) => (
               <div
                 key={row.title}
                 className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#f4f6f9] px-[14px] py-[9px] last:border-b-0"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-[10px]">
-                  {isAdvancedFlow ? (
+                  {row.badgeTone === 'success' ? (
                     <div className="flex size-[28px] shrink-0 items-center justify-center rounded-[7px] bg-[#e0ffd3]">
                       <SprProcessStatusApprovedIcon className="h-[12px] w-[15px] text-[#2a5c16]" />
                     </div>
