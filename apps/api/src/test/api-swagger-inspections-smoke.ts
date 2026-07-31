@@ -18,6 +18,8 @@ function main(): void {
   const inspectionMetadata = read('src/modules/inspections/inspection-openapi.metadata.ts');
   const inspectionResponses = read('src/modules/inspections/inspection-openapi.responses.ts');
   const inspectionModels = read('src/modules/inspections/inspection-openapi.models.ts');
+  const secondaryResponses = read('src/modules/inspections/inspection-openapi-secondary.responses.ts');
+  const secondaryModels = read('src/modules/inspections/inspection-openapi-secondary.models.ts');
   const authMetadata = read('src/modules/auth/auth-openapi.metadata.ts');
   const authModels = read('src/modules/auth/auth-openapi.models.ts');
   const errorModel = read('src/openapi/http-error-openapi.model.ts');
@@ -34,6 +36,11 @@ function main(): void {
     swaggerSource.includes("import '../modules/inspections/inspection-openapi.responses'"),
     'Swagger must load typed inspection response metadata',
   );
+  assert(
+    swaggerSource.includes("import '../modules/inspections/inspection-openapi-secondary.responses'"),
+    'Swagger must load typed secondary inspection response metadata',
+  );
+  assert(swaggerSource.includes("setVersion('0.3.0')"), 'Swagger iteration must be versioned as 0.3.0');
   assert(swaggerSource.includes("addTag('Autenticación'"), 'Swagger must expose the authentication tag');
   assert(swaggerSource.includes('addBearerAuth('), 'Swagger document must define Bearer JWT authentication');
   assert(swaggerSource.includes('useGlobalPrefix: true'), 'Swagger UI must respect the /api global prefix');
@@ -89,6 +96,59 @@ function main(): void {
     'Inspection detail schema must describe optional legacy projection data',
   );
 
+  [
+    'InspectionTypeCatalogOpenApiModel',
+    'InspectionChecklistTemplateCatalogOpenApiModel',
+    'InspectionResponsibleUserOpenApiModel',
+    'InspectionChecklistAnswerOpenApiModel',
+    'InspectionFollowupOpenApiModel',
+    'InspectionManagementKpisOpenApiModel',
+    'InspectionHistoryKpisOpenApiModel',
+    'InspectionDashboardChartsOpenApiModel',
+    'InspectionDashboardCompanyAnalysisOpenApiModel',
+    'InspectionDashboardOpenFindingsOpenApiModel',
+    'EvidenceOpenApiModel',
+    'EvidenceLinkOpenApiModel',
+    'InspectionCommentOpenApiModel',
+    'InspectionFindingTypeCatalogOpenApiModel',
+    'InspectionFindingSeverityCatalogOpenApiModel',
+    'InspectionRiskProbabilityCatalogOpenApiModel',
+    'InspectionRiskConsequenceCatalogOpenApiModel',
+    'InspectionProcessRequestOpenApiModel',
+    'InspectionAiAssessmentOpenApiModel',
+    'InspectionExportPayloadOpenApiModel',
+  ].forEach((model) => {
+    assert(secondaryModels.includes(`class ${model}`), `${model} must define a secondary OpenAPI schema`);
+    assert(secondaryResponses.includes(model), `${model} must be bound to a secondary inspection operation`);
+  });
+
+  [
+    'findTypes',
+    'findTemplates',
+    'findResponsibleUsers',
+    'upsertAnswer',
+    'createFollowup',
+    'updateFollowup',
+    'getManagementKpis',
+    'getCharts',
+    'getCompanyAnalysis',
+    'getOpenFindings',
+    'getHistoryKpis',
+    'findEvidences',
+    'linkEvidence',
+    'findComments',
+    'createComment',
+    'getExportPayload',
+    'resubmitEvidence',
+    'preValidate',
+    'findAiAssessments',
+    'recordAiDecision',
+    'findProbabilities',
+    'findConsequences',
+  ].forEach((method) => {
+    assert(secondaryResponses.includes(`'${method}'`), `${method} must use typed secondary response metadata`);
+  });
+
   ['login', 'renew', 'createIframeTicket', 'exchangeIframeTicket', 'logout', 'logoutAll', 'getMe'].forEach((method) => {
     assert(authMetadata.includes(`'${method}'`), `AuthController.${method} must be documented`);
   });
@@ -102,7 +162,7 @@ function main(): void {
     assert(errorModel.includes(field), `Shared OpenAPI error model must expose ${field}`);
   });
 
-  console.log('Swagger authentication and inspections smoke test passed');
+  console.log('Swagger authentication and inspections v3 smoke test passed');
 }
 
 main();
