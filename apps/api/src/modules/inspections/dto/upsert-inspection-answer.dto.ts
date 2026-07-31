@@ -1,11 +1,13 @@
+import { InspectionAnswerValue, UpsertInspectionAnswerRequest } from '@aurelia/contracts';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
-import { InspectionAnswerValue, UpsertInspectionAnswerRequest } from '@aurelia/contracts';
 
 export class UpsertInspectionAnswerDto implements UpsertInspectionAnswerRequest {
   @IsUUID()
   checklistItemId: string;
 
+  @ApiPropertyOptional({ enum: InspectionAnswerValue, enumName: 'InspectionAnswerValue' })
   @IsOptional()
   @IsEnum(InspectionAnswerValue)
   answerValue?: InspectionAnswerValue | null;
