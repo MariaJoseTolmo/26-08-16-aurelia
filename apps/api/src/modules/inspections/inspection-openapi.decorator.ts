@@ -1,10 +1,12 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { HttpErrorOpenApiModel } from '../../openapi/http-error-openapi.model';
 
 export const INSPECTION_OPENAPI_TAGS = {
   core: 'Inspecciones',
@@ -19,7 +21,14 @@ export function ApiInspectionController(tag: typeof INSPECTION_OPENAPI_TAGS[keyo
   return applyDecorators(
     ApiTags(tag),
     ApiBearerAuth('bearer'),
-    ApiUnauthorizedResponse({ description: 'Token de acceso ausente, inválido o vencido.' }),
-    ApiForbiddenResponse({ description: 'El usuario autenticado no posee los permisos o el alcance requeridos.' }),
+    ApiExtraModels(HttpErrorOpenApiModel),
+    ApiUnauthorizedResponse({
+      description: 'Token de acceso ausente, inválido o vencido.',
+      type: HttpErrorOpenApiModel,
+    }),
+    ApiForbiddenResponse({
+      description: 'El usuario autenticado no posee los permisos o el alcance requeridos.',
+      type: HttpErrorOpenApiModel,
+    }),
   );
 }
