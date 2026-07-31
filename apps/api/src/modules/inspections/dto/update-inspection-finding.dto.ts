@@ -1,5 +1,6 @@
-import { ArrayUnique, IsArray, IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { InspectionFindingSeverity, InspectionFindingStatus, UpdateInspectionFindingRequest } from '@aurelia/contracts';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ArrayUnique, IsArray, IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateInspectionFindingDto implements UpdateInspectionFindingRequest {
   @IsOptional()
@@ -33,10 +34,12 @@ export class UpdateInspectionFindingDto implements UpdateInspectionFindingReques
   @MaxLength(4000)
   rejectionReason?: string | null;
 
+  @ApiPropertyOptional({ enum: InspectionFindingSeverity, enumName: 'InspectionFindingSeverity' })
   @IsOptional()
   @IsEnum(InspectionFindingSeverity)
   severity?: InspectionFindingSeverity;
 
+  @ApiPropertyOptional({ enum: InspectionFindingStatus, enumName: 'InspectionFindingStatus' })
   @IsOptional()
   @IsEnum(InspectionFindingStatus)
   status?: InspectionFindingStatus;
