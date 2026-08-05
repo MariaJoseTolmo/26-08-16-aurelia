@@ -14,6 +14,7 @@ import { SprCycleTraceabilityPage } from '../modules/spr/SprCycleTraceabilityPag
 import { SprKpiMonitoringPage } from '../modules/spr/SprKpiMonitoringPage';
 import { IncidentsPage } from '../modules/incidents/IncidentsPage';
 import { CriticalControlsPage } from '../modules/critical-controls/CriticalControlsPage';
+import { WarehouseControlPage } from '../modules/waste/WarehouseControlPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       { path: 'spr/reporte/trazabilidad', element: <SprCycleTraceabilityPage /> },
       { path: 'spr/monitoreo-kpis', element: <SprKpiMonitoringPage /> },
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
+      { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
       { path: 'incidents', element: <IncidentsPage /> },
       { path: 'critical-controls', element: <CriticalControlsPage /> },
       { path: 'reports', element: <ReportsPage /> },
