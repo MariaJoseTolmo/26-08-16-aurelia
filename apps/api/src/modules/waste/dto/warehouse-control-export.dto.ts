@@ -129,6 +129,11 @@ export class WarehouseControlExportDto implements WarehouseControlExportRequest 
   @MaxLength(MAX_TEXT)
   monthProgressLabel: string;
 
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  monthElapsedPercentage: number;
+
   @IsArray()
   @ArrayMaxSize(MAX_BLOCKS)
   @ValidateNested({ each: true })

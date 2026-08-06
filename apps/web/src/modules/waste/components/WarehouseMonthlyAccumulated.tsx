@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { resolveWasteAccumulationTone } from '@aurelia/contracts';
 import { WarehouseCalendarIcon, WarehouseGaugeIcon } from '../icons/WarehouseControlIcons';
 import { getMonthProgress } from '../wasteMonthProgress';
 import {
   ACCUMULATION_TONE_STYLES,
   clampPercentage,
-  resolveAccumulationTone,
+  formatAccumulationDeviation,
 } from '../wasteWarehouseThresholds';
 import { WarehouseSectionTitle } from './WarehouseSectionTitle';
 
@@ -29,10 +30,11 @@ import { WarehouseSectionTitle } from './WarehouseSectionTitle';
 
 export interface WarehouseAccumulationBar {
   label: string;
-  /** Porcentaje consumido del umbral. Define el color según la regla de negocio. */
+  /**
+   * Porcentaje consumido del umbral. Comparado contra la barra de día del mes,
+   * define el color de la barra Y el texto de la pastilla de desvío.
+   */
   percentage: number;
-  /** Pastilla de desvío, p. ej. "Adelantado +18pp". */
-  deviationLabel: string;
   /** Lectura completa a la derecha, p. ej. "98 / 140 ton (70%)". */
   valueLabel: string;
 }
@@ -45,9 +47,9 @@ export const WAREHOUSE_MONTH_ADVICE =
   'Si una barra va muy adelantada, considera diferir retiros o usar el margen de 6 meses de almacenaje.';
 
 export const WAREHOUSE_ACCUMULATION_DEFAULTS: WarehouseAccumulationBar[] = [
-  { label: 'Residuos peligrosos', percentage: 70, deviationLabel: 'Adelantado +18pp', valueLabel: '98 / 140 ton (70%)' },
-  { label: 'Industriales no peligrosos', percentage: 86, deviationLabel: 'Crítico +34pp', valueLabel: '112 / 130 ton (86%)' },
-  { label: 'Domésticos', percentage: 55, deviationLabel: 'Normal +2pp', valueLabel: '28 / 51 ton (55%)' },
+  { label: 'Residuos peligrosos', percentage: 70, valueLabel: '98 / 140 ton (70%)' },
+  { label: 'Industriales no peligrosos', percentage: 86, valueLabel: '112 / 130 ton (86%)' },
+  { label: 'Domésticos', percentage: 10, valueLabel: '5 / 51 ton (10%)' },
 ];
 
 interface WarehouseMonthlyAccumulatedProps {
@@ -71,6 +73,13 @@ export function WarehouseMonthlyAccumulated({
    */
   const [mountedAt] = useState(() => today ?? new Date());
   const { day: currentDay, daysInMonth, elapsedPercentage } = getMonthProgress(today ?? mountedAt);
+  /** Posición de la barra de día del mes, acotada para no salirse de la tarjeta. */
+  const markerPercentage = clampPercentage(elapsedPercentage);
+  /**
+   * Texto de la pastilla. Se arma una sola vez porque se renderiza DOS veces: la
+   * pastilla visible y la copia invisible que le reserva el alto a la banda.
+   */
+  const markerLabel = `Hoy · día ${currentDay} (${elapsedPercentage}% del mes)`;
 
   return (
     <div className="flex w-full flex-col gap-[8px]">
@@ -95,24 +104,54 @@ export function WarehouseMonthlyAccumulated({
       </div>
 
       <div className="w-full rounded-[10px] border border-solid border-[#e3e3e3] bg-white px-[21px] py-[19px]">
+        {/*
+          La pastilla vive en SU PROPIA banda, no encima de las barras.
+
+          Reservarle el alto con un `pt-[Npx]` no alcanzaba: si la pastilla mide
+          más que ese número —fuente de fallback más alta, texto más largo— vuelve
+          a pisar la primera fila, que es lo que pasaba con "Adelantado +51pp".
+          Acá el alto lo fija una COPIA INVISIBLE de la pastilla en el flujo
+          normal: mida lo que mida, la banda mide exactamente lo mismo. Deja de
+          haber número mágico que pueda quedar corto.
+        */}
         <div className="relative w-full">
           <div
             aria-hidden
-            className="pointer-events-none absolute bottom-0 top-[22px] w-0 border-l-2 border-dashed border-[#001e39] opacity-60"
-            style={{ left: `${clampPercentage(elapsedPercentage)}%` }}
-          />
+            className="invisible px-[9px] py-[3px] font-['Inter:Bold',sans-serif] text-[9.5px] font-bold leading-[normal]"
+          >
+            {markerLabel}
+          </div>
+          {/*
+            Horizontalmente iba con `-translate-x-1/2`, centrada en la marca, y se
+            salía de la tarjeta en los extremos: el 31 de agosto la marca queda en
+            100% y media pastilla terminaba afuera.
+
+            `translateX(-marca%)` la desplaza sobre sí misma en proporción a dónde
+            está la marca: en 0% queda alineada al borde izquierdo, en 100% al
+            derecho, y en 50% exactamente centrada —idéntico al `-50%` original—.
+            Nunca se sale. El desvío contra el diseño es de ~3px en la marca del
+            nodo (52%), el precio de que no se desborde en ninguna fecha.
+          */}
           <div
-            className="absolute top-0 -translate-x-1/2 rounded-[5px] bg-[#001e39] px-[9px] py-[3px]"
-            style={{ left: `${clampPercentage(elapsedPercentage)}%` }}
+            className="absolute top-0 rounded-[5px] bg-[#001e39] px-[9px] py-[3px]"
+            style={{ left: `${markerPercentage}%`, transform: `translateX(-${markerPercentage}%)` }}
           >
             <span className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[9.5px] font-bold not-italic leading-[normal] text-[#c8a064]">
-              Hoy · día {currentDay} ({elapsedPercentage}% del mes)
+              {markerLabel}
             </span>
           </div>
+        </div>
 
-          <div className="flex w-full flex-col gap-[16px] pt-[22px]">
+        {/* Zona de barras. La línea punteada arranca justo debajo de la pastilla. */}
+        <div className="relative w-full pt-[8px]">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 top-0 w-0 border-l-2 border-dashed border-[#001e39] opacity-60"
+            style={{ left: `${markerPercentage}%` }}
+          />
+          <div className="flex w-full flex-col gap-[16px]">
             {bars.map((bar) => (
-              <WarehouseAccumulationRow key={bar.label} bar={bar} />
+              <WarehouseAccumulationRow key={bar.label} bar={bar} elapsedPercentage={elapsedPercentage} />
             ))}
           </div>
         </div>
@@ -121,9 +160,20 @@ export function WarehouseMonthlyAccumulated({
   );
 }
 
-function WarehouseAccumulationRow({ bar }: { bar: WarehouseAccumulationBar }) {
+/**
+ * `elapsedPercentage` es la posición de la barra de día del mes. No es dato
+ * decorativo: el tono de la barra se define comparándose CONTRA ella.
+ */
+function WarehouseAccumulationRow({
+  bar,
+  elapsedPercentage,
+}: {
+  bar: WarehouseAccumulationBar;
+  elapsedPercentage: number;
+}) {
   const percentage = clampPercentage(bar.percentage);
-  const tone = ACCUMULATION_TONE_STYLES[resolveAccumulationTone(percentage)];
+  const tone = ACCUMULATION_TONE_STYLES[resolveWasteAccumulationTone(percentage, elapsedPercentage)];
+  const deviationLabel = formatAccumulationDeviation(percentage, elapsedPercentage);
 
   return (
     <div className="flex w-full flex-col gap-[6px]">
@@ -135,7 +185,7 @@ function WarehouseAccumulationRow({ bar }: { bar: WarehouseAccumulationBar }) {
           className="whitespace-nowrap rounded-[20px] px-[7px] py-[2px] font-['Inter:Bold',sans-serif] text-[9.5px] font-bold not-italic leading-[normal]"
           style={{ backgroundColor: tone.badgeBackground, color: tone.badgeText }}
         >
-          {bar.deviationLabel}
+          {deviationLabel}
         </span>
         <span className="ml-auto whitespace-nowrap font-['Inter:Regular',sans-serif] text-[11px] font-normal not-italic leading-[normal] text-[#646464]">
           {bar.valueLabel}

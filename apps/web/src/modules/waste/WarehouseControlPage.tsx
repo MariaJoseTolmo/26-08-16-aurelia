@@ -88,18 +88,23 @@ export function WarehouseControlPage() {
   const [today] = useState(() => new Date());
   const exportMutation = useWarehouseControlExport();
 
-  const view = useMemo<WarehouseControlView>(
-    () => ({
+  const view = useMemo<WarehouseControlView>(() => {
+    // Una sola lectura del avance del mes: la frase del recuadro y la posición de
+    // la barra de día del mes tienen que salir del mismo número, porque de ese
+    // número depende el color de las barras.
+    const monthProgress = getMonthProgress(today);
+
+    return {
       title: DEFAULT_WAREHOUSE_TITLE,
       description: WAREHOUSE_CONTROL_DESCRIPTION,
-      monthProgressLabel: formatMonthProgressSentence(getMonthProgress(today), WAREHOUSE_MONTH_ADVICE),
+      monthProgressLabel: formatMonthProgressSentence(monthProgress, WAREHOUSE_MONTH_ADVICE),
+      monthElapsedPercentage: monthProgress.elapsedPercentage,
       kpis: WAREHOUSE_KPI_DEFAULTS,
       bars: WAREHOUSE_ACCUMULATION_DEFAULTS,
       expirations: WAREHOUSE_EXPIRATION_DEFAULTS,
       lots: WAREHOUSE_LOT_ROW_DEFAULTS,
-    }),
-    [today],
-  );
+    };
+  }, [today]);
 
   const handleExport = (format: WarehouseControlExportFormat) => {
     exportMutation.mutate({ format, view });

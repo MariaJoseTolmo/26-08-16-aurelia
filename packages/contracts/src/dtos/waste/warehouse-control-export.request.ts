@@ -53,6 +53,15 @@ export interface WarehouseControlExportRequest {
   description: string;
   /** Línea de avance del mes, p. ej. "Hoy es el día 16 de 31 del mes (52% transcurrido)." */
   monthProgressLabel: string;
+  /**
+   * Posición de la "barra de día del mes" (nodo `3686:25776`): porcentaje del mes
+   * transcurrido, 0-100.
+   *
+   * Viaja como número aparte de `monthProgressLabel` porque el tono de cada barra
+   * se compara CONTRA ella (`resolveWasteAccumulationTone`), y el renderer no
+   * puede deducirlo de una frase.
+   */
+  monthElapsedPercentage: number;
   kpis: WarehouseControlExportKpi[];
   bars: WarehouseControlExportBar[];
   expirations: WarehouseControlExportExpiration[];

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { WarehouseControlExportLot, WarehouseControlExportRequest } from '@aurelia/contracts';
+import {
+  resolveWasteAccumulationTone,
+  type WarehouseControlExportLot,
+  type WarehouseControlExportRequest,
+} from '@aurelia/contracts';
 import { ReportPdfService, type ReportPdfDocument } from '../reports/report-pdf.service';
 import {
   WAREHOUSE_EXPORT_COLORS,
@@ -9,7 +13,6 @@ import {
   WAREHOUSE_EXPORT_SECTIONS,
   WAREHOUSE_EXPORT_SUBJECT,
   WAREHOUSE_EXPORT_TONES,
-  resolveAccumulationTone,
 } from './waste-warehouse-export.theme';
 
 /**
@@ -253,9 +256,11 @@ export class WasteWarehouseExportPdfService {
       .text(payload.monthProgressLabel, MARGIN_X + 10, context.y + 7, { width: CONTENT_WIDTH - 20 });
     context.y += boxHeight + 10;
 
+    const elapsed = this.clampPercentage(payload.monthElapsedPercentage);
+
     for (const bar of payload.bars) {
       this.ensureSpace(context, 30);
-      const tone = WAREHOUSE_EXPORT_TONES[resolveAccumulationTone(bar.percentage)];
+      const tone = WAREHOUSE_EXPORT_TONES[resolveWasteAccumulationTone(bar.percentage, elapsed)];
       const rowY = context.y;
 
       doc
@@ -276,15 +281,48 @@ export class WasteWarehouseExportPdfService {
       const trackY = rowY + 15;
       const trackHeight = 6;
       doc.roundedRect(MARGIN_X, trackY, CONTENT_WIDTH, trackHeight, 3).fill(WAREHOUSE_EXPORT_COLORS.track);
-      const filled = (Math.min(100, Math.max(0, bar.percentage)) / 100) * CONTENT_WIDTH;
+      const filled = (this.clampPercentage(bar.percentage) / 100) * CONTENT_WIDTH;
       if (filled > 0) {
         doc.roundedRect(MARGIN_X, trackY, Math.max(filled, trackHeight), trackHeight, 3).fill(tone.fill);
       }
 
+      /*
+       * Barra de día del mes, sobre cada track. Antes el PDF no la dibujaba y
+       * alcanzaba, porque el color salía de umbrales fijos. Ahora el color se
+       * DEFINE por esta línea: sin ella, una barra ámbar en el PDF no se puede
+       * interpretar.
+       */
+      const markerX = MARGIN_X + (elapsed / 100) * CONTENT_WIDTH;
+      doc
+        .moveTo(markerX, trackY - 2)
+        .lineTo(markerX, trackY + trackHeight + 2)
+        .lineWidth(1)
+        .strokeColor(WAREHOUSE_EXPORT_COLORS.navy)
+        .stroke();
+
       context.y = trackY + trackHeight + 10;
     }
 
-    context.y += 4;
+    // Referencia de la línea, una sola vez para las tres barras.
+    doc
+      .font('Helvetica')
+      .fontSize(6.5)
+      .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
+      // Sin glifo decorativo al principio: `│` (U+2502) no existe en la
+      // codificación WinAnsi de las fuentes base de PDF, y el pipe ASCII que lo
+      // reemplazó se leía como una "l" suelta.
+      .text(`Línea vertical: barra de día del mes (${elapsed}% transcurrido)`, MARGIN_X, context.y - 4, {
+        width: CONTENT_WIDTH,
+        lineBreak: false,
+      });
+
+    context.y += 10;
+  }
+
+  /** Porcentaje acotado a 0-100 para no desbordar el track ni salirse de la hoja. */
+  private clampPercentage(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(100, Math.max(0, value));
   }
 
   private drawExpirations(context: PdfContext): void {

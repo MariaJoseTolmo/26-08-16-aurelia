@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { WarehouseControlExportRequest } from '@aurelia/contracts';
+import { resolveWasteAccumulationTone, type WarehouseControlExportRequest } from '@aurelia/contracts';
 import {
   XlsxWorkbookService,
   type XlsxCell,
@@ -12,7 +12,6 @@ import {
   WAREHOUSE_EXPORT_HAZARD,
   WAREHOUSE_EXPORT_LOT_STATUS,
   WAREHOUSE_EXPORT_SECTIONS,
-  resolveAccumulationTone,
 } from './waste-warehouse-export.theme';
 
 /**
@@ -78,7 +77,7 @@ export class WasteWarehouseExportXlsxService {
         rows.push([
           this.cell(bar.label),
           this.cell(bar.percentage / 100, 'percent'),
-          this.cell(bar.deviationLabel, this.toneStyle(bar.percentage)),
+          this.cell(bar.deviationLabel, this.toneStyle(bar.percentage, payload.monthElapsedPercentage)),
           this.cell(bar.valueLabel, 'muted'),
         ]);
       }
@@ -146,8 +145,8 @@ export class WasteWarehouseExportXlsxService {
     };
   }
 
-  private toneStyle(percentage: number): XlsxCellStyle {
-    const tone = resolveAccumulationTone(percentage);
+  private toneStyle(percentage: number, monthElapsedPercentage: number): XlsxCellStyle {
+    const tone = resolveWasteAccumulationTone(percentage, monthElapsedPercentage);
     if (tone === 'critical') return 'danger';
     if (tone === 'warning') return 'warning';
     return 'teal';

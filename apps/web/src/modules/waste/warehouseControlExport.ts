@@ -1,4 +1,5 @@
 import type { WarehouseControlExportRequest } from '@aurelia/contracts';
+import { formatAccumulationDeviation } from './wasteWarehouseThresholds';
 import type { WarehouseKpi } from './components/WarehouseControlKpis';
 import type { WarehouseLotRow } from './components/WarehouseLotsTable';
 import type { WarehouseAccumulationBar } from './components/WarehouseMonthlyAccumulated';
@@ -17,6 +18,8 @@ export interface WarehouseControlView {
   title: string;
   description: string;
   monthProgressLabel: string;
+  /** Posición de la barra de día del mes. Define el tono de cada barra. */
+  monthElapsedPercentage: number;
   kpis: WarehouseKpi[];
   bars: WarehouseAccumulationBar[];
   expirations: WarehouseExpirationItem[];
@@ -38,6 +41,7 @@ export function buildWarehouseControlExportRequest(
     title: view.title,
     description: view.description,
     monthProgressLabel: view.monthProgressLabel,
+    monthElapsedPercentage: view.monthElapsedPercentage,
     kpis: view.kpis.map((kpi) => ({
       label: kpi.label,
       value: kpi.value,
@@ -47,7 +51,9 @@ export function buildWarehouseControlExportRequest(
     bars: view.bars.map((bar) => ({
       label: bar.label,
       percentage: bar.percentage,
-      deviationLabel: bar.deviationLabel,
+      // La etiqueta se calcula acá, no viaja en los datos: el PDF y el Excel
+      // reciben exactamente la misma cadena que se ve en pantalla.
+      deviationLabel: formatAccumulationDeviation(bar.percentage, view.monthElapsedPercentage),
       valueLabel: bar.valueLabel,
     })),
     expirations: view.expirations.map((item) => ({

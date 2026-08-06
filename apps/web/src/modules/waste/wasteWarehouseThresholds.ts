@@ -1,30 +1,23 @@
-import type { WarehouseControlLotStatus } from '@aurelia/contracts';
+import {
+  resolveWasteAccumulationDeviation,
+  type WarehouseControlLotStatus,
+  type WasteAccumulationTone,
+} from '@aurelia/contracts';
 
 /**
- * Umbrales visuales de la vista "Control de bodega".
+ * Colores de la vista "Control de bodega".
  *
- * Los colores salen del nodo Figma `3686:24644`, donde las tres barras del
- * acumulado mensual traen anchos que confirman el mapeo:
+ * Los hex salen del nodo Figma `3686:24644`: `teal/600_cta` (#00b398), #e8720c y
+ * `red/500_cta` (#bd3b5b) para el relleno de las barras.
  *
- *   55%  →  284.094 / 516.539  →  #00b398  (teal/600_cta)
- *   70%  →  361.570 / 516.539  →  #e8720c
- *   86%  →  444.219 / 516.539  →  #bd3b5b  (red/500_cta)
+ * OJO con el nodo como referencia de TONO: sus tres barras están en 55%, 70% y
+ * 86%, pintadas teal / ámbar / rojo, y eso ya NO se puede leer como el mapeo de
+ * la regla. El tono depende de la barra de día del mes, que en ese diseño estaba
+ * en 52%. El nodo sirve para los colores, no para decidir cuál va en cada caso.
+ *
+ * La CONDICIÓN vive en `resolveWasteAccumulationTone` de `@aurelia/contracts`,
+ * porque el PDF que genera la API tiene que aplicar exactamente la misma.
  */
-
-export type AccumulationTone = 'safe' | 'warning' | 'critical';
-
-/**
- * Regla de negocio de las barras: verde hasta 55%, ámbar entre 56% y 70%,
- * rojo por encima de 70%.
- *
- * El límite inferior se evalúa como `<= 55` y no `< 55`: el diseño pinta la
- * barra de 55% en verde, así que 55 pertenece al tramo seguro.
- */
-export function resolveAccumulationTone(percentage: number): AccumulationTone {
-  if (percentage > 70) return 'critical';
-  if (percentage > 55) return 'warning';
-  return 'safe';
-}
 
 interface AccumulationToneStyle {
   /** Color del relleno de la barra. */
@@ -39,11 +32,42 @@ interface AccumulationToneStyle {
  * Valores exactos del nodo. Fondos de pastilla `teal/100`, `#fff0e6` y
  * `red/100_surf`; textos `teal/900_txt`, `#6b3a1f` y `red/900_txt`.
  */
-export const ACCUMULATION_TONE_STYLES: Record<AccumulationTone, AccumulationToneStyle> = {
+export const ACCUMULATION_TONE_STYLES: Record<WasteAccumulationTone, AccumulationToneStyle> = {
   safe: { bar: '#00b398', badgeBackground: '#c5fff6', badgeText: '#006153' },
   warning: { bar: '#e8720c', badgeBackground: '#fff0e6', badgeText: '#6b3a1f' },
   critical: { bar: '#bd3b5b', badgeBackground: '#ffd0db', badgeText: '#570b1d' },
 };
+
+/**
+ * Palabra de la pastilla de desvío, según el nodo `3686:24644`, que trae
+ * "Adelantado +18pp", "Crítico +34pp" y "Normal +2pp".
+ *
+ * La copy vive acá y no en `@aurelia/contracts` porque ese paquete no lleva
+ * texto de interfaz. La API no la necesita: el PDF y el Excel reciben la
+ * etiqueta ya armada dentro del payload de exportación.
+ */
+const ACCUMULATION_DEVIATION_WORDS: Record<WasteAccumulationTone, string> = {
+  safe: 'Normal',
+  warning: 'Adelantado',
+  critical: 'Crítico',
+};
+
+/**
+ * Etiqueta de desvío de una barra, p. ej. "Adelantado +18pp".
+ *
+ * Se CALCULA a partir de la distancia hasta la barra de día del mes. Antes era
+ * texto fijo en los datos, lo que permitía que una pastilla dijera "Normal"
+ * mientras se pintaba de ámbar. Ahora la palabra y el color salen del mismo
+ * tono, así que no pueden contradecirse.
+ *
+ * Los desvíos negativos ya traen su signo; solo hay que anteponer el "+".
+ */
+export function formatAccumulationDeviation(percentage: number, monthElapsedPercentage: number): string {
+  const { tone, deltaPercentagePoints } = resolveWasteAccumulationDeviation(percentage, monthElapsedPercentage);
+  const sign = deltaPercentagePoints > 0 ? '+' : '';
+
+  return `${ACCUMULATION_DEVIATION_WORDS[tone]} ${sign}${deltaPercentagePoints}pp`;
+}
 
 export type ExpirationKind = 'overdue' | 'due_soon';
 

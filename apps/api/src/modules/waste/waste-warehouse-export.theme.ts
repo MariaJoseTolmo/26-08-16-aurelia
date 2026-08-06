@@ -1,4 +1,4 @@
-import type { WarehouseControlLotStatus } from '@aurelia/contracts';
+import type { WarehouseControlLotStatus, WasteAccumulationTone } from '@aurelia/contracts';
 
 /**
  * Paleta y etiquetas de la exportación de "Control de bodega".
@@ -24,20 +24,22 @@ export const WAREHOUSE_EXPORT_COLORS = {
   white: '#ffffff',
 } as const;
 
-/** Tono de las barras del acumulado: verde ≤55%, ámbar 56-70%, rojo >70%. */
-export const WAREHOUSE_EXPORT_TONES = {
+/**
+ * Colores de las barras del acumulado.
+ *
+ * La CONDICIÓN que elige el tono no está acá: es
+ * `resolveWasteAccumulationTone` de `@aurelia/contracts`, la misma que evalúa la
+ * pantalla. El `Record<WasteAccumulationTone, …>` fuerza a que este mapa cubra
+ * todos los tonos del contrato: si mañana se agrega uno, esto no compila.
+ */
+export const WAREHOUSE_EXPORT_TONES: Record<
+  WasteAccumulationTone,
+  { fill: string; badgeBackground: string; badgeText: string }
+> = {
   safe: { fill: '#00b398', badgeBackground: '#c5fff6', badgeText: '#006153' },
   warning: { fill: '#e8720c', badgeBackground: '#fff0e6', badgeText: '#6b3a1f' },
   critical: { fill: '#bd3b5b', badgeBackground: '#ffd0db', badgeText: '#570b1d' },
-} as const;
-
-export type WarehouseExportTone = keyof typeof WAREHOUSE_EXPORT_TONES;
-
-export function resolveAccumulationTone(percentage: number): WarehouseExportTone {
-  if (percentage > 70) return 'critical';
-  if (percentage > 55) return 'warning';
-  return 'safe';
-}
+};
 
 export const WAREHOUSE_EXPORT_LOT_STATUS: Record<
   WarehouseControlLotStatus,
