@@ -37,7 +37,8 @@
     "seed:all": "pnpm run seed && ts-node src/database/seeds/005-seed-dev-password-reset.ts && ts-node src/database/seeds/006-seed-notifications-permissions.ts",
     "seed:finding-classifications": "ts-node src/database/seeds/003-seed-finding-classifications.ts",
     "seed:spr-homology": "ts-node src/database/seeds/011-seed-spr-homology-users.ts",
-    "export:master-data-matrix": "ts-node src/cli/export-master-data-matrix.ts"
+    "export:master-data-matrix": "ts-node src/cli/export-master-data-matrix.ts",
+    "preview:waste-export": "ts-node --transpile-only src/cli/preview-waste-warehouse-export.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",

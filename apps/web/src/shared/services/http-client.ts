@@ -41,6 +41,30 @@ export async function httpDownload(path: string): Promise<{ blob: Blob; filename
   };
 }
 
+/**
+ * Descarga un archivo generado a partir de un cuerpo JSON.
+ *
+ * Es POST y no GET porque el servidor no consulta nada: recibe el documento a
+ * renderizar. Se usa para exportar vistas cuyo contenido ya está en el cliente.
+ */
+export async function httpDownloadPost<TRequest>(
+  path: string,
+  body: TRequest,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: buildHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(body),
+  });
+  await assertResponse(response, 'POST', path);
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const filename = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i)?.[1]?.trim() ?? null;
+  return {
+    blob: await response.blob(),
+    filename: filename ? decodeURIComponent(filename) : null,
+  };
+}
+
 export async function httpPost<TRequest, TResponse>(
   path: string,
   body: TRequest,

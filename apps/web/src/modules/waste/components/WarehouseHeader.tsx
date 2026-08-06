@@ -1,8 +1,12 @@
 /**
- * Header de la vista "Control de bodega" del módulo de residuos.
+ * Header de las vistas de bodega del módulo de residuos.
  *
  * Traducción del nodo Figma `3686:24645` (data-name="Header") del archivo
- * Medio-Ambiente-Core. Valores tomados del design context, no de la imagen:
+ * Medio-Ambiente-Core. "Ingresos a bodega" repite el nodo con la misma geometría
+ * y el mismo título (`3729:27736` / `3729:27738`), así que ambas vistas comparten
+ * este componente en lugar de duplicarlo.
+ *
+ * Valores tomados del design context, no de la imagen:
  *
  *   contenedor  h-[56px] · bg white · border-b #e3e3e3 · flex items-center
  *               px-[22px] · pb-px · w-full
@@ -24,13 +28,13 @@
  */
 
 /** Texto del nodo `3686:24647`. Se usa como default hasta que la vista consuma la bodega real desde la API. */
-const DEFAULT_WAREHOUSE_TITLE = 'Bodega de acopio - Plataforma 18';
+export const DEFAULT_WAREHOUSE_TITLE = 'Bodega de acopio - Plataforma 18';
 
-interface WarehouseControlHeaderProps {
+interface WarehouseHeaderProps {
   title?: string;
 }
 
-export function WarehouseControlHeader({ title = DEFAULT_WAREHOUSE_TITLE }: WarehouseControlHeaderProps) {
+export function WarehouseHeader({ title = DEFAULT_WAREHOUSE_TITLE }: WarehouseHeaderProps) {
   return (
     <div
       className="flex h-[56px] w-full shrink-0 items-center border-b border-solid border-[#e3e3e3] bg-white px-[22px] pb-px"

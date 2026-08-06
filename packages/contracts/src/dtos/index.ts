@@ -17,3 +17,4 @@ export * from './comments';
 export * from './audit';
 export * from './mobile-offline';
 export * from './ai';
+export * from './waste';

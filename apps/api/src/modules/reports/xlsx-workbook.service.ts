@@ -12,12 +12,27 @@ export interface XlsxColumn {
   width: number;
 }
 
+export interface XlsxPageSetup {
+  /** Código de papel de OOXML. 9 = A4. */
+  paperSize: number;
+  orientation: 'portrait' | 'landscape';
+  /** Ajusta el ancho a una página y deja el alto libre. */
+  fitToWidth?: boolean;
+}
+
 export interface XlsxSheet {
   name: string;
   columns: XlsxColumn[];
   rows: XlsxCell[][];
   freezeRows?: number;
   autoFilter?: string;
+  /** Configuración de impresión. Sin esto Excel usa el papel por defecto del sistema. */
+  pageSetup?: XlsxPageSetup;
+  /**
+   * Filas a repetir en el encabezado de cada página impresa, en notación de
+   * Excel (`"1:2"`). Es el equivalente al `<thead>` repetido del PDF.
+   */
+  printTitleRows?: string;
 }
 
 interface ZipEntry {
@@ -82,9 +97,16 @@ export class XlsxWorkbookService {
       : '<selection activeCell="A1" sqref="A1"/>';
     const autoFilter = sheet.autoFilter ? `<autoFilter ref="${this.escapeXml(sheet.autoFilter)}"/>` : '';
     const dimension = this.dimensionRef(sheet.rows);
+    // `sheetPr` debe ir primero y `pageSetup` justo después de `pageMargins`:
+    // el esquema CT_Worksheet valida por secuencia, no por presencia.
+    const sheetPr = sheet.pageSetup?.fitToWidth ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '';
+    const pageSetup = sheet.pageSetup
+      ? `<pageSetup paperSize="${sheet.pageSetup.paperSize}" orientation="${sheet.pageSetup.orientation}"${sheet.pageSetup.fitToWidth ? ' fitToWidth="1" fitToHeight="0"' : ''}/>`
+      : '';
 
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  ${sheetPr}
   <dimension ref="${dimension}"/>
   <sheetViews><sheetView tabSelected="1" workbookViewId="0">${pane}</sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
@@ -92,6 +114,7 @@ export class XlsxWorkbookService {
   <sheetData>${rows}</sheetData>
   ${autoFilter}
   <pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
+  ${pageSetup}
 </worksheet>`;
   }
 
@@ -125,10 +148,18 @@ export class XlsxWorkbookService {
     const sheetXml = sheets
       .map((sheet, index) => `<sheet name="${this.escapeXml(this.safeSheetName(sheet.name))}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`)
       .join('');
+    // Los títulos de impresión NO son propiedad de la hoja en OOXML: son nombres
+    // definidos a nivel libro, acotados con `localSheetId`.
+    const printTitles = sheets
+      .map((sheet, index) => (sheet.printTitleRows ? this.printTitlesDefinedName(sheet, index) : ''))
+      .join('');
+    const definedNames = printTitles ? `<definedNames>${printTitles}</definedNames>` : '';
+
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="12000"/></bookViews>
   <sheets>${sheetXml}</sheets>
+  ${definedNames}
   <calcPr calcId="191029" fullCalcOnLoad="1"/>
 </workbook>`;
   }
@@ -341,6 +372,20 @@ export class XlsxWorkbookService {
       value = Math.floor((value - 1) / 26);
     }
     return name;
+  }
+
+  /**
+   * `<definedName name="_xlnm.Print_Titles" localSheetId="0">'Hoja'!$1:$2</definedName>`
+   *
+   * El nombre de hoja se duplica las comillas simples (escape de Excel) ANTES de
+   * escapar el XML: al revés, `&apos;&apos;` quedaría como una sola comilla.
+   */
+  private printTitlesDefinedName(sheet: XlsxSheet, index: number): string {
+    const rows = (sheet.printTitleRows ?? '').split(':');
+    const first = rows[0] ?? '1';
+    const last = rows[1] ?? first;
+    const name = this.escapeXml(this.safeSheetName(sheet.name).replace(/'/g, "''"));
+    return `<definedName name="_xlnm.Print_Titles" localSheetId="${index}">'${name}'!$${first}:$${last}</definedName>`;
   }
 
   private safeSheetName(value: string): string {
