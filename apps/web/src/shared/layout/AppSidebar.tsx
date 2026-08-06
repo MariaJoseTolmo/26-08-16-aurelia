@@ -105,7 +105,7 @@ const mainItems: SidebarItem[] = [
     to: '/waste/control-bodega',
     children: [
       { label: 'Control de bodega', to: '/waste/control-bodega', end: true, icon: 'wasteWarehouse' },
-      { label: 'Ingresos a bodega', disabled: true, icon: 'wasteIntake' },
+      { label: 'Ingresos a bodega', to: '/waste/ingresos-bodega', end: true, icon: 'wasteIntake' },
       { label: 'Solicitud de Retiro', disabled: true, icon: 'wasteWithdrawal' },
     ],
   },

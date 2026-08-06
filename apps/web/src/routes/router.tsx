@@ -15,6 +15,7 @@ import { SprKpiMonitoringPage } from '../modules/spr/SprKpiMonitoringPage';
 import { IncidentsPage } from '../modules/incidents/IncidentsPage';
 import { CriticalControlsPage } from '../modules/critical-controls/CriticalControlsPage';
 import { WarehouseControlPage } from '../modules/waste/WarehouseControlPage';
+import { WarehouseIntakePage } from '../modules/waste/WarehouseIntakePage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
       { path: 'spr/monitoreo-kpis', element: <SprKpiMonitoringPage /> },
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
       { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
+      { path: 'waste/ingresos-bodega', element: <WarehouseIntakePage /> },
       { path: 'incidents', element: <IncidentsPage /> },
       { path: 'critical-controls', element: <CriticalControlsPage /> },
       { path: 'reports', element: <ReportsPage /> },
