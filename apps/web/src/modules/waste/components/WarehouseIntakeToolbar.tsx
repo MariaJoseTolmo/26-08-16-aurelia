@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { WarehouseExportCaretIcon, WarehouseExportIcon } from '../icons/WarehouseControlIcons';
+import type { WasteExportFormat } from '../../../shared/services/waste-warehouse-export.service';
 import { WarehouseActiveFiltersIcon, WarehouseIntakeNewIcon } from '../icons/WarehouseIntakeIcons';
 import type { WasteIntakeFilterChip, WasteIntakeFilterKey } from '../wasteIntakeFilters';
 import { WarehouseDateFilterField } from './WarehouseDateFilterField';
+import { WarehouseExportButton, type WarehouseExportOption } from './WarehouseExportButton';
 
 /**
  * Barra de filtros activos y acciones — nodo `3817:57801`.
@@ -39,13 +40,24 @@ import { WarehouseDateFilterField } from './WarehouseDateFilterField';
  * ingreso" sigue siendo la otra vía para volver a filtrar.
  */
 
+/**
+ * Una sola alternativa: esta vista todavía no tiene versión PDF. El caret del
+ * diseño igual abre el menú, y sumar el PDF será agregar una línea acá.
+ */
+const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx', label: 'Descargar Excel' }];
+
 interface WarehouseIntakeToolbarProps {
   /** Pastillas de filtro aplicadas, en el orden en que se muestran. */
   activeFilters: WasteIntakeFilterChip[];
   /** Fecha de ingreso aplicada, en ISO `yyyy-mm-dd`. */
   entryDate: string | null;
   onFilterChange: (key: WasteIntakeFilterKey, value: string | null) => void;
+  /** Exporta a Excel las filas que están pasando el filtro. */
   onExport?: () => void;
+  /** Formato en curso, para bloquear el botón mientras la API responde. */
+  exporting?: WasteExportFormat | null;
+  /** Mensaje de error de la última exportación fallida. */
+  exportError?: string | null;
   onNewIntake?: () => void;
 }
 
@@ -54,6 +66,8 @@ export function WarehouseIntakeToolbar({
   entryDate,
   onFilterChange,
   onExport,
+  exporting = null,
+  exportError = null,
   onNewIntake,
 }: WarehouseIntakeToolbarProps) {
   const [editingKey, setEditingKey] = useState<WasteIntakeFilterChip['key'] | null>(null);
@@ -118,22 +132,7 @@ export function WarehouseIntakeToolbar({
         </div>
       ) : null}
       <div className="ml-auto flex shrink-0 items-center gap-[8px]">
-        <button
-          type="button"
-          onClick={onExport}
-          className="flex h-[36px] shrink-0 items-center gap-[6px] rounded-[8px] border-[1.5px] border-solid border-[#d1d1d1] bg-white px-[13.5px] py-[1.5px] transition-colors hover:bg-[#f7f7f7]"
-        >
-          {/*
-            Alto natural del asset (12.4219) en vez de los 12px de la caja: con 12px
-            `preserveAspectRatio` encogería el glifo a 14.49px de ancho. El nodo
-            `3817:57813` también lo desborda, con `inset-[0_0_-3.52%_0]`.
-          */}
-          <WarehouseExportIcon className="block h-[12.4219px] w-[15px] shrink-0 text-[#333333]" />
-          <span className="whitespace-nowrap text-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[#333333]">
-            Exportar
-          </span>
-          <WarehouseExportCaretIcon className="block h-[10px] w-[12.5px] shrink-0 text-[#131313]" />
-        </button>
+        <WarehouseExportButton options={EXPORT_OPTIONS} onExport={() => onExport?.()} exporting={exporting} />
         <button
           type="button"
           onClick={onNewIntake}
@@ -145,6 +144,12 @@ export function WarehouseIntakeToolbar({
           </span>
         </button>
       </div>
+      {/* `w-full` dentro del `flex-wrap`: el error baja a su propia línea. */}
+      {exportError ? (
+        <p role="alert" className="w-full font-['Inter:Regular',sans-serif] text-[11.5px] font-normal text-[#bd3b5b]">
+          {exportError}
+        </p>
+      ) : null}
     </div>
   );
 }

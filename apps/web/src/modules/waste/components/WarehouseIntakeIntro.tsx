@@ -14,14 +14,14 @@
  * A diferencia de "Control de bodega", acá el botón "Exportar" NO vive en esta
  * fila: pertenece a la barra de filtros activos (`WarehouseIntakeToolbar`).
  */
-const DEFAULT_DESCRIPTION =
+export const WAREHOUSE_INTAKE_DESCRIPTION =
   'Vista consolidada de todos los ingresos, tanto de residuos peligrosos y no peligrosos.';
 
 interface WarehouseIntakeIntroProps {
   description?: string;
 }
 
-export function WarehouseIntakeIntro({ description = DEFAULT_DESCRIPTION }: WarehouseIntakeIntroProps) {
+export function WarehouseIntakeIntro({ description = WAREHOUSE_INTAKE_DESCRIPTION }: WarehouseIntakeIntroProps) {
   return (
     <div className="flex w-full items-center justify-between">
       <div className="flex max-w-[806px] flex-1 flex-col items-start self-stretch pt-[4px]">

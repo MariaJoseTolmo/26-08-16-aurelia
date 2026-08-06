@@ -78,6 +78,34 @@ export const WAREHOUSE_EXPORT_COLUMNS: WarehouseExportColumn[] = [
   { header: 'Estado', weight: 10.831, excelWidth: 18, align: 'center' },
 ];
 
+/**
+ * Columnas de "Ingresos a bodega" (nodo `3729:27632`). Comparten archivo con las
+ * de "Control de bodega" —y la paleta de `WAREHOUSE_EXPORT_HAZARD`— para que las
+ * dos exportaciones del módulo digan "Peligroso" igual y con el mismo color.
+ *
+ * `weight` no aplica acá: esta vista se exporta solo a Excel, así que no hay un
+ * ancho de A4 que repartir. Los anchos en caracteres salen de la proporción del
+ * nodo (153.5 · 180.5 · 163.5 · 171.5 · 158 · 215.5 · 180.5 · 215 · 125.5 px).
+ */
+export const WASTE_INTAKE_EXPORT_COLUMNS: Array<{ header: string; excelWidth: number }> = [
+  { header: 'Fecha de ingreso', excelWidth: 16 },
+  { header: 'Categoría operativa', excelWidth: 26 },
+  { header: 'Residuo específico', excelWidth: 28 },
+  { header: 'Cantidad ingresada', excelWidth: 18 },
+  { header: 'Unidad de medida', excelWidth: 18 },
+  { header: 'Lugar/sector proveniente', excelWidth: 30 },
+  { header: 'Patente del vehículo', excelWidth: 18 },
+  { header: 'Conductor', excelWidth: 24 },
+  { header: 'Peligrosidad', excelWidth: 16 },
+];
+
+export const WASTE_INTAKE_EXPORT_SUBJECT = 'Ingresos a bodega de residuos';
+
+/** `residuos-ingresos-bodega-2026-08-06`. */
+export function wasteIntakeExportBaseFilename(generatedAt: Date): string {
+  return `residuos-ingresos-bodega-${generatedAt.toISOString().slice(0, 10)}`;
+}
+
 export const WAREHOUSE_EXPORT_SECTIONS = {
   kpis: 'Resumen de bodega',
   bars: 'Acumulado mensual vs. umbral RCA',

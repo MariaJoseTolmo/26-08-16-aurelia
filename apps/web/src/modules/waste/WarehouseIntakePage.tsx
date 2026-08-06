@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useWarehouseIntakeExport } from '../../shared/hooks/useWarehouseIntakeExport';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
-import { WarehouseHeader } from './components/WarehouseHeader';
-import { WarehouseIntakeIntro } from './components/WarehouseIntakeIntro';
+import { DEFAULT_WAREHOUSE_TITLE, WarehouseHeader } from './components/WarehouseHeader';
+import { WAREHOUSE_INTAKE_DESCRIPTION, WarehouseIntakeIntro } from './components/WarehouseIntakeIntro';
 import { WarehouseIntakeTable } from './components/WarehouseIntakeTable';
 import { WarehouseIntakeToolbar } from './components/WarehouseIntakeToolbar';
 import {
@@ -15,6 +16,7 @@ import {
   type WasteIntakeFilters,
 } from './wasteIntakeFilters';
 import { buildWarehouseIntakeRows } from './wasteIntakeRows';
+import type { WarehouseIntakeView } from './warehouseIntakeExport';
 
 /**
  * Vista "Ingresos a bodega" del módulo de residuos (nodo Figma `3729:27632`).
@@ -59,12 +61,33 @@ export function WarehouseIntakePage() {
    */
   const filterOptions = useMemo(() => buildIntakeFilterOptions(allRows), [allRows]);
 
+  /**
+   * Modelo que se exporta. Son las MISMAS filas y las MISMAS pastillas que se
+   * están viendo, no una segunda consulta: por eso el Excel no puede discrepar
+   * de la pantalla. Es el patrón de `WarehouseControlView`.
+   */
+  const exportView = useMemo<WarehouseIntakeView>(
+    () => ({
+      title: DEFAULT_WAREHOUSE_TITLE,
+      description: WAREHOUSE_INTAKE_DESCRIPTION,
+      activeFilters,
+      rows,
+    }),
+    [activeFilters, rows],
+  );
+
+  const exportMutation = useWarehouseIntakeExport();
+
   function handleFilterChange(key: WasteIntakeFilterKey, value: string | null) {
     // Cambiar un filtro vuelve a la primera página: la paginación anterior ya no
     // aplica al conjunto nuevo. Es lo que hace `updateFilter` en inspecciones.
     setPage(1);
     setFilters((current) => ({ ...current, [key]: value }));
   }
+
+  const exportError = exportMutation.error
+    ? 'No se pudo generar el archivo. Verifique que la API esté disponible e intente nuevamente.'
+    : null;
 
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Ingresos a bodega">
@@ -85,6 +108,9 @@ export function WarehouseIntakePage() {
                 activeFilters={activeFilters}
                 entryDate={filters.entryDate}
                 onFilterChange={handleFilterChange}
+                onExport={() => exportMutation.mutate(exportView)}
+                exporting={exportMutation.isPending ? 'xlsx' : null}
+                exportError={exportError}
               />
               <WarehouseIntakeTable
                 rows={rows}
