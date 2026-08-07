@@ -9,6 +9,7 @@ import {
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WarehouseIntakeAfterRegisterCard } from './components/WarehouseIntakeAfterRegisterCard';
 import { WarehouseIntakeCategorySection } from './components/WarehouseIntakeCategorySection';
 import { WarehouseIntakeEvidenceSection } from './components/WarehouseIntakeEvidenceSection';
 import { WarehouseIntakeFormActions } from './components/WarehouseIntakeFormActions';
@@ -51,7 +52,7 @@ import {
  *
  * LA BARRA DE ACCIONES NO SCROLLEA. En el nodo está al pie del Main Content, y
  * acá el cuerpo es el único que se desplaza (`flex-1 overflow-y-auto`): un
- * formulario de varias secciones deja "Registrar ingreso" fuera de pantalla si la
+ * formulario de cinco secciones deja "Registrar ingreso" fuera de pantalla si la
  * barra viaja con el contenido.
  *
  * ESTADO: los cuatro selectores leen catálogos REALES vía TanStack Query
@@ -116,6 +117,20 @@ export function WarehouseIntakeFormPage() {
     [values.categoryId, wasteTypesQuery],
   );
 
+  /**
+   * Si la categoría elegida clasifica el lote como peligroso, para el aviso del
+   * nodo `3713:27422`.
+   *
+   * Sale de `defaultHazardous`, que es la columna que la base ya tiene para esto
+   * (`waste_operational_categories.default_hazardous`). NO se compara el rótulo
+   * contra "RESPEL": el rótulo es copy y ya cambió dos veces esta semana; la
+   * bandera es el dato.
+   */
+  const hazardousCategory = useMemo(
+    () => (categoriesQuery.data ?? []).some((c) => c.id === values.categoryId && c.defaultHazardous),
+    [categoriesQuery.data, values.categoryId],
+  );
+
   const units = useMemo<WarehouseFormCatalogState>(
     () => ({
       options: toUnitOptions(unitsQuery.data ?? []),
@@ -157,7 +172,14 @@ export function WarehouseIntakeFormPage() {
     setSubmitAttempted(true);
   }
 
-  const canSubmit = isWarehouseIntakeFormComplete(values);
+  /*
+   * La foto pasa a ser requisito con categoría peligrosa, que es cuando el nodo
+   * `3713:27341` rotula la tarjeta como "Respaldo (Obligatorio)".
+   */
+  const canSubmit = isWarehouseIntakeFormComplete(values, {
+    photoRequired: hazardousCategory,
+    hasPhoto: photo !== null,
+  });
 
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Nueva recepción a bodega">
@@ -185,6 +207,7 @@ export function WarehouseIntakeFormPage() {
                   wasteTypeId={values.wasteTypeId}
                   onWasteTypeChange={(value) => updateValue('wasteTypeId', value)}
                   wasteTypes={wasteTypes}
+                  hazardous={hazardousCategory}
                 />
                 <WarehouseIntakeLotSection
                   entryDate={values.entryDate}
@@ -204,7 +227,18 @@ export function WarehouseIntakeFormPage() {
                   driver={values.driver}
                   onDriverChange={(value) => updateValue('driver', value)}
                 />
-                <WarehouseIntakeEvidenceSection photo={photo} onPhotoChange={setPhoto} />
+                <WarehouseIntakeEvidenceSection
+                  photo={photo}
+                  onPhotoChange={setPhoto}
+                  required={hazardousCategory}
+                />
+                {/*
+                  Nodo `3713:27413`. Cuelga de la MISMA condición que el aviso
+                  rosado de la primera tarjeta: los dos son el par peligroso del
+                  nodo `3713:27249`, y mostrar uno sin el otro dejaría la pantalla
+                  contando la mitad de la historia.
+                */}
+                {hazardousCategory ? <WarehouseIntakeAfterRegisterCard /> : null}
               </div>
             </div>
             <WarehouseIntakeFormActions

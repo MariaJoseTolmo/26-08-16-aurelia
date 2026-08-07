@@ -88,7 +88,27 @@ export function parseIntakeQuantity(quantity: string): number | null {
  * hay residuo posible, y dejarla afuera permitiría un estado donde el botón se
  * habilita con el segundo selector todavía sin cargar.
  */
-export function isWarehouseIntakeFormComplete(values: WarehouseIntakeFormValues): boolean {
+export interface WarehouseIntakeEvidenceRule {
+  /**
+   * Si el respaldo fotográfico es requisito. Es lo que enuncia el encabezado
+   * "Respaldo (Obligatorio)" del nodo `3713:27341`, que solo aparece en la
+   * variante peligrosa del formulario.
+   */
+  photoRequired: boolean;
+  hasPhoto: boolean;
+}
+
+export function isWarehouseIntakeFormComplete(
+  values: WarehouseIntakeFormValues,
+  evidence: WarehouseIntakeEvidenceRule,
+): boolean {
+  /*
+   * La foto entra en la misma condición que los campos y no en un chequeo
+   * aparte: si el encabezado dice "(Obligatorio)" y el botón se habilita igual
+   * sin foto, la palabra no significa nada.
+   */
+  if (evidence.photoRequired && !evidence.hasPhoto) return false;
+
   return (
     values.categoryId !== null &&
     values.wasteTypeId !== null &&

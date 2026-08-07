@@ -23,10 +23,23 @@ import type { ReactNode } from 'react';
  * tarjeta en un viewport angosto. Mismo criterio que en `WarehouseIntakeFormIntro`.
  */
 
+/**
+ * Paletas de la tarjeta. `default` son las cuatro secciones de campos;
+ * `info` es "Qué pasa después de registrar" (nodo `3713:27413`), que usa el
+ * mismo azul que la pastilla "No peligroso" de las tablas (`#e6f3ff`/`#0d3862`).
+ */
+type WarehouseFormCardTone = 'default' | 'info';
+
+const CARD_TONE: Record<WarehouseFormCardTone, { shell: string; title: string; description: string }> = {
+  default: { shell: 'border-[#e3e3e3] bg-white', title: 'text-[#131313]', description: 'text-[#646464]' },
+  info: { shell: 'border-[#c5d8f0] bg-[#e6f3ff]', title: 'text-[#0d3862]', description: 'text-[#0d3862]' },
+};
+
 interface WarehouseFormCardProps {
   icon: ReactNode;
   title: string;
   description?: string;
+  tone?: WarehouseFormCardTone;
   children?: ReactNode;
 }
 
@@ -34,16 +47,19 @@ export function WarehouseFormCard({
   icon,
   title,
   description,
+  tone = 'default',
   children,
 }: WarehouseFormCardProps) {
+  const palette = CARD_TONE[tone];
+
   return (
     <section
-      className={`flex w-full flex-col items-start rounded-[10px] border border-solid px-[25px] py-[21px] border-[#e3e3e3] bg-white`}
+      className={`flex w-full flex-col items-start rounded-[10px] border border-solid px-[25px] py-[21px] ${palette.shell}`}
     >
       <div className="flex w-full items-center gap-[8px]">
         {icon}
         <h3
-          className={`whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13.5px] font-bold not-italic leading-[normal]`}
+          className={`whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13.5px] font-bold not-italic leading-[normal] ${palette.title}`}
         >
           {title}
         </h3>
@@ -51,7 +67,7 @@ export function WarehouseFormCard({
       {description ? (
         <div className="w-full pt-[3px]">
           <p
-            className={`font-['Inter:Regular',sans-serif] text-[11.5px] font-normal not-italic leading-[normal]`}
+            className={`font-['Inter:Regular',sans-serif] text-[11.5px] font-normal not-italic leading-[normal] ${palette.description}`}
           >
             {description}
           </p>

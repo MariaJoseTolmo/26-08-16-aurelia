@@ -1,6 +1,7 @@
 import { WarehouseFormCategoryIcon } from '../icons/WarehouseIntakeFormIcons';
 import { WarehouseFormCard } from './WarehouseFormCard';
 import { WarehouseFormSelect, type WarehouseFormCatalogState } from './WarehouseFormControls';
+import { WarehouseIntakeHazardNotice } from './WarehouseIntakeHazardNotice';
 
 /**
  * Tarjeta "Categoría y residuo específico" — nodo `3713:26885`.
@@ -28,6 +29,13 @@ interface WarehouseIntakeCategorySectionProps {
   wasteTypeId: string | null;
   onWasteTypeChange: (value: string | null) => void;
   wasteTypes: WarehouseFormCatalogState;
+  /**
+   * Si la categoría elegida clasifica el lote como peligroso. Lo resuelve la
+   * página contra `defaultHazardous` del catálogo, no esta tarjeta comparando
+   * rótulos: el dato ya viene en la respuesta y comparar contra el texto
+   * "RESPEL" se rompería con el primer renombre.
+   */
+  hazardous: boolean;
 }
 
 export function WarehouseIntakeCategorySection({
@@ -37,6 +45,7 @@ export function WarehouseIntakeCategorySection({
   wasteTypeId,
   onWasteTypeChange,
   wasteTypes,
+  hazardous,
 }: WarehouseIntakeCategorySectionProps) {
   return (
     <WarehouseFormCard
@@ -60,6 +69,17 @@ export function WarehouseIntakeCategorySection({
           />
         </div>
       </div>
+      {/*
+        Wrapper `3713:27430`: el aviso arranca 8px debajo de la fila de campos y
+        no deja aire abajo — su alto de 50 son los 8 más los 42 del aviso, y con
+        eso la tarjeta pasa de 144 a 194, que es justo lo que mide el nodo
+        `3713:27269`.
+      */}
+      {hazardous ? (
+        <div className="w-full pt-[8px]">
+          <WarehouseIntakeHazardNotice />
+        </div>
+      ) : null}
     </WarehouseFormCard>
   );
 }

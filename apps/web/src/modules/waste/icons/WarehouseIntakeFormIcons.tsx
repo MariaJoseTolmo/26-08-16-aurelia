@@ -11,30 +11,14 @@ type IconProps = SVGProps<SVGSVGElement>;
  * ponga quien lo usa.
  *
  * El caret de los selectores NO está acá: es el nodo `650:141`, el mismo que ya
- * exporta `WarehouseTableIcons` como `WarehouseTableCaretIcon`.
+ * exporta `WarehouseTableIcons` como `WarehouseTableCaretIcon`. Se comparó el
+ * `path` del asset de este nodo contra `figma-650-141-tbl-caret.svg` y es
+ * idéntico, así que se reutiliza en vez de duplicarlo.
  *
  * El calendario SÍ está acá aunque `WarehouseIntakeIcons` ya tenga uno: el de
  * los filtros (`3817:57425`) es macizo y este (`3713:26862`) es de contorno.
  * Son dos glifos distintos, no el mismo en otro tamaño.
  */
-
-// Aviso de la barra de acciones. Figma node 3564:1405. Fill original: #646464.
-export function WarehouseFormInfoIcon(props: IconProps) {
-  return (
-    <svg width="13.75" height="11" viewBox="0 0 13.75 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M6.875 11C8.33369 11 9.73264 10.4205 10.7641 9.38909C11.7955 8.35764 12.375 6.95869 12.375 5.5C12.375 4.04131 11.7955 2.64236 10.7641 1.61091C9.73264 0.579463 8.33369 0 6.875 0C5.41631 0 4.01736 0.579463 2.98591 1.61091C1.95446 2.64236 1.375 4.04131 1.375 5.5C1.375 6.95869 1.95446 8.35764 2.98591 9.38909C4.01736 10.4205 5.41631 11 6.875 11ZM6.1875 3.4375C6.1875 3.25516 6.25993 3.0803 6.38886 2.95136C6.5178 2.82243 6.69266 2.75 6.875 2.75C7.05734 2.75 7.2322 2.82243 7.36114 2.95136C7.49007 3.0803 7.5625 3.25516 7.5625 3.4375C7.5625 3.61984 7.49007 3.7947 7.36114 3.92364C7.2322 4.05257 7.05734 4.125 6.875 4.125C6.69266 4.125 6.5178 4.05257 6.38886 3.92364C6.25993 3.7947 6.1875 3.61984 6.1875 3.4375ZM6.01562 4.8125H7.04688C7.33262 4.8125 7.5625 5.04238 7.5625 5.32812V7.21875H7.73438C8.02012 7.21875 8.25 7.44863 8.25 7.73438C8.25 8.02012 8.02012 8.25 7.73438 8.25H6.01562C5.72988 8.25 5.5 8.02012 5.5 7.73438C5.5 7.44863 5.72988 7.21875 6.01562 7.21875H6.53125V5.84375H6.01562C5.72988 5.84375 5.5 5.61387 5.5 5.32812C5.5 5.04238 5.72988 4.8125 6.01562 4.8125Z" fill="currentColor" />
-    </svg>
-  );
-}
-
-// Check del botón "Registrar ingreso". Figma node 3565:3036. Fill original: #ACACAC.
-export function WarehouseFormSubmitCheckIcon(props: IconProps) {
-  return (
-    <svg width="15" height="12" viewBox="0 0 15 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M12.4406 1.64297C12.7758 1.88672 12.8508 2.35547 12.607 2.69063L6.60703 10.9406C6.47813 11.1188 6.27891 11.2289 6.05859 11.2477C5.83828 11.2664 5.625 11.1844 5.47031 11.0297L2.47031 8.02969C2.17734 7.73672 2.17734 7.26094 2.47031 6.96797C2.76328 6.675 3.23906 6.675 3.53203 6.96797L5.91094 9.34688L11.3953 1.80703C11.6391 1.47187 12.1078 1.39688 12.443 1.64063L12.4406 1.64297Z" fill="currentColor" />
-    </svg>
-  );
-}
 
 // Encabezado "Categoría y residuo específico". Figma node 3713:26887. Fill original: #131313.
 export function WarehouseFormCategoryIcon(props: IconProps) {
@@ -90,3 +74,48 @@ export function WarehouseFormUploadIcon(props: IconProps) {
   );
 }
 
+// Aviso de la barra de acciones. Figma node 3564:1405. Fill original: #646464.
+export function WarehouseFormInfoIcon(props: IconProps) {
+  return (
+    <svg width="13.75" height="11" viewBox="0 0 13.75 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M6.875 11C8.33369 11 9.73264 10.4205 10.7641 9.38909C11.7955 8.35764 12.375 6.95869 12.375 5.5C12.375 4.04131 11.7955 2.64236 10.7641 1.61091C9.73264 0.579463 8.33369 0 6.875 0C5.41631 0 4.01736 0.579463 2.98591 1.61091C1.95446 2.64236 1.375 4.04131 1.375 5.5C1.375 6.95869 1.95446 8.35764 2.98591 9.38909C4.01736 10.4205 5.41631 11 6.875 11ZM6.1875 3.4375C6.1875 3.25516 6.25993 3.0803 6.38886 2.95136C6.5178 2.82243 6.69266 2.75 6.875 2.75C7.05734 2.75 7.2322 2.82243 7.36114 2.95136C7.49007 3.0803 7.5625 3.25516 7.5625 3.4375C7.5625 3.61984 7.49007 3.7947 7.36114 3.92364C7.2322 4.05257 7.05734 4.125 6.875 4.125C6.69266 4.125 6.5178 4.05257 6.38886 3.92364C6.25993 3.7947 6.1875 3.61984 6.1875 3.4375ZM6.01562 4.8125H7.04688C7.33262 4.8125 7.5625 5.04238 7.5625 5.32812V7.21875H7.73438C8.02012 7.21875 8.25 7.44863 8.25 7.73438C8.25 8.02012 8.02012 8.25 7.73438 8.25H6.01562C5.72988 8.25 5.5 8.02012 5.5 7.73438C5.5 7.44863 5.72988 7.21875 6.01562 7.21875H6.53125V5.84375H6.01562C5.72988 5.84375 5.5 5.61387 5.5 5.32812C5.5 5.04238 5.72988 4.8125 6.01562 4.8125Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Check de la zona de respaldo con archivo adjunto. Figma node 3713:27396. Fill original: #006153.
+export function WarehouseFormAttachedCheckIcon(props: IconProps) {
+  return (
+    <svg width="17.5" height="14" viewBox="0 0 17.5 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M14.5141 1.9168C14.9051 2.20117 14.9926 2.74805 14.7082 3.13906L7.7082 12.7641C7.55781 12.9719 7.32539 13.1004 7.06836 13.1223C6.81133 13.1441 6.5625 13.0484 6.38203 12.868L2.88203 9.36797C2.54023 9.02617 2.54023 8.47109 2.88203 8.1293C3.22383 7.7875 3.77891 7.7875 4.1207 8.1293L6.89609 10.9047L13.2945 2.1082C13.5789 1.71719 14.1258 1.62969 14.5168 1.91406L14.5141 1.9168Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/*
+ * "Quitar el archivo adjunto". Figma node 432:6691, un componente compartido del
+ * archivo. Fill original: black.
+ *
+ * NO se reutiliza `NotificationCloseIcon` de `shared/layout`: esa es una X de
+ * trazo dibujada a mano (`stroke`, viewBox 32) y esta es de relleno con las
+ * puntas redondeadas del sistema. Son dos glifos distintos.
+ *
+ * Figma lo envuelve en `-rotate-180 -scale-x-100`, que en una X simétrica no
+ * cambia nada, así que la transformación no se traslada.
+ */
+export function WarehouseFormCloseIcon(props: IconProps) {
+  return (
+    <svg width="13.3333" height="13.3333" viewBox="0 0 13.3333 13.3333" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M12.1961 13.1393C12.4549 13.398 12.8805 13.398 13.1393 13.1393C13.398 12.8805 13.398 12.4549 13.1393 12.1961L7.60981 6.66667L13.1393 1.13719C13.398 0.878456 13.398 0.452791 13.1393 0.194053C12.8805 -0.0646844 12.4549 -0.0646844 12.1961 0.194053L6.66667 5.72353L1.14137 0.194053C0.882629 -0.0646844 0.456964 -0.0646844 0.198226 0.194053C-0.0605113 0.452791 -0.0605113 0.878456 0.198226 1.13719L5.72353 6.66667L0.194053 12.1961C-0.0646844 12.4549 -0.0646844 12.8805 0.194053 13.1393C0.452791 13.398 0.878456 13.398 1.13719 13.1393L6.66667 7.60981L12.1961 13.1393Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Check del botón "Registrar ingreso". Figma node 3565:3036. Fill original: #ACACAC.
+export function WarehouseFormSubmitCheckIcon(props: IconProps) {
+  return (
+    <svg width="15" height="12" viewBox="0 0 15 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M12.4406 1.64297C12.7758 1.88672 12.8508 2.35547 12.607 2.69063L6.60703 10.9406C6.47813 11.1188 6.27891 11.2289 6.05859 11.2477C5.83828 11.2664 5.625 11.1844 5.47031 11.0297L2.47031 8.02969C2.17734 7.73672 2.17734 7.26094 2.47031 6.96797C2.76328 6.675 3.23906 6.675 3.53203 6.96797L5.91094 9.34688L11.3953 1.80703C11.6391 1.47187 12.1078 1.39688 12.443 1.64063L12.4406 1.64297Z" fill="currentColor" />
+    </svg>
+  );
+}
