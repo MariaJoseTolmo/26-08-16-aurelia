@@ -16,3 +16,4 @@ export * from './comment.interface';
 export * from './audit-log.interface';
 export * from './workflow-record.interface';
 export * from './notification.interface';
+export * from './waste.interface';
