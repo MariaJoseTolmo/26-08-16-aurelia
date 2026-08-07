@@ -47,10 +47,13 @@ export interface WarehouseIntakeRow {
  * andando eso no sirve —un selector con una sola alternativa no se puede probar—,
  * así que cada columna filtrable trae valores distintos.
  *
- * Categoría, residuo, unidad y lugar NO son inventados: salen de los catálogos que
- * ya están en la base (`waste_operational_categories`, `waste_types` con su
- * `is_hazardous`, `waste_units`, `sectors`), así que las alternativas que se
- * despliegan son las mismas que va a devolver la API.
+ * Categoría, residuo, unidad y lugar NO son inventados: los pares
+ * categoría/residuo son del catálogo de negocio que espeja `wasteCatalogs.ts`, y
+ * unidad y lugar salen de `waste_units` y `sectors`.
+ *
+ * OJO: parte de ese catálogo todavía no está sembrada en la base —ver la nota de
+ * `wasteCatalogs.ts`—, así que estas filas pueden nombrar categorías que la API
+ * aún no devuelve. Es deuda del dato, no del archivo.
  *
  * Cantidad, patente y conductor sí son valores de muestra —la base todavía no
  * tiene ingresos con estos datos—, pero tienen que ser distintos entre filas por
@@ -66,12 +69,12 @@ export interface WarehouseIntakeRow {
  * consecuencia del residuo elegido, no un dato suelto.
  */
 const SAMPLE_ROWS = [
-  { dayOffset: 0, category: 'Residuos peligrosos', wasteType: 'Aceite usado', quantity: '4', unit: 'Tambor', origin: 'Centro Consolidado de Residuos', plate: 'JKPR34', driver: 'Camila Rojas', isHazardous: true },
-  { dayOffset: 0, category: 'Industriales no peligrosos', wasteType: 'Chatarra metálica', quantity: '2.5', unit: 'Tonelada', origin: 'Bodega repuestos', plate: 'LTVB56', driver: 'Rodrigo Fuentes', isHazardous: false },
-  { dayOffset: 0, category: 'Residuos peligrosos', wasteType: 'Huaipe contaminado', quantity: '1', unit: 'Contenedor', origin: 'Depósito de Relave', plate: 'DFHZ12', driver: 'Marcela Díaz', isHazardous: true },
-  { dayOffset: 0, category: 'Domésticos', wasteType: 'Residuos domiciliarios', quantity: '320', unit: 'Kilogramo', origin: 'Campamento', plate: 'KPRS78', driver: 'Iván Torres', isHazardous: false },
-  { dayOffset: -1, category: 'Residuos peligrosos', wasteType: 'Baterías de plomo ácido', quantity: '6', unit: 'Unidad', origin: 'Acceso faena', plate: 'BBCD90', driver: 'Paula Sepúlveda', isHazardous: true },
-  { dayOffset: -7, category: 'Lodos', wasteType: 'Lodos de planta de tratamiento', quantity: '12', unit: 'Metro cúbico', origin: 'Barrio Cívico', plate: 'GHJK45', driver: 'Nelson Bravo', isHazardous: false },
+  { dayOffset: 0, category: 'RESPEL Residuos peligrosos', wasteType: 'Aceite usado / Aceites minerales usados', quantity: '4', unit: 'Tambor', origin: 'Centro Consolidado de Residuos', plate: 'JKPR34', driver: 'Camila Rojas', isHazardous: true },
+  { dayOffset: 0, category: 'Chatarra', wasteType: 'Chatarra (hierro y acero no galvanizados)', quantity: '2.5', unit: 'Tonelada', origin: 'Bodega repuestos', plate: 'LTVB56', driver: 'Rodrigo Fuentes', isHazardous: false },
+  { dayOffset: 0, category: 'RESPEL Residuos peligrosos', wasteType: 'Filtros de aceite', quantity: '1', unit: 'Contenedor', origin: 'Depósito de Relave', plate: 'DFHZ12', driver: 'Marcela Díaz', isHazardous: true },
+  { dayOffset: 0, category: 'RSD Residuos sólidos domésticos', wasteType: 'Mezclas de residuos municipales (domésticos)', quantity: '320', unit: 'Kilogramo', origin: 'Campamento', plate: 'KPRS78', driver: 'Iván Torres', isHazardous: false },
+  { dayOffset: -1, category: 'RESPEL Residuos peligrosos', wasteType: 'Baterías de plomo', quantity: '6', unit: 'Unidad', origin: 'Acceso faena', plate: 'BBCD90', driver: 'Paula Sepúlveda', isHazardous: true },
+  { dayOffset: -7, category: 'Lodos', wasteType: 'Lodos del tratamiento de aguas residuales urbanas / PTAS', quantity: '12', unit: 'Metro cúbico', origin: 'Barrio Cívico', plate: 'GHJK45', driver: 'Nelson Bravo', isHazardous: false },
 ];
 
 export function buildWarehouseIntakeRows(today: Date): WarehouseIntakeRow[] {
