@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWarehouseIntakeExport } from '../../shared/hooks/useWarehouseIntakeExport';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
@@ -44,6 +45,7 @@ export function WarehouseIntakePage() {
    * distintas.
    */
   const [today] = useState(() => new Date());
+  const navigate = useNavigate();
   const todayIso = useMemo(() => toIsoDate(today), [today]);
   /** El diseño arranca filtrado por el día en curso: pastilla "[dd-mm-aaaa día de hoy]". */
   const [filters, setFilters] = useState<WasteIntakeFilters>(() => ({
@@ -111,6 +113,7 @@ export function WarehouseIntakePage() {
                 onExport={() => exportMutation.mutate(exportView)}
                 exporting={exportMutation.isPending ? 'xlsx' : null}
                 exportError={exportError}
+                onNewIntake={() => navigate('/waste/ingresos-bodega/nuevo')}
               />
               <WarehouseIntakeTable
                 rows={rows}

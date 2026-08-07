@@ -105,7 +105,14 @@ const mainItems: SidebarItem[] = [
     to: '/waste/control-bodega',
     children: [
       { label: 'Control de bodega', to: '/waste/control-bodega', end: true, icon: 'wasteWarehouse' },
-      { label: 'Ingresos a bodega', to: '/waste/ingresos-bodega', end: true, icon: 'wasteIntake' },
+      /*
+       * Sin `end`: "Nueva recepción a bodega" (`/waste/ingresos-bodega/nuevo`) es
+       * una hoja de este sub-ítem y debe dejarlo activo. Con `end: true` ninguna
+       * ruta del módulo coincidiría y `findActiveModule` caería al listado
+       * completo, perdiendo el sidebar contextual. El nodo `3564:1788` confirma
+       * el comportamiento: muestra este sub-ítem resaltado.
+       */
+      { label: 'Ingresos a bodega', to: '/waste/ingresos-bodega', icon: 'wasteIntake' },
       { label: 'Solicitud de Retiro', disabled: true, icon: 'wasteWithdrawal' },
     ],
   },

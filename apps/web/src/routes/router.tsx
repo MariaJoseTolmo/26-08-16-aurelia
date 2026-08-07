@@ -16,6 +16,7 @@ import { IncidentsPage } from '../modules/incidents/IncidentsPage';
 import { CriticalControlsPage } from '../modules/critical-controls/CriticalControlsPage';
 import { WarehouseControlPage } from '../modules/waste/WarehouseControlPage';
 import { WarehouseIntakePage } from '../modules/waste/WarehouseIntakePage';
+import { WarehouseIntakeFormPage } from '../modules/waste/WarehouseIntakeFormPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
       { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
       { path: 'waste/ingresos-bodega', element: <WarehouseIntakePage /> },
+      { path: 'waste/ingresos-bodega/nuevo', element: <WarehouseIntakeFormPage /> },
       { path: 'incidents', element: <IncidentsPage /> },
       { path: 'critical-controls', element: <CriticalControlsPage /> },
       { path: 'reports', element: <ReportsPage /> },
