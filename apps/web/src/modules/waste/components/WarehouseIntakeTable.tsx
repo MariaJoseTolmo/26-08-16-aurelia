@@ -3,11 +3,7 @@ import {
   WarehousePagePrevIcon,
   WarehouseRowsPerPageCaretIcon,
 } from '../icons/WarehouseIntakeIcons';
-import {
-  WarehouseHazardousIcon,
-  WarehouseNonHazardousIcon,
-  WarehouseTableSortIcon,
-} from '../icons/WarehouseTableIcons';
+import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
 import {
   formatIsoAsDdMmYyyy,
   formatQuantity,
@@ -18,6 +14,7 @@ import {
   type WasteIntakeSelectFilterKey,
 } from '../wasteIntakeFilters';
 import type { WarehouseIntakeRow } from '../wasteIntakeRows';
+import { WasteHazardBadge } from './WasteHazardBadge';
 import { WarehouseDateFilterField } from './WarehouseDateFilterField';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
 import { WarehouseTextFilterField } from './WarehouseTextFilterField';
@@ -274,28 +271,9 @@ function WarehouseIntakeTableRow({ row }: { row: WarehouseIntakeRow }) {
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.plate}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.driver}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR} text-center`}>
-        <WarehouseHazardBadge isHazardous={row.isHazardous} />
+        <WasteHazardBadge isHazardous={row.isHazardous} />
       </td>
     </tr>
-  );
-}
-
-/** Pastilla de peligrosidad: `#ffd0db`/`#570b1d` o `#e6f3ff`/`#0d3862`. */
-function WarehouseHazardBadge({ isHazardous }: { isHazardous: boolean }) {
-  const background = isHazardous ? '#ffd0db' : '#e6f3ff';
-  const color = isHazardous ? '#570b1d' : '#0d3862';
-  const Icon = isHazardous ? WarehouseHazardousIcon : WarehouseNonHazardousIcon;
-
-  return (
-    <span
-      className="inline-flex items-center gap-[5px] rounded-[20px] px-[9px] py-[3px]"
-      style={{ backgroundColor: background, color }}
-    >
-      <Icon className="block h-[10px] w-[12.5px] shrink-0" />
-      <span className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal]">
-        {isHazardous ? 'Peligroso' : 'No peligroso'}
-      </span>
-    </span>
   );
 }
 
