@@ -1,3 +1,11 @@
+import { WASTE_CATEGORY_OPTIONS, WASTE_TYPE_OPTIONS, WASTE_UNIT_OPTIONS } from './wasteCatalogs';
+import {
+  WASTE_HAZARD_OPTIONS,
+  distinctOptions,
+  matchesNumericMinimum,
+  type WasteHazardFilterValue,
+  type WasteOption,
+} from './wasteFilterPrimitives';
 import type { WarehouseIntakeRow } from './wasteIntakeRows';
 
 /**
@@ -31,7 +39,7 @@ export interface WasteIntakeFilters {
   hazard: WasteHazardFilterValue | null;
 }
 
-export type WasteHazardFilterValue = 'hazardous' | 'non_hazardous';
+export type { WasteHazardFilterValue };
 
 export type WasteIntakeFilterKey = keyof WasteIntakeFilters;
 
@@ -41,12 +49,13 @@ export type WasteIntakeSelectFilterKey = 'category' | 'wasteType' | 'unit' | 'or
 /** Claves de búsqueda libre por texto. */
 export type WasteIntakeSearchFilterKey = 'plate' | 'driver';
 
-export interface WasteIntakeOption {
-  value: string;
-  label: string;
-}
+/**
+ * Alias del tipo compartido. Se mantiene el nombre para no tocar los imports de
+ * la vista; la definición es una sola, en `wasteFilterPrimitives`.
+ */
+export type WasteIntakeOption = WasteOption;
 
-export type WasteIntakeFilterOptions = Record<WasteIntakeSelectFilterKey, WasteIntakeOption[]>;
+export type WasteIntakeFilterOptions = Record<WasteIntakeSelectFilterKey, WasteOption[]>;
 
 export interface WasteIntakeFilterChip {
   key: WasteIntakeFilterKey;
@@ -64,11 +73,6 @@ export const EMPTY_WASTE_INTAKE_FILTERS: WasteIntakeFilters = {
   driver: null,
   hazard: null,
 };
-
-const HAZARD_OPTIONS: WasteIntakeOption[] = [
-  { value: 'hazardous', label: 'Peligroso' },
-  { value: 'non_hazardous', label: 'No peligroso' },
-];
 
 /** Fecha local en ISO. `toISOString()` no sirve: convierte a UTC y corre el día. */
 export function toIsoDate(date: Date): string {
@@ -126,34 +130,25 @@ function matchesSearch(cellValue: string, query: string): boolean {
  * Mientras lo tipeado no sea un número válido (`""`, `"-"`, `"1e"`) no se filtra
  * nada: filtrar con basura vaciaría la tabla mientras el usuario escribe.
  */
-function matchesQuantity(cellValue: string, query: string): boolean {
-  const target = Number(query);
-  if (query.trim() === '' || !Number.isFinite(target)) return true;
-
-  const actual = Number(cellValue);
-  if (!Number.isFinite(actual)) return false;
-
-  return actual === target;
-}
-
 /**
- * Alternativas de cada selector, derivadas de los datos. Se ordenan con
- * `localeCompare` en es-CL para que las tildes queden donde corresponde.
+ * Alternativas de cada selector.
+ *
+ * Categoría, residuo y unidad salen de `wasteCatalogs`, la misma fuente que usa
+ * "Detalle de lotes en bodega". Antes se derivaban de las filas de ESTA tabla, y
+ * entonces una categoría con lotes en bodega pero sin ingresos aparecía en un
+ * filtro y faltaba en el otro.
+ *
+ * `origin` sí se sigue derivando: los sectores son propios de los ingresos y la
+ * otra tabla no tiene esa columna.
  */
 export function buildIntakeFilterOptions(rows: WarehouseIntakeRow[]): WasteIntakeFilterOptions {
   return {
-    category: distinctOptions(rows.map((row) => row.category)),
-    wasteType: distinctOptions(rows.map((row) => row.wasteType)),
-    unit: distinctOptions(rows.map((row) => row.unit)),
+    category: WASTE_CATEGORY_OPTIONS,
+    wasteType: WASTE_TYPE_OPTIONS,
+    unit: WASTE_UNIT_OPTIONS,
     origin: distinctOptions(rows.map((row) => row.origin)),
-    hazard: HAZARD_OPTIONS,
+    hazard: WASTE_HAZARD_OPTIONS,
   };
-}
-
-function distinctOptions(values: string[]): WasteIntakeOption[] {
-  return [...new Set(values)]
-    .sort((left, right) => left.localeCompare(right, 'es-CL'))
-    .map((value) => ({ value, label: value }));
 }
 
 export function filterIntakeRows(rows: WarehouseIntakeRow[], filters: WasteIntakeFilters): WarehouseIntakeRow[] {
@@ -161,7 +156,7 @@ export function filterIntakeRows(rows: WarehouseIntakeRow[], filters: WasteIntak
     if (filters.entryDate && row.entryDate !== filters.entryDate) return false;
     if (filters.category && row.category !== filters.category) return false;
     if (filters.wasteType && row.wasteType !== filters.wasteType) return false;
-    if (filters.quantity && !matchesQuantity(row.quantity, filters.quantity)) return false;
+    if (!matchesNumericMinimum(row.quantity, filters.quantity)) return false;
     if (filters.unit && row.unit !== filters.unit) return false;
     if (filters.origin && row.origin !== filters.origin) return false;
     if (filters.plate && !matchesSearch(row.plate, filters.plate)) return false;
@@ -195,7 +190,7 @@ export function buildIntakeFilterChips(filters: WasteIntakeFilters, todayIso: st
   if (filters.plate) chips.push({ key: 'plate', label: `Patente: ${filters.plate}` });
   if (filters.driver) chips.push({ key: 'driver', label: `Conductor: ${filters.driver}` });
   if (filters.hazard) {
-    const label = HAZARD_OPTIONS.find((option) => option.value === filters.hazard)?.label ?? filters.hazard;
+    const label = WASTE_HAZARD_OPTIONS.find((option) => option.value === filters.hazard)?.label ?? filters.hazard;
     chips.push({ key: 'hazard', label: `Peligrosidad: ${label}` });
   }
 

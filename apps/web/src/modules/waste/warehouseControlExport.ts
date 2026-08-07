@@ -1,7 +1,7 @@
 import type { WarehouseControlExportRequest } from '@aurelia/contracts';
 import { formatAccumulationDeviation } from './wasteWarehouseThresholds';
 import type { WarehouseKpi } from './components/WarehouseControlKpis';
-import type { WarehouseLotRow } from './components/WarehouseLotsTable';
+import type { WarehouseLotRow } from './wasteWarehouseLotRows';
 import type { WarehouseAccumulationBar } from './components/WarehouseMonthlyAccumulated';
 import type { WarehouseExpirationItem } from './components/WarehouseUpcomingExpirations';
 

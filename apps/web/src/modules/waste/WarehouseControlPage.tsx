@@ -6,7 +6,7 @@ import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WAREHOUSE_CONTROL_DESCRIPTION, WarehouseControlIntro } from './components/WarehouseControlIntro';
 import { WAREHOUSE_KPI_DEFAULTS, WarehouseControlKpis } from './components/WarehouseControlKpis';
 import { DEFAULT_WAREHOUSE_TITLE, WarehouseHeader } from './components/WarehouseHeader';
-import { WAREHOUSE_LOT_ROW_DEFAULTS, WarehouseLotsTable } from './components/WarehouseLotsTable';
+import { WarehouseLotsTable } from './components/WarehouseLotsTable';
 import {
   WAREHOUSE_ACCUMULATION_DEFAULTS,
   WAREHOUSE_MONTH_ADVICE,
@@ -18,6 +18,15 @@ import {
 } from './components/WarehouseUpcomingExpirations';
 import type { WarehouseControlView } from './warehouseControlExport';
 import { formatMonthProgressSentence, getMonthProgress } from './wasteMonthProgress';
+import {
+  EMPTY_WASTE_WAREHOUSE_FILTERS,
+  buildWarehouseFilterOptions,
+  filterWarehouseLotRows,
+  type WasteWarehouseFilterKey,
+  type WasteWarehouseFilterOptions,
+  type WasteWarehouseFilters,
+} from './wasteWarehouseFilters';
+import { WAREHOUSE_LOT_ROW_DEFAULTS } from './wasteWarehouseLotRows';
 
 interface WarehouseControlBodyProps {
   view: WarehouseControlView;
@@ -25,6 +34,9 @@ interface WarehouseControlBodyProps {
   exporting: WarehouseControlExportFormat | null;
   exportError: string | null;
   onExport: (format: WarehouseControlExportFormat) => void;
+  filters: WasteWarehouseFilters;
+  filterOptions: WasteWarehouseFilterOptions;
+  onFilterChange: (key: WasteWarehouseFilterKey, value: string | null) => void;
 }
 
 /**
@@ -49,7 +61,16 @@ interface WarehouseControlBodyProps {
  * sus propios defaults: es lo que garantiza que la exportación a PDF/Excel
  * contenga exactamente lo que está en pantalla.
  */
-function WarehouseControlBody({ view, today, exporting, exportError, onExport }: WarehouseControlBodyProps) {
+function WarehouseControlBody({
+  view,
+  today,
+  exporting,
+  exportError,
+  onExport,
+  filters,
+  filterOptions,
+  onFilterChange,
+}: WarehouseControlBodyProps) {
   return (
     <div className="flex w-full min-w-[1140px] flex-col items-start gap-[16px] bg-white px-[28px] pb-[40px] pt-[20px]">
       <WarehouseControlIntro
@@ -63,7 +84,12 @@ function WarehouseControlBody({ view, today, exporting, exportError, onExport }:
         <WarehouseMonthlyAccumulated bars={view.bars} today={today} />
         <WarehouseUpcomingExpirations items={view.expirations} />
       </div>
-      <WarehouseLotsTable rows={view.lots} />
+      <WarehouseLotsTable
+        rows={view.lots}
+        filters={filters}
+        options={filterOptions}
+        onFilterChange={onFilterChange}
+      />
     </div>
   );
 }
@@ -88,6 +114,28 @@ export function WarehouseControlPage() {
   const [today] = useState(() => new Date());
   const exportMutation = useWarehouseControlExport();
 
+  const [filters, setFilters] = useState<WasteWarehouseFilters>(EMPTY_WASTE_WAREHOUSE_FILTERS);
+
+  /**
+   * Las alternativas NO dependen de las filas: salen de los catálogos de dominio
+   * compartidos con "Ingresos a bodega". Derivarlas del resultado filtrado
+   * vaciaría los demás selectores al aplicar un filtro, y derivarlas de las filas
+   * de esta tabla haría que las dos vistas ofrecieran listas distintas para el
+   * mismo campo.
+   */
+  const filterOptions = useMemo(() => buildWarehouseFilterOptions(), []);
+  const visibleLots = useMemo(() => filterWarehouseLotRows(WAREHOUSE_LOT_ROW_DEFAULTS, filters), [filters]);
+
+  /*
+   * El `<select>` emite `string | null`, mientras que `hazard` y `status` son
+   * uniones cerradas. El aserto es seguro porque las alternativas salen de
+   * `buildWarehouseFilterOptions`: el control no puede emitir un valor que no
+   * pertenezca a su columna.
+   */
+  const handleFilterChange = (key: WasteWarehouseFilterKey, value: string | null) => {
+    setFilters((previous) => ({ ...previous, [key]: value }) as WasteWarehouseFilters);
+  };
+
   const view = useMemo<WarehouseControlView>(() => {
     // Una sola lectura del avance del mes: la frase del recuadro y la posición de
     // la barra de día del mes tienen que salir del mismo número, porque de ese
@@ -102,9 +150,11 @@ export function WarehouseControlPage() {
       kpis: WAREHOUSE_KPI_DEFAULTS,
       bars: WAREHOUSE_ACCUMULATION_DEFAULTS,
       expirations: WAREHOUSE_EXPIRATION_DEFAULTS,
-      lots: WAREHOUSE_LOT_ROW_DEFAULTS,
+      // Las filas FILTRADAS, no todas: el PDF y el Excel tienen que contener lo
+      // que el usuario está viendo, filtros incluidos.
+      lots: visibleLots,
     };
-  }, [today]);
+  }, [today, visibleLots]);
 
   const handleExport = (format: WarehouseControlExportFormat) => {
     exportMutation.mutate({ format, view });
@@ -133,6 +183,9 @@ export function WarehouseControlPage() {
               exporting={exportMutation.isPending ? exportMutation.variables.format : null}
               exportError={exportError}
               onExport={handleExport}
+              filters={filters}
+              filterOptions={filterOptions}
+              onFilterChange={handleFilterChange}
             />
           </div>
         }

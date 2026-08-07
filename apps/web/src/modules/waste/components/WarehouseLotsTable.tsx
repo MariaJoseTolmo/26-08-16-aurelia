@@ -1,14 +1,19 @@
-import {
-  WarehouseHazardousIcon,
-  WarehouseNonHazardousIcon,
-  WarehouseTableCaretIcon,
-  WarehouseTableSortIcon,
-} from '../icons/WarehouseTableIcons';
+import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
+import type {
+  WasteWarehouseFilterKey,
+  WasteWarehouseFilterOptions,
+  WasteWarehouseFilters,
+  WasteWarehouseNumberFilterKey,
+  WasteWarehouseSelectFilterKey,
+} from '../wasteWarehouseFilters';
+import { WAREHOUSE_LOT_ROW_DEFAULTS, type WarehouseLotRow } from '../wasteWarehouseLotRows';
 import {
   LOT_STORAGE_STATUS_LABELS,
   LOT_STORAGE_STATUS_STYLES,
   type LotStorageStatus,
 } from '../wasteWarehouseThresholds';
+import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
+import { WasteHazardBadge } from './WasteHazardBadge';
 
 /**
  * Tabla "Detalle de lotes en bodega" — nodo Figma `3765:42711`.
@@ -44,56 +49,33 @@ import {
  *    (`WarehouseControlPage`), para que todos los bloques se muevan juntos.
  */
 
-interface WarehouseLotColumn {
+/**
+ * Unión discriminada por `filter`, no un objeto con todo opcional: así el tipo
+ * garantiza que una columna con selector SIEMPRE trae su `filterKey`, y no hay
+ * que comprobarlo en runtime. Un control sin `filterKey` es, por definición,
+ * presentacional. Mismo criterio que la tabla de "Ingresos a bodega".
+ */
+type WarehouseLotColumn = {
   key: string;
   label: string;
   /** Porcentaje del ancho total, derivado de los anchos del nodo. */
   width: string;
-  /** Tipo de control en la fila de filtros. */
-  filter: 'select' | 'number';
-  /** Etiqueta del selector: "Todos" en todas las columnas menos unidad ("Todas"). */
-  selectLabel?: string;
-}
+} & (
+  | { filter: 'select'; filterKey: WasteWarehouseSelectFilterKey; filterLabel: string }
+  | { filter: 'number'; filterKey: WasteWarehouseNumberFilterKey; filterLabel: string; filterName: string; step: string }
+);
 
 const COLUMNS: WarehouseLotColumn[] = [
-  { key: 'hazardous', label: 'Peligrosidad', width: '11.573%', filter: 'select', selectLabel: 'Todos' },
-  { key: 'category', label: 'Categoría operativa', width: '16.644%', filter: 'select', selectLabel: 'Todos' },
-  { key: 'wasteType', label: 'Residuo específico', width: '16.644%', filter: 'select', selectLabel: 'Todos' },
-  { key: 'quantity', label: 'Cantidad en bodega', width: '15.906%', filter: 'number' },
-  { key: 'unit', label: 'Unidad de medida', width: '14.062%', filter: 'select', selectLabel: 'Todas' },
-  { key: 'elapsed', label: 'Tiempo en bodega', width: '14.339%', filter: 'number' },
-  { key: 'status', label: 'Estado', width: '10.831%', filter: 'select', selectLabel: 'Todos' },
-];
-
-export interface WarehouseLotRow {
-  id: string;
-  isHazardous: boolean;
-  category: string;
-  wasteType: string;
-  quantity: string;
-  unit: string;
-  /** Antigüedad ya formateada, p. ej. "6,1 meses". */
-  elapsedLabel: string;
-  status: LotStorageStatus;
-}
-
-/** Las quince filas del nodo: 8 peligrosas y 7 no peligrosas. */
-export const WAREHOUSE_LOT_ROW_DEFAULTS: WarehouseLotRow[] = [
-  { id: '1', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '6,1 meses', status: 'overdue' },
-  { id: '2', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '5,2 meses', status: 'near_limit' },
-  { id: '3', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '5,0 meses', status: 'near_limit' },
-  { id: '4', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,6 meses', status: 'normal' },
-  { id: '5', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,4 meses', status: 'normal' },
-  { id: '6', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '7', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '8', isHazardous: true, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '9', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '10', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '11', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '12', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '13', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '14', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
-  { id: '15', isHazardous: false, category: 'Categoría del residuo', wasteType: 'Detalle del residuo', quantity: 'XXXX', unit: 'Tambores, M3,etc', elapsedLabel: '0,3 meses', status: 'normal' },
+  { key: 'hazardous', label: 'Peligrosidad', width: '11.573%', filter: 'select', filterKey: 'hazard', filterLabel: 'Todos' },
+  { key: 'category', label: 'Categoría operativa', width: '16.644%', filter: 'select', filterKey: 'category', filterLabel: 'Todos' },
+  { key: 'wasteType', label: 'Residuo específico', width: '16.644%', filter: 'select', filterKey: 'wasteType', filterLabel: 'Todos' },
+  // `filterName` es el nombre accesible: el diseño solo trae "#", que no dice
+  // que el filtro sea por mínimo. `step` acompaña a la magnitud — las cantidades
+  // son enteras, los meses van con un decimal.
+  { key: 'quantity', label: 'Cantidad en bodega', width: '15.906%', filter: 'number', filterKey: 'quantityMin', filterLabel: '#', filterName: 'Cantidad mínima en bodega', step: '1' },
+  { key: 'unit', label: 'Unidad de medida', width: '14.062%', filter: 'select', filterKey: 'unit', filterLabel: 'Todas' },
+  { key: 'elapsed', label: 'Tiempo en bodega', width: '14.339%', filter: 'number', filterKey: 'elapsedMin', filterLabel: '#', filterName: 'Tiempo mínimo en bodega, en meses', step: '0.1' },
+  { key: 'status', label: 'Estado', width: '10.831%', filter: 'select', filterKey: 'status', filterLabel: 'Todos' },
 ];
 
 const CELL_CLASS =
@@ -101,9 +83,18 @@ const CELL_CLASS =
 
 interface WarehouseLotsTableProps {
   rows?: WarehouseLotRow[];
+  /** Filtros aplicados. La tabla es controlada: el estado vive en la página. */
+  filters: WasteWarehouseFilters;
+  options: WasteWarehouseFilterOptions;
+  onFilterChange: (key: WasteWarehouseFilterKey, value: string | null) => void;
 }
 
-export function WarehouseLotsTable({ rows = WAREHOUSE_LOT_ROW_DEFAULTS }: WarehouseLotsTableProps) {
+export function WarehouseLotsTable({
+  rows = WAREHOUSE_LOT_ROW_DEFAULTS,
+  filters,
+  options,
+  onFilterChange,
+}: WarehouseLotsTableProps) {
   return (
     <div className="w-full overflow-hidden rounded-[8px] border border-solid border-[#e3e3e3]">
       <table className="w-full min-w-[1084px] border-collapse text-left">
@@ -137,7 +128,12 @@ export function WarehouseLotsTable({ rows = WAREHOUSE_LOT_ROW_DEFAULTS }: Wareho
                 scope="col"
                 className="border-b border-r border-solid border-b-[#e3e3e3] border-r-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px] last:border-r-0"
               >
-                <WarehouseLotsFilterControl column={column} />
+                <WarehouseLotsFilterControl
+                  column={column}
+                  filters={filters}
+                  options={options}
+                  onFilterChange={onFilterChange}
+                />
               </th>
             ))}
           </tr>
@@ -153,35 +149,57 @@ export function WarehouseLotsTable({ rows = WAREHOUSE_LOT_ROW_DEFAULTS }: Wareho
 }
 
 /**
- * Controles de la fila de filtros. Son presentacionales en esta iteración: el
- * cableado a los parámetros de `GET /waste/lots` llega cuando la vista consuma
- * la API.
+ * Controles de la fila de filtros.
+ *
+ * Las cinco columnas con alternativas usan `WarehouseSelectFilterField`, el mismo
+ * `<select>` nativo de la tabla de "Ingresos a bodega": la geometría del nodo es
+ * idéntica (border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px] · caret en caja de
+ * 16 × 16), así que duplicarlo solo agregaría un segundo lugar donde arreglar los
+ * mismos bugs de foco y teclado.
+ *
+ * Los dos `#` son `<input type="number">` reales y filtran por mínimo.
  */
-function WarehouseLotsFilterControl({ column }: { column: WarehouseLotColumn }) {
+function WarehouseLotsFilterControl({
+  column,
+  filters,
+  options,
+  onFilterChange,
+}: {
+  column: WarehouseLotColumn;
+  filters: WasteWarehouseFilters;
+  options: WasteWarehouseFilterOptions;
+  onFilterChange: (key: WasteWarehouseFilterKey, value: string | null) => void;
+}) {
   if (column.filter === 'number') {
     return (
-      <span className="flex w-full items-center overflow-hidden rounded-[8px] border border-solid border-[#d1d1d1] bg-white px-[8px] py-[5px]">
-        <span className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[normal] text-[#acacac]">
-          #
-        </span>
-      </span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step={column.step}
+        aria-label={column.filterName}
+        title={column.filterName}
+        placeholder={column.filterLabel}
+        value={filters[column.filterKey] ?? ''}
+        onChange={(event) => onFilterChange(column.filterKey, event.target.value === '' ? null : event.target.value)}
+        /*
+          `h-[26px]` y no `py-[5px]`: es el mismo alto que resuelve el selector
+          (16 del caret + 5 + 5) y así los siete controles de la fila quedan
+          alineados. `text-center` reproduce el "#" centrado del nodo.
+        */
+        className="h-[26px] w-full rounded-[8px] border border-solid border-[#d1d1d1] bg-white px-[8px] text-center font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[normal] text-[#131313] outline-none placeholder:text-[#acacac] focus:border-[#00b398]"
+      />
     );
   }
 
   return (
-    <span className="flex w-full items-center justify-center gap-[8px] overflow-hidden rounded-[8px] border border-solid border-[#d1d1d1] bg-white px-[8px] py-[5px]">
-      <span className="min-w-0 flex-1 font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[normal] text-[#131313]">
-        {column.selectLabel}
-      </span>
-      {/*
-        El asset viene apuntando hacia arriba; Figma lo voltea con
-        `-rotate-180 -scale-x-100`, cuyo efecto neto es un espejo vertical. Se
-        reproduce con `-scale-y-100` para obtener el caret hacia abajo.
-      */}
-      <span className="flex size-[16px] shrink-0 items-center justify-center">
-        <WarehouseTableCaretIcon className="block h-[6px] w-[10px] -scale-y-100 text-[#131313]" />
-      </span>
-    </span>
+    <WarehouseSelectFilterField
+      label={column.label}
+      value={filters[column.filterKey]}
+      options={options[column.filterKey]}
+      emptyOptionLabel={column.filterLabel}
+      onChange={(value) => onFilterChange(column.filterKey, value)}
+    />
   );
 }
 
@@ -191,7 +209,7 @@ function WarehouseLotsTableRow({ row }: { row: WarehouseLotRow }) {
   return (
     <tr className="h-[46px]">
       <td className={`${CELL_CLASS} text-center`}>
-        <WarehouseHazardStatusBadge isHazardous={row.isHazardous} />
+        <WasteHazardBadge isHazardous={row.isHazardous} />
       </td>
       <td className={CELL_CLASS}>{row.category}</td>
       <td className={CELL_CLASS}>{row.wasteType}</td>
@@ -206,25 +224,6 @@ function WarehouseLotsTableRow({ row }: { row: WarehouseLotRow }) {
         <WarehouseLotStatusBadge status={row.status} />
       </td>
     </tr>
-  );
-}
-
-/** Pastilla de peligrosidad: `#ffd0db`/`#570b1d` o `#e6f3ff`/`#0d3862`. */
-function WarehouseHazardStatusBadge({ isHazardous }: { isHazardous: boolean }) {
-  const background = isHazardous ? '#ffd0db' : '#e6f3ff';
-  const color = isHazardous ? '#570b1d' : '#0d3862';
-  const Icon = isHazardous ? WarehouseHazardousIcon : WarehouseNonHazardousIcon;
-
-  return (
-    <span
-      className="inline-flex items-center gap-[5px] rounded-[20px] px-[9px] py-[3px]"
-      style={{ backgroundColor: background, color }}
-    >
-      <Icon className="block h-[10px] w-[12.5px] shrink-0" />
-      <span className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal]">
-        {isHazardous ? 'Peligroso' : 'No peligroso'}
-      </span>
-    </span>
   );
 }
 
