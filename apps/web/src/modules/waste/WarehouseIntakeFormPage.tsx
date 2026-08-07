@@ -1,17 +1,27 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useWasteCategories, useWasteTypes } from '../../shared/hooks/useWasteCatalogs';
+import {
+  useOriginSectors,
+  useWasteCategories,
+  useWasteTypes,
+  useWasteUnits,
+} from '../../shared/hooks/useWasteCatalogs';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WarehouseIntakeCategorySection } from './components/WarehouseIntakeCategorySection';
+import { WarehouseIntakeEvidenceSection } from './components/WarehouseIntakeEvidenceSection';
 import { WarehouseIntakeFormActions } from './components/WarehouseIntakeFormActions';
 import { WarehouseIntakeFormIntro } from './components/WarehouseIntakeFormIntro';
+import { WarehouseIntakeLotSection } from './components/WarehouseIntakeLotSection';
+import { WarehouseIntakeOriginSection } from './components/WarehouseIntakeOriginSection';
 import type { WarehouseFormCatalogState } from './components/WarehouseFormControls';
 import {
   createWarehouseIntakeFormValues,
   isWarehouseIntakeFormComplete,
   toCategoryOptions,
+  toSectorOptions,
+  toUnitOptions,
   toWasteTypeOptions,
   type WarehouseIntakeFormValues,
 } from './warehouseIntakeForm';
@@ -29,6 +39,9 @@ import {
  *       `3564:1312`  cuerpo, px-[28px] pt-[20px], hijos separados por 16px
  *         `3564:1323`  encabezado                → `WarehouseIntakeFormIntro`
  *         `3713:26885` "Categoría y residuo específico"
+ *         `3713:26849` "Datos del lote"
+ *         `3564:1361`  "Origen del ingreso"
+ *         `3564:1378`  "Respaldo"
  *       `3564:1403`  barra inferior de acciones, h-65
  *
  * El padding y el gap del cuerpo se derivan del árbol: los hijos arrancan en
@@ -38,21 +51,20 @@ import {
  *
  * LA BARRA DE ACCIONES NO SCROLLEA. En el nodo está al pie del Main Content, y
  * acá el cuerpo es el único que se desplaza (`flex-1 overflow-y-auto`): un
- * formulario de varias secciones deja "Registrar ingreso" fuera de pantalla si
- * la barra viaja con el contenido.
+ * formulario de varias secciones deja "Registrar ingreso" fuera de pantalla si la
+ * barra viaja con el contenido.
  *
- * ESTADO: los selectores leen catálogos REALES vía TanStack Query
+ * ESTADO: los cuatro selectores leen catálogos REALES vía TanStack Query
  * (`useWasteCatalogs`), no datos de muestra. Los cuatro estados de UI viven en
  * `WarehouseFormControls`: "Cargando…" mientras la query corre, "No disponible"
  * + "Reintentar" si falla, "Sin alternativas" si el maestro está vacío, y las
  * opciones cuando llega el dato. Zustand no participa: el formulario es estado
  * local de esta pantalla y no lo comparte con nadie.
  *
- * PENDIENTE: las tarjetas de lote, origen y respaldo, y el envío.
- * `waste.controller.ts` solo expone lecturas; no hay `POST /waste/receipts`, así
- * que el botón primario avisa en vez de fingir que guardó. También sigue
- * pendiente el grupo derecho del header (`3564:1163` chip de empresa +
- * `3564:1167` avatar), que `WarehouseHeader` todavía no tiene.
+ * PENDIENTE: el envío. `waste.controller.ts` solo expone lecturas; no hay
+ * `POST /waste/receipts`, así que el botón primario avisa en vez de fingir que
+ * guardó. También sigue pendiente el grupo derecho del header (`3564:1163` chip
+ * de empresa + `3564:1167` avatar), que `WarehouseHeader` todavía no tiene.
  */
 export const WAREHOUSE_INTAKE_FORM_TITLE = 'Nueva recepción a bodega';
 
@@ -69,10 +81,13 @@ export function WarehouseIntakeFormPage() {
   const [values, setValues] = useState<WarehouseIntakeFormValues>(() =>
     createWarehouseIntakeFormValues(today),
   );
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const categoriesQuery = useWasteCategories();
   const wasteTypesQuery = useWasteTypes(values.categoryId);
+  const unitsQuery = useWasteUnits();
+  const sectorsQuery = useOriginSectors();
 
   const categories = useMemo<WarehouseFormCatalogState>(
     () => ({
@@ -100,6 +115,33 @@ export function WarehouseIntakeFormPage() {
     }),
     [values.categoryId, wasteTypesQuery],
   );
+
+  const units = useMemo<WarehouseFormCatalogState>(
+    () => ({
+      options: toUnitOptions(unitsQuery.data ?? []),
+      isLoading: unitsQuery.isLoading,
+      isError: unitsQuery.isError,
+      onRetry: () => void unitsQuery.refetch(),
+    }),
+    [unitsQuery],
+  );
+
+  const sectors = useMemo<WarehouseFormCatalogState>(
+    () => ({
+      options: toSectorOptions(sectorsQuery.data ?? []),
+      isLoading: sectorsQuery.isLoading,
+      isError: sectorsQuery.isError,
+      onRetry: () => void sectorsQuery.refetch(),
+    }),
+    [sectorsQuery],
+  );
+
+  function updateValue<TField extends keyof WarehouseIntakeFormValues>(
+    field: TField,
+    value: WarehouseIntakeFormValues[TField],
+  ) {
+    setValues((current) => ({ ...current, [field]: value }));
+  }
 
   /**
    * Cambiar la categoría LIMPIA el residuo elegido. Sin esto queda un residuo de
@@ -141,11 +183,28 @@ export function WarehouseIntakeFormPage() {
                   onCategoryChange={handleCategoryChange}
                   categories={categories}
                   wasteTypeId={values.wasteTypeId}
-                  onWasteTypeChange={(value) =>
-                    setValues((current) => ({ ...current, wasteTypeId: value }))
-                  }
+                  onWasteTypeChange={(value) => updateValue('wasteTypeId', value)}
                   wasteTypes={wasteTypes}
                 />
+                <WarehouseIntakeLotSection
+                  entryDate={values.entryDate}
+                  onEntryDateChange={(value) => updateValue('entryDate', value)}
+                  quantity={values.quantity}
+                  onQuantityChange={(value) => updateValue('quantity', value)}
+                  unitId={values.unitId}
+                  onUnitChange={(value) => updateValue('unitId', value)}
+                  units={units}
+                  originSectorId={values.originSectorId}
+                  onOriginSectorChange={(value) => updateValue('originSectorId', value)}
+                  sectors={sectors}
+                />
+                <WarehouseIntakeOriginSection
+                  plate={values.plate}
+                  onPlateChange={(value) => updateValue('plate', value)}
+                  driver={values.driver}
+                  onDriverChange={(value) => updateValue('driver', value)}
+                />
+                <WarehouseIntakeEvidenceSection photo={photo} onPhotoChange={setPhoto} />
               </div>
             </div>
             <WarehouseIntakeFormActions

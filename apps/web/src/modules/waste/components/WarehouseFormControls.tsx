@@ -1,6 +1,7 @@
-import { useId, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
 import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { WarehouseTableCaretIcon } from '../icons/WarehouseTableIcons';
+import { WarehouseFormCalendarIcon } from '../icons/WarehouseIntakeFormIcons';
 import type { WasteOption } from '../wasteFilterPrimitives';
 
 /**
@@ -34,6 +35,9 @@ import type { WasteOption } from '../wasteFilterPrimitives';
  * 13px. Figma no dibuja el estado abierto, así que el panel se toma prestado sin
  * pisar nada; el campo cerrado sí está dibujado y manda el nodo.
  *
+ * El campo de fecha sigue siendo `<input type="date">` nativo: ahí el widget del
+ * sistema es un calendario real, no una lista, y no hay nada equivalente en el
+ * proyecto que copiar.
  */
 
 /** Tono del rótulo. Los nombres describen el nodo que los usa, no un tamaño. */
@@ -194,3 +198,100 @@ export function WarehouseFormSelect({
   );
 }
 
+interface WarehouseFormTextFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  tone?: WarehouseFormTone;
+  inputMode?: 'text' | 'decimal';
+  maxLength?: number;
+}
+
+export function WarehouseFormTextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  tone = 'text',
+  inputMode = 'text',
+  maxLength,
+}: WarehouseFormTextFieldProps) {
+  const id = useId();
+  /* El nodo `3713:26869` usa px-[13.5px] y el `3564:1371` px-[12px]. */
+  const padding = tone === 'dropdown' ? 'px-[13.5px]' : 'px-[12px]';
+
+  return (
+    <Field id={id} label={label} tone={tone}>
+      <span className={`flex w-full items-center overflow-hidden ${SHELL_CLASS[tone]} ${padding}`}>
+        <input
+          id={id}
+          type="text"
+          value={value}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-['Inter:Regular',sans-serif] text-[12.5px] font-normal not-italic leading-[normal] text-[#131313] outline-none placeholder:text-[#acacac]"
+        />
+      </span>
+    </Field>
+  );
+}
+
+interface WarehouseFormDateFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+/**
+ * Campo "Fecha de ingreso" (nodo `3713:26860`).
+ *
+ * `<input type="date">` nativo por el mismo motivo que en los filtros de la
+ * tabla: sin librería de calendario en el proyecto, el nativo da picker real,
+ * teclado y formato local. El icono que dibuja el navegador se oculta —el del
+ * diseño es el SVG del nodo `3713:26862`— y el botón que lo envuelve abre el
+ * calendario con `showPicker()`, que Firefox y Safari no exponen por CSS.
+ */
+export function WarehouseFormDateField({ label, value, onChange }: WarehouseFormDateFieldProps) {
+  const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleOpenPicker() {
+    const input = inputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+        return;
+      } catch {
+        // showPicker() lanza si el gesto no lo habilita: el foco alcanza.
+      }
+    }
+    input.focus();
+  }
+
+  return (
+    <Field id={id} label={label} tone="dropdown">
+      <span className={`flex w-full items-center overflow-hidden px-[13.5px] ${SHELL_CLASS.dropdown}`}>
+        <input
+          id={id}
+          ref={inputRef}
+          type="date"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#131313] outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+        />
+        <button
+          type="button"
+          aria-label={`Abrir calendario de ${label.toLowerCase()}`}
+          onClick={handleOpenPicker}
+          className="flex size-[18px] shrink-0 items-center justify-center"
+        >
+          <WarehouseFormCalendarIcon className="pointer-events-none block size-[18px] shrink-0 text-[#131313]" />
+        </button>
+      </span>
+    </Field>
+  );
+}
