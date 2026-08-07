@@ -46,6 +46,23 @@ export interface WarehouseAccumulationBar {
 export const WAREHOUSE_MONTH_ADVICE =
   'Si una barra va muy adelantada, considera diferir retiros o usar el margen de 6 meses de almacenaje.';
 
+/**
+ * Caja de la banderilla "Hoy" (nodo `3686:25777`), compartida por la pastilla
+ * visible y por la copia invisible que le reserva el alto.
+ *
+ * El texto va en ESTE elemento y no en un `<span>` interno, que es como estaba
+ * antes. Con el `text-[9.5px]` en el span, el div heredaba el font-size del
+ * contexto (~16px) y su strut —la altura mínima de línea que impone la fuente
+ * heredada— dominaba la caja: la pastilla medía ~25px contra los ~17px de la
+ * banda, se desbordaba hacia abajo sobre "Adelantado +51pp", y dejaba aire de
+ * sobra arriba del texto.
+ *
+ * Al compartir las clases, las dos cajas son idénticas por construcción, no por
+ * cálculo.
+ */
+const MARKER_PILL_BOX_CLASS =
+  "whitespace-nowrap px-[9px] py-[3px] font-['Inter:Bold',sans-serif] text-[9.5px] font-bold not-italic leading-[normal]";
+
 export const WAREHOUSE_ACCUMULATION_DEFAULTS: WarehouseAccumulationBar[] = [
   { label: 'Residuos peligrosos', percentage: 70, valueLabel: '98 / 140 ton (70%)' },
   { label: 'Industriales no peligrosos', percentage: 86, valueLabel: '112 / 130 ton (86%)' },
@@ -115,10 +132,7 @@ export function WarehouseMonthlyAccumulated({
           haber número mágico que pueda quedar corto.
         */}
         <div className="relative w-full">
-          <div
-            aria-hidden
-            className="invisible px-[9px] py-[3px] font-['Inter:Bold',sans-serif] text-[9.5px] font-bold leading-[normal]"
-          >
+          <div aria-hidden className={`invisible ${MARKER_PILL_BOX_CLASS}`}>
             {markerLabel}
           </div>
           {/*
@@ -133,12 +147,10 @@ export function WarehouseMonthlyAccumulated({
             nodo (52%), el precio de que no se desborde en ninguna fecha.
           */}
           <div
-            className="absolute top-0 rounded-[5px] bg-[#001e39] px-[9px] py-[3px]"
+            className={`absolute top-0 rounded-[5px] bg-[#001e39] text-[#c8a064] ${MARKER_PILL_BOX_CLASS}`}
             style={{ left: `${markerPercentage}%`, transform: `translateX(-${markerPercentage}%)` }}
           >
-            <span className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[9.5px] font-bold not-italic leading-[normal] text-[#c8a064]">
-              {markerLabel}
-            </span>
+            {markerLabel}
           </div>
         </div>
 
