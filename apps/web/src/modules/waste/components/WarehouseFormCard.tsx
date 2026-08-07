@@ -1,0 +1,63 @@
+import type { ReactNode } from 'react';
+
+/**
+ * Tarjeta de sección del formulario "Registrar ingreso a Bodega".
+ *
+ * Las cuatro secciones del nodo `3564:1787` —`3713:26885`, `3713:26849`,
+ * `3564:1361` y `3564:1378`— declaran EXACTAMENTE la misma caja, así que va una
+ * sola vez acá:
+ *
+ *   bg white · border #e3e3e3 · rounded-[10px] · px-[25px] py-[21px]
+ *   Heading 3   flex gap-[8px] items-center · icono 16.875 × 13.5
+ *               texto Inter Bold 13.5px #131313
+ *   Paragraph   pt-[3px] · Inter Regular 11.5px #646464
+ *
+ * Los altos del nodo (144, 211, 116, 156) NO se fijan: salen de sumar este
+ * padding con el contenido. Por eso el `pt` que separa el cuerpo del encabezado
+ * lo pone cada sección —16px cuando hay párrafo, 3px en "Origen del ingreso",
+ * que no lo tiene— en vez de vivir acá.
+ *
+ * Un desvío deliberado: el nodo marca los párrafos `whitespace-nowrap` con un
+ * ancho fijo de 994px. Se descarta. Es el ancho de la caja de texto en Figma, no
+ * una restricción de layout, y con `nowrap` la descripción desbordaría la
+ * tarjeta en un viewport angosto. Mismo criterio que en `WarehouseIntakeFormIntro`.
+ */
+
+interface WarehouseFormCardProps {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  children?: ReactNode;
+}
+
+export function WarehouseFormCard({
+  icon,
+  title,
+  description,
+  children,
+}: WarehouseFormCardProps) {
+  return (
+    <section
+      className={`flex w-full flex-col items-start rounded-[10px] border border-solid px-[25px] py-[21px] border-[#e3e3e3] bg-white`}
+    >
+      <div className="flex w-full items-center gap-[8px]">
+        {icon}
+        <h3
+          className={`whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13.5px] font-bold not-italic leading-[normal]`}
+        >
+          {title}
+        </h3>
+      </div>
+      {description ? (
+        <div className="w-full pt-[3px]">
+          <p
+            className={`font-['Inter:Regular',sans-serif] text-[11.5px] font-normal not-italic leading-[normal]`}
+          >
+            {description}
+          </p>
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}

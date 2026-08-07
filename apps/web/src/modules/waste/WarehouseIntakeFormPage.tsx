@@ -1,10 +1,20 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWasteCategories, useWasteTypes } from '../../shared/hooks/useWasteCatalogs';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WarehouseIntakeCategorySection } from './components/WarehouseIntakeCategorySection';
 import { WarehouseIntakeFormActions } from './components/WarehouseIntakeFormActions';
 import { WarehouseIntakeFormIntro } from './components/WarehouseIntakeFormIntro';
+import type { WarehouseFormCatalogState } from './components/WarehouseFormControls';
+import {
+  createWarehouseIntakeFormValues,
+  isWarehouseIntakeFormComplete,
+  toCategoryOptions,
+  toWasteTypeOptions,
+  type WarehouseIntakeFormValues,
+} from './warehouseIntakeForm';
 
 /**
  * Vista "Nueva recepción a bodega" del módulo de residuos. Se llega desde el
@@ -18,6 +28,7 @@ import { WarehouseIntakeFormIntro } from './components/WarehouseIntakeFormIntro'
  *     `3564:1311`  Main Content
  *       `3564:1312`  cuerpo, px-[28px] pt-[20px], hijos separados por 16px
  *         `3564:1323`  encabezado                → `WarehouseIntakeFormIntro`
+ *         `3713:26885` "Categoría y residuo específico"
  *       `3564:1403`  barra inferior de acciones, h-65
  *
  * El padding y el gap del cuerpo se derivan del árbol: los hijos arrancan en
@@ -30,11 +41,18 @@ import { WarehouseIntakeFormIntro } from './components/WarehouseIntakeFormIntro'
  * formulario de varias secciones deja "Registrar ingreso" fuera de pantalla si
  * la barra viaja con el contenido.
  *
- * PENDIENTE: las tarjetas de campos y el envío. `waste.controller.ts` solo
- * expone lecturas; no hay `POST /waste/receipts`, así que el botón primario
- * avisa en vez de fingir que guardó. También sigue pendiente el grupo derecho
- * del header (`3564:1163` chip de empresa + `3564:1167` avatar), que
- * `WarehouseHeader` todavía no tiene.
+ * ESTADO: los selectores leen catálogos REALES vía TanStack Query
+ * (`useWasteCatalogs`), no datos de muestra. Los cuatro estados de UI viven en
+ * `WarehouseFormControls`: "Cargando…" mientras la query corre, "No disponible"
+ * + "Reintentar" si falla, "Sin alternativas" si el maestro está vacío, y las
+ * opciones cuando llega el dato. Zustand no participa: el formulario es estado
+ * local de esta pantalla y no lo comparte con nadie.
+ *
+ * PENDIENTE: las tarjetas de lote, origen y respaldo, y el envío.
+ * `waste.controller.ts` solo expone lecturas; no hay `POST /waste/receipts`, así
+ * que el botón primario avisa en vez de fingir que guardó. También sigue
+ * pendiente el grupo derecho del header (`3564:1163` chip de empresa +
+ * `3564:1167` avatar), que `WarehouseHeader` todavía no tiene.
  */
 export const WAREHOUSE_INTAKE_FORM_TITLE = 'Nueva recepción a bodega';
 
@@ -43,12 +61,61 @@ const SUBMIT_PENDING_NOTICE =
 
 export function WarehouseIntakeFormPage() {
   const navigate = useNavigate();
+  /**
+   * `new Date()` es impuro en render: se resuelve una sola vez al montar, igual
+   * que en `WarehouseIntakePage`. Alimenta la fecha inicial del formulario.
+   */
+  const [today] = useState(() => new Date());
+  const [values, setValues] = useState<WarehouseIntakeFormValues>(() =>
+    createWarehouseIntakeFormValues(today),
+  );
   const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const categoriesQuery = useWasteCategories();
+  const wasteTypesQuery = useWasteTypes(values.categoryId);
+
+  const categories = useMemo<WarehouseFormCatalogState>(
+    () => ({
+      options: toCategoryOptions(categoriesQuery.data ?? []),
+      isLoading: categoriesQuery.isLoading,
+      isError: categoriesQuery.isError,
+      onRetry: () => void categoriesQuery.refetch(),
+    }),
+    [categoriesQuery],
+  );
+
+  const wasteTypes = useMemo<WarehouseFormCatalogState>(
+    () => ({
+      options: toWasteTypeOptions(wasteTypesQuery.data ?? []),
+      /*
+       * `isLoading` de una query deshabilitada es `true` en TanStack Query v5
+       * (nunca hubo fetch), así que sin este `&&` el selector diría "Cargando…"
+       * para siempre mientras no haya categoría. El estado correcto ahí es
+       * `waitingFor`.
+       */
+      isLoading: values.categoryId !== null && wasteTypesQuery.isLoading,
+      isError: wasteTypesQuery.isError,
+      onRetry: () => void wasteTypesQuery.refetch(),
+      waitingFor: values.categoryId === null ? 'Elija una categoría' : undefined,
+    }),
+    [values.categoryId, wasteTypesQuery],
+  );
+
+  /**
+   * Cambiar la categoría LIMPIA el residuo elegido. Sin esto queda un residuo de
+   * la categoría anterior seleccionado mientras el selector ya muestra otro
+   * catálogo: un registro que la base rechazaría por incoherente.
+   */
+  function handleCategoryChange(categoryId: string | null) {
+    setValues((current) => ({ ...current, categoryId, wasteTypeId: null }));
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitAttempted(true);
   }
+
+  const canSubmit = isWarehouseIntakeFormComplete(values);
 
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Nueva recepción a bodega">
@@ -69,14 +136,20 @@ export function WarehouseIntakeFormPage() {
                 data-name="Container"
               >
                 <WarehouseIntakeFormIntro />
+                <WarehouseIntakeCategorySection
+                  categoryId={values.categoryId}
+                  onCategoryChange={handleCategoryChange}
+                  categories={categories}
+                  wasteTypeId={values.wasteTypeId}
+                  onWasteTypeChange={(value) =>
+                    setValues((current) => ({ ...current, wasteTypeId: value }))
+                  }
+                  wasteTypes={wasteTypes}
+                />
               </div>
             </div>
-            {/*
-              Sin campos todavía no hay nada que enviar, así que el botón primario
-              queda deshabilitado. Es el estado que el nodo `3565:3031` dibuja.
-            */}
             <WarehouseIntakeFormActions
-              canSubmit={false}
+              canSubmit={canSubmit}
               onCancel={() => navigate('/waste/ingresos-bodega')}
               notice={submitAttempted ? SUBMIT_PENDING_NOTICE : null}
             />
