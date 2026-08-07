@@ -42,5 +42,8 @@ yarn-error.*
 *.njsproj
 *.sln
 
+# registry local de skills de asistentes: apunta a rutas de $HOME y se regenera solo
+.atl/
+
 # testing
 coverage
