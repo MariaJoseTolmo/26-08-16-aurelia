@@ -156,6 +156,13 @@ interface WarehouseFormSelectProps {
   /** Valor vacío del nodo: "Seleccione" en los cuatro selectores del diseño. */
   placeholder?: string;
   tone?: WarehouseFormTone;
+  /**
+   * Rótulo de otra familia que la caja. El nodo `3765:39434` ("Lugar de
+   * disposición final") combina el rótulo `text` con la caja `dropdown`; el
+   * `3765:39055` ("Empresa transportista") usa las dos de `dropdown`. Es una
+   * inconsistencia del diseño y se reproduce en vez de unificarla.
+   */
+  labelTone?: WarehouseFormTone;
 }
 
 export function WarehouseFormSelect({
@@ -165,12 +172,13 @@ export function WarehouseFormSelect({
   state,
   placeholder = 'Seleccione',
   tone = 'dropdown',
+  labelTone,
 }: WarehouseFormSelectProps) {
   const id = useId();
   const unusable = state.isLoading || state.isError || Boolean(state.waitingFor) || state.options.length === 0;
 
   return (
-    <Field id={id} label={label} tone={tone} footer={<CatalogFooter state={state} label={label} />}>
+    <Field id={id} label={label} tone={labelTone ?? tone} footer={<CatalogFooter state={state} label={label} />}>
       <SelectMenu
         id={id}
         value={value}
@@ -198,12 +206,72 @@ export function WarehouseFormSelect({
   );
 }
 
+interface WarehouseFormReadOnlyFieldProps {
+  label: string;
+  value: string;
+  /**
+   * Fondo de la caja. Las dos variantes salen del diseño y no son intercambiables:
+   *
+   *   `muted`  `#f7f7f7` — tarjeta "Lote seleccionado" (`3765:39035`)
+   *   `plain`  blanco    — resumen de la pantalla SIDREP (`3765:39379`)
+   */
+  surface?: 'muted' | 'plain';
+  /** Contenido a la derecha del valor, dentro de la caja. La pastilla de `3765:39381`. */
+  trailing?: ReactNode;
+}
+
+/**
+ * Campo de solo lectura — nodos `3765:39032` y hermanos ("Residuo", "Categoría" y
+ * "Disponible" de "Lote seleccionado") y `3765:39376` y hermanos (el resumen de la
+ * pantalla SIDREP).
+ *
+ * Comparte el RÓTULO con la familia `text` (Inter Semi Bold 11.5px #333) pero su
+ * caja es distinta y por eso no es un `tone` más: borde `#e3e3e3` en vez de
+ * `#d1d1d1` y el valor en Inter SEMI BOLD 12.5px en vez de Regular. Es la manera
+ * en que el diseño dice "esto no se edita".
+ *
+ * Sale como `<p>` y no como `<input readOnly>`: no participa del formulario, no
+ * hay nada que enviar y un input deshabilitado solo agregaría una parada de
+ * tabulación muerta. El vínculo con su rótulo lo da `aria-labelledby`.
+ */
+export function WarehouseFormReadOnlyField({
+  label,
+  value,
+  surface = 'muted',
+  trailing,
+}: WarehouseFormReadOnlyFieldProps) {
+  const id = useId();
+
+  return (
+    <div className="flex w-full min-w-px flex-col items-start gap-[5px] self-stretch">
+      <p id={id} className={`whitespace-nowrap not-italic leading-[normal] ${LABEL_CLASS.text}`}>
+        {label}
+      </p>
+      <div
+        className={`flex h-[36px] w-full items-center rounded-[7px] border border-solid border-[#e3e3e3] px-[12px] py-px ${
+          surface === 'muted' ? 'bg-[#f7f7f7]' : 'bg-white'
+        }`}
+      >
+        <p
+          aria-labelledby={id}
+          className="truncate font-['Inter:Semi_Bold',sans-serif] text-[12.5px] font-semibold not-italic leading-[normal] text-[#131313]"
+        >
+          {value}
+        </p>
+        {trailing ? <span className="shrink-0 pl-[6px]">{trailing}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 interface WarehouseFormTextFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   tone?: WarehouseFormTone;
+  /** Ver la nota de `labelTone` en `WarehouseFormSelect`. */
+  labelTone?: WarehouseFormTone;
   inputMode?: 'text' | 'decimal';
   maxLength?: number;
 }
@@ -214,6 +282,7 @@ export function WarehouseFormTextField({
   onChange,
   placeholder,
   tone = 'text',
+  labelTone,
   inputMode = 'text',
   maxLength,
 }: WarehouseFormTextFieldProps) {
@@ -222,7 +291,7 @@ export function WarehouseFormTextField({
   const padding = tone === 'dropdown' ? 'px-[13.5px]' : 'px-[12px]';
 
   return (
-    <Field id={id} label={label} tone={tone}>
+    <Field id={id} label={label} tone={labelTone ?? tone}>
       <span className={`flex w-full items-center overflow-hidden ${SHELL_CLASS[tone]} ${padding}`}>
         <input
           id={id}

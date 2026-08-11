@@ -26,13 +26,20 @@ import type { ReactNode } from 'react';
 /**
  * Paletas de la tarjeta. `default` son las cuatro secciones de campos;
  * `info` es "Qué pasa después de registrar" (nodo `3713:27413`), que usa el
- * mismo azul que la pastilla "No peligroso" de las tablas (`#e6f3ff`/`#0d3862`).
+ * mismo azul que la pastilla "No peligroso" de las tablas (`#e6f3ff`/`#0d3862`);
+ * `warning` es "Este retiro requiere el flujo completo SIDREP" (nodo
+ * `3765:39060`), en `#fff0e6` con borde `#f5c4a0` y texto `#6b3a1f`.
+ *
+ * OJO con `warning`: el icono de su encabezado NO va del color del título. El
+ * nodo `3765:39062` viene en `#E8720C` y el texto en `#6b3a1f`, así que el color
+ * del icono lo pone quien lo pasa y no esta tabla.
  */
-type WarehouseFormCardTone = 'default' | 'info';
+type WarehouseFormCardTone = 'default' | 'info' | 'warning';
 
 const CARD_TONE: Record<WarehouseFormCardTone, { shell: string; title: string; description: string }> = {
   default: { shell: 'border-[#e3e3e3] bg-white', title: 'text-[#131313]', description: 'text-[#646464]' },
   info: { shell: 'border-[#c5d8f0] bg-[#e6f3ff]', title: 'text-[#0d3862]', description: 'text-[#0d3862]' },
+  warning: { shell: 'border-[#f5c4a0] bg-[#fff0e6]', title: 'text-[#6b3a1f]', description: 'text-[#6b3a1f]' },
 };
 
 interface WarehouseFormCardProps {
@@ -40,6 +47,13 @@ interface WarehouseFormCardProps {
   title: string;
   description?: string;
   tone?: WarehouseFormCardTone;
+  /**
+   * Separación entre el encabezado y el cuerpo cuando la tarjeta NO tiene
+   * párrafo. El nodo `3765:39024` ("Lote seleccionado") la declara como
+   * `gap-[8px]` en la tarjeta; las secciones con párrafo la ponen ellas con su
+   * propio `pt`.
+   */
+  bodyGap?: boolean;
   children?: ReactNode;
 }
 
@@ -48,13 +62,14 @@ export function WarehouseFormCard({
   title,
   description,
   tone = 'default',
+  bodyGap = false,
   children,
 }: WarehouseFormCardProps) {
   const palette = CARD_TONE[tone];
 
   return (
     <section
-      className={`flex w-full flex-col items-start rounded-[10px] border border-solid px-[25px] py-[21px] ${palette.shell}`}
+      className={`flex w-full flex-col items-start rounded-[10px] border border-solid px-[25px] py-[21px] ${palette.shell} ${bodyGap ? 'gap-[8px]' : ''}`}
     >
       <div className="flex w-full items-center gap-[8px]">
         {icon}

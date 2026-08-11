@@ -1,4 +1,5 @@
-import { WarehouseFormInfoIcon, WarehouseFormSubmitCheckIcon } from '../icons/WarehouseIntakeFormIcons';
+import { WarehouseFormSubmitCheckIcon, WarehouseFormInfoIcon } from '../icons/WarehouseIntakeFormIcons';
+import { WasteSecondaryActionButton } from './WasteSecondaryActionButton';
 
 /**
  * Barra de acciones del formulario — nodo `3564:1403`.
@@ -40,15 +41,7 @@ export function WarehouseIntakeFormActions({ canSubmit, onCancel, notice }: Ware
           </p>
         </div>
         <div className="flex items-start gap-[10px]">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex flex-col items-center justify-center rounded-[8px] border border-solid border-[#d1d1d1] px-[19px] py-[10px] transition-colors hover:bg-[#f7f7f7]"
-          >
-            <span className="whitespace-nowrap text-center font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] text-[#646464]">
-              Cancelar
-            </span>
-          </button>
+          <WasteSecondaryActionButton label="Cancelar" onClick={onCancel} />
           <button
             type="submit"
             disabled={!canSubmit}

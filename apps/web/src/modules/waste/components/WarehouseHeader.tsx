@@ -6,6 +6,12 @@
  * y el mismo título (`3729:27736` / `3729:27738`), así que ambas vistas comparten
  * este componente en lugar de duplicarlo.
  *
+ * Las vistas de retiro repiten la MISMA geometría con otro título, y por eso el
+ * componente recibe `title` por prop en vez de tener cuatro copias:
+ *
+ *   `3765:38124`  "Solicitud de retiro"  → "Bodega de acopio - Plataforma 18"
+ *   `3765:38864`  "Nueva solicitud"      → "Solicitudes de retiro — Residuos"
+ *
  * Valores tomados del design context, no de la imagen:
  *
  *   contenedor  h-[56px] · bg white · border-b #e3e3e3 · flex items-center
