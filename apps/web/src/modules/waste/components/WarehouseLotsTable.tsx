@@ -152,7 +152,7 @@ export function WarehouseLotsTable({
  * Controles de la fila de filtros.
  *
  * Las cinco columnas con alternativas usan `WarehouseSelectFilterField`, el mismo
- * `<select>` nativo de la tabla de "Ingresos a bodega": la geometría del nodo es
+ * desplegable de la tabla de "Ingresos a bodega": la geometría del nodo es
  * idéntica (border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px] · caret en caja de
  * 16 × 16), así que duplicarlo solo agregaría un segundo lugar donde arreglar los
  * mismos bugs de foco y teclado.

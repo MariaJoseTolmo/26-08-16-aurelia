@@ -127,7 +127,7 @@ export function WarehouseControlPage() {
   const visibleLots = useMemo(() => filterWarehouseLotRows(WAREHOUSE_LOT_ROW_DEFAULTS, filters), [filters]);
 
   /*
-   * El `<select>` emite `string | null`, mientras que `hazard` y `status` son
+   * El desplegable emite `string | null`, mientras que `hazard` y `status` son
    * uniones cerradas. El aserto es seguro porque las alternativas salen de
    * `buildWarehouseFilterOptions`: el control no puede emitir un valor que no
    * pertenezca a su columna.

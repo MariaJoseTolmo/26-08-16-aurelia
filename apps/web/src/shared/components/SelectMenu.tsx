@@ -1,4 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Desplegable de alternativa única con el lenguaje visual del Dashboard.
@@ -38,6 +48,21 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
  * El placeholder es la PRIMERA alternativa del menú, no un texto muerto: es la
  * forma de volver a "sin elegir" una vez que se eligió algo. Es lo que hace
  * "Todas las empresas" en `DashboardCompanyFilter`.
+ *
+ * DOS FORMAS DE COLGAR EL PANEL (`portal`):
+ *
+ * Por defecto el panel es `absolute` y cuelga del propio componente. Alcanza
+ * mientras ningún ancestro recorte, que es el caso del Dashboard y del
+ * formulario de bodega.
+ *
+ * Dentro de una tabla NO alcanza: las dos tablas de residuos envuelven el
+ * `<table>` en `overflow-hidden` —lo necesitan para que el borde redondeado
+ * recorte las celdas— y la de ingresos suma `overflow-x-auto`, que según CSS
+ * convierte el eje vertical en `auto` y recorta también hacia abajo. Un panel
+ * anclado ahí adentro se corta o empuja scroll. Con `portal` el panel se dibuja
+ * en `document.body` con `position: fixed` y la geometría medida del
+ * disparador, el mismo recurso que ya usa `InspectionTableActionMenuBridge`
+ * para el menú de acciones de la tabla de inspecciones.
  */
 
 export interface SelectMenuOption {
@@ -65,13 +90,61 @@ interface SelectMenuProps {
   /** Clases extra del panel, p. ej. un ancho fijo. Por defecto sigue al disparador. */
   menuClassName?: string;
   ariaLabel?: string;
+  /** Dibuja el panel en `document.body` para que ningún ancestro lo recorte. */
+  portal?: boolean;
 }
 
 const MENU_CLASS =
-  'absolute left-0 right-0 top-[calc(100%+8px)] z-50 flex max-h-[280px] flex-col items-start overflow-y-auto rounded-[12px] border border-solid border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]';
+  'z-50 flex flex-col items-start overflow-y-auto rounded-[12px] border border-solid border-[#d1d1d1] bg-white p-[8px] shadow-[0px_4px_8px_rgba(19,19,19,0.24)]';
+
+/** Panel anclado: el contenedor `relative` del componente es su referencia. */
+const ANCHORED_MENU_CLASS = 'absolute left-0 right-0 top-[calc(100%+8px)] max-h-[280px]';
+
+/** Panel en portal: la posición entra por `style`, medida del disparador. */
+const PORTAL_MENU_CLASS = 'fixed';
 
 const OPTION_CLASS =
   "flex h-[40px] min-h-[40px] w-full shrink-0 items-center overflow-hidden rounded-[8px] px-[8px] py-[12px] text-left font-['Inter:Regular',sans-serif] text-[13px] font-normal leading-[22.7px] text-[#131313]";
+
+/** Separación disparador–panel del diseño y margen mínimo contra el borde. */
+const MENU_GAP = 8;
+const VIEWPORT_MARGIN = 8;
+const MAX_MENU_HEIGHT = 280;
+/**
+ * Bajo esta altura el panel deja de mostrar alternativas suficientes para
+ * elegir sin scrollear a ciegas: es el umbral para abrir hacia arriba.
+ */
+const MIN_MENU_HEIGHT = 140;
+
+/**
+ * Geometría del panel en portal. Se ancla por `top` o por `bottom` según hacia
+ * dónde abra: anclar siempre por `top` obligaría a conocer el alto del panel
+ * ANTES de renderizarlo, que es justo lo que no se sabe.
+ */
+interface MenuAnchor {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
+
+function measureAnchor(trigger: HTMLElement): MenuAnchor {
+  const rect = trigger.getBoundingClientRect();
+  const below = window.innerHeight - rect.bottom - MENU_GAP - VIEWPORT_MARGIN;
+  const above = rect.top - MENU_GAP - VIEWPORT_MARGIN;
+  // Solo se voltea si abajo no entra Y arriba hay más lugar: cerca del borde
+  // inferior de la ventana el panel se saldría de cuadro.
+  const opensUp = below < MIN_MENU_HEIGHT && above > below;
+  const available = opensUp ? above : below;
+
+  return {
+    left: rect.left,
+    width: rect.width,
+    maxHeight: Math.min(MAX_MENU_HEIGHT, Math.max(MIN_MENU_HEIGHT, available)),
+    ...(opensUp ? { bottom: window.innerHeight - rect.top + MENU_GAP } : { top: rect.bottom + MENU_GAP }),
+  };
+}
 
 /** Siguiente alternativa elegible en la dirección dada, saltando deshabilitadas. */
 function nextEnabledIndex(items: SelectMenuOption[], from: number, step: number): number {
@@ -94,14 +167,18 @@ export function SelectMenu({
   caret,
   menuClassName = '',
   ariaLabel,
+  portal = false,
 }: SelectMenuProps) {
   const generatedId = useId();
   const triggerId = id ?? `${generatedId}-trigger`;
   const menuId = `${generatedId}-menu`;
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
 
   const items = useMemo<SelectMenuOption[]>(
     () => [{ value: '', label: placeholder }, ...options],
@@ -119,17 +196,68 @@ export function SelectMenu({
   useEffect(() => {
     if (!open) return undefined;
     function close(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      // El panel en portal NO es descendiente de `rootRef`: sin este segundo
+      // chequeo, tocarlo contaría como click afuera y lo cerraría.
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     window.addEventListener('pointerdown', close);
     return () => window.removeEventListener('pointerdown', close);
   }, [open]);
 
+  /**
+   * Posición del panel en portal.
+   *
+   * `useLayoutEffect` y no `useEffect`: se mide antes de pintar, así el panel
+   * nunca se ve un cuadro en la esquina superior izquierda.
+   *
+   * El `scroll` va en fase de CAPTURA porque el disparador vive dentro de
+   * contenedores que scrollean por su cuenta —la tabla de ingresos, el cuerpo de
+   * "Control de bodega"— y esos eventos no burbujean hasta `window`. El `rAF`
+   * evita recalcular más de una vez por cuadro durante el scroll.
+   */
+  useLayoutEffect(() => {
+    if (!portal || !open) return undefined;
+
+    let frame: number | null = null;
+
+    function place() {
+      const trigger = triggerRef.current;
+      if (trigger) setAnchor(measureAnchor(trigger));
+    }
+
+    function schedule() {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        place();
+      });
+    }
+
+    place();
+    window.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+
+    return () => {
+      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [portal, open]);
+
+  /**
+   * En portal el panel monta un ciclo DESPUÉS de abrirse, cuando ya hay medida.
+   * Sin esta bandera el efecto de abajo correría contra opciones que todavía no
+   * existen y la alternativa elegida no quedaría a la vista en catálogos largos.
+   */
+  const menuMounted = open && (!portal || anchor !== null);
+
   // La alternativa activa tiene que quedar visible cuando se llega con teclado.
   useEffect(() => {
-    if (!open) return;
+    if (!menuMounted) return;
     optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [open, activeIndex]);
+  }, [menuMounted, activeIndex]);
 
   function openMenu(startIndex: number) {
     if (disabled) return;
@@ -187,10 +315,55 @@ export function SelectMenu({
     if (target >= 0) setActiveIndex(target);
   }
 
+  const menu = (
+    <div
+      id={menuId}
+      ref={menuRef}
+      role="listbox"
+      aria-labelledby={triggerId}
+      style={
+        portal && anchor
+          ? { left: anchor.left, width: anchor.width, maxHeight: anchor.maxHeight, top: anchor.top, bottom: anchor.bottom }
+          : undefined
+      }
+      className={`${MENU_CLASS} ${portal ? PORTAL_MENU_CLASS : ANCHORED_MENU_CLASS} ${menuClassName}`}
+    >
+      {items.map((item, index) => (
+        <div
+          key={item.value === '' ? '__placeholder__' : item.value}
+          id={`${menuId}-${index}`}
+          ref={(node) => {
+            optionRefs.current[index] = node;
+          }}
+          role="option"
+          aria-selected={index === selectedIndex}
+          aria-disabled={item.disabled}
+          onPointerDown={(event) => {
+            // El `pointerdown` no debe llegar al listener que cierra por
+            // click afuera, que corre antes que el `click` de la opción.
+            event.stopPropagation();
+          }}
+          onClick={() => choose(index)}
+          onMouseEnter={() => !item.disabled && setActiveIndex(index)}
+          className={`${OPTION_CLASS} ${
+            item.disabled
+              ? 'cursor-not-allowed bg-white opacity-40'
+              : index === selectedIndex || index === activeIndex
+                ? 'cursor-pointer bg-[#e3e3e3]'
+                : 'cursor-pointer bg-white'
+          }`}
+        >
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div ref={rootRef} className="relative w-full">
       <button
         id={triggerId}
+        ref={triggerRef}
         type="button"
         role="combobox"
         aria-haspopup="listbox"
@@ -206,38 +379,11 @@ export function SelectMenu({
         <span className={valueClassName}>{selectedLabel}</span>
         {caret}
       </button>
-      {open ? (
-        <div id={menuId} role="listbox" aria-labelledby={triggerId} className={`${MENU_CLASS} ${menuClassName}`}>
-          {items.map((item, index) => (
-            <div
-              key={item.value === '' ? '__placeholder__' : item.value}
-              id={`${menuId}-${index}`}
-              ref={(node) => {
-                optionRefs.current[index] = node;
-              }}
-              role="option"
-              aria-selected={index === selectedIndex}
-              aria-disabled={item.disabled}
-              onPointerDown={(event) => {
-                // El `pointerdown` no debe llegar al listener que cierra por
-                // click afuera, que corre antes que el `click` de la opción.
-                event.stopPropagation();
-              }}
-              onClick={() => choose(index)}
-              onMouseEnter={() => !item.disabled && setActiveIndex(index)}
-              className={`${OPTION_CLASS} ${
-                item.disabled
-                  ? 'cursor-not-allowed bg-white opacity-40'
-                  : index === selectedIndex || index === activeIndex
-                    ? 'cursor-pointer bg-[#e3e3e3]'
-                    : 'cursor-pointer bg-white'
-              }`}
-            >
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {/*
+        En portal se espera a tener la medida: renderizar antes dejaría ver el
+        panel un cuadro en (0, 0) antes de saltar a su lugar.
+      */}
+      {open ? (portal ? (anchor ? createPortal(menu, document.body) : null) : menu) : null}
     </div>
   );
 }
