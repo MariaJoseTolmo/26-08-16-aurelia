@@ -73,6 +73,45 @@ export function matchesNumericMinimum(actual: number | string, query: string | n
   return value >= minimum;
 }
 
+/**
+ * Cantidad para mostrar: los decimales van con coma, como en es-CL y como ya lo
+ * hace "Control de bodega" ("6,1 meses"). El dato se guarda como string numérico
+ * porque así lo devuelve la API —las columnas `numeric` de Postgres llegan como
+ * texto, sin transformer en TypeORM—.
+ *
+ * Vive acá y no en `wasteIntakeFilters` desde que "Solicitud de retiro" también
+ * muestra una cantidad: es un formateador de es-CL, no algo propio de una vista.
+ */
+export function formatQuantity(value: string): string {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return value;
+  return new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 }).format(parsed);
+}
+
+/**
+ * Minúsculas y sin tildes, para que "Diaz" encuentre "Díaz".
+ *
+ * Estaba escrita idéntica en `wasteIntakeFilters` y en `wasteWithdrawalFilters`, y
+ * el modal de selección de lotes necesitaba una tercera copia. Vive una sola vez.
+ */
+export function normalizeSearch(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase('es-CL')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+/**
+ * `true` si el texto contiene la consulta, ignorando tildes y mayúsculas. Una
+ * consulta vacía no filtra.
+ */
+export function matchesSearch(value: string, query: string): boolean {
+  const normalizedQuery = normalizeSearch(query);
+  if (normalizedQuery === '') return true;
+  return normalizeSearch(value).includes(normalizedQuery);
+}
+
 /** Un filtro cuenta como activo solo si tiene un valor con contenido. */
 export function isActiveFilterValue(value: string | null | undefined): boolean {
   return value !== null && value !== undefined && value.trim().length > 0;

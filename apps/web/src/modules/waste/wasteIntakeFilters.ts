@@ -3,6 +3,7 @@ import {
   WASTE_HAZARD_OPTIONS,
   distinctOptions,
   matchesNumericMinimum,
+  matchesSearch,
   type WasteHazardFilterValue,
   type WasteOption,
 } from './wasteFilterPrimitives';
@@ -90,33 +91,6 @@ export function formatIsoAsDdMmYyyy(iso: string): string {
 
 export function hazardValueOf(row: WarehouseIntakeRow): WasteHazardFilterValue {
   return row.isHazardous ? 'hazardous' : 'non_hazardous';
-}
-
-/**
- * Cantidad para mostrar: los decimales van con coma, como en es-CL y como ya lo
- * hace "Control de bodega" ("6,1 meses"). El dato se guarda como string numérico
- * porque así lo devuelve la API —las columnas `numeric` de Postgres llegan como
- * texto, sin transformer en TypeORM—.
- */
-export function formatQuantity(value: string): string {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return value;
-  return new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 }).format(parsed);
-}
-
-/** Minúsculas y sin tildes, para que "Diaz" encuentre "Díaz". */
-function normalizeSearch(value: string): string {
-  return value
-    .trim()
-    .toLocaleLowerCase('es-CL')
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-}
-
-function matchesSearch(cellValue: string, query: string): boolean {
-  const normalizedQuery = normalizeSearch(query);
-  if (normalizedQuery === '') return true;
-  return normalizeSearch(cellValue).includes(normalizedQuery);
 }
 
 /**

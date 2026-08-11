@@ -113,7 +113,12 @@ const mainItems: SidebarItem[] = [
        * el comportamiento: muestra este sub-ítem resaltado.
        */
       { label: 'Ingresos a bodega', to: '/waste/ingresos-bodega', icon: 'wasteIntake' },
-      { label: 'Solicitud de Retiro', disabled: true, icon: 'wasteWithdrawal' },
+      /*
+       * Rótulo exactamente como el nodo `3817:57753`: "Solicitud de retiro",
+       * con la `r` en minúscula. Sin `end`, igual que "Ingresos a bodega", para
+       * que las futuras hojas de este sub-ítem lo dejen activo.
+       */
+      { label: 'Solicitud de retiro', to: '/waste/solicitud-retiro', icon: 'wasteWithdrawal' },
     ],
   },
   { label: 'Controles críticos', icon: 'criticalControls', disabled: true, badge: 'Próximo' },

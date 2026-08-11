@@ -35,9 +35,25 @@ interface WarehouseExportButtonProps {
   onExport?: (format: WasteExportFormat) => void;
   /** Formato en curso, para bloquear el botón mientras la API responde. */
   exporting?: WasteExportFormat | null;
+  /**
+   * Bloquea el botón cuando la vista todavía no tiene de dónde exportar.
+   *
+   * Sin esto la única alternativa era dejarlo activo con un menú cuyas opciones
+   * no hacen nada, que es peor: el diseño no distingue "exportar" de "exportar
+   * pero todavía no", y un control muerto es más engañoso que uno deshabilitado.
+   */
+  disabled?: boolean;
+  /** Explicación del bloqueo, como `title` del botón. */
+  disabledHint?: string;
 }
 
-export function WarehouseExportButton({ options, onExport, exporting = null }: WarehouseExportButtonProps) {
+export function WarehouseExportButton({
+  options,
+  onExport,
+  exporting = null,
+  disabled = false,
+  disabledHint,
+}: WarehouseExportButtonProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,13 +76,15 @@ export function WarehouseExportButton({ options, onExport, exporting = null }: W
   }, [menuOpen]);
 
   const isExporting = exporting !== null;
+  const isBlocked = isExporting || disabled;
 
   return (
     <div ref={containerRef} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        disabled={isExporting}
+        disabled={isBlocked}
+        title={disabled ? disabledHint : undefined}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         className="flex h-[36px] shrink-0 items-center gap-[6px] rounded-[8px] border-[1.5px] border-solid border-[#d1d1d1] bg-white px-[13.5px] py-[1.5px] transition-colors hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-60"

@@ -1,12 +1,7 @@
-import {
-  WarehousePageNextIcon,
-  WarehousePagePrevIcon,
-  WarehouseRowsPerPageCaretIcon,
-} from '../icons/WarehouseIntakeIcons';
 import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
+import { formatQuantity } from '../wasteFilterPrimitives';
 import {
   formatIsoAsDdMmYyyy,
-  formatQuantity,
   type WasteIntakeFilterKey,
   type WasteIntakeFilterOptions,
   type WasteIntakeFilters,
@@ -18,10 +13,23 @@ import { WasteHazardBadge } from './WasteHazardBadge';
 import { WarehouseDateFilterField } from './WarehouseDateFilterField';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
 import { WarehouseTextFilterField } from './WarehouseTextFilterField';
+import { WasteTablePagination } from './WasteTablePagination';
 
 /**
  * Tabla de "Ingresos a bodega" — nodo Figma `3734:28299` (columnas en `3817:57411`,
  * pie de paginación en `3734:28523`).
+ *
+ * El frame `3817:56515` es un SEGUNDO dibujo de estas mismas columnas, en otra
+ * parte del canvas. Se verificó columna por columna contra el design context —los
+ * nueve anchos, los nueve encabezados, los cuatro tipos de control, la pastilla de
+ * peligrosidad y los siete assets, estos últimos por checksum— y no aporta ningún
+ * cambio: describe exactamente lo que ya está acá. Queda anotado para que no se
+ * vuelva a diffear.
+ *
+ * Su única discrepancia es que la celda de datos de la columna de fecha
+ * (`3817:56589`) trae `py-[13.5px]` donde el resto usa `py-[14px]`. No se
+ * reproduce: con `h-[46px]` y contenido centrado en vertical, el padding no
+ * desplaza nada.
  *
  * Geometría del nodo:
  *
@@ -195,7 +203,7 @@ export function WarehouseIntakeTable({
           </tbody>
         </table>
       </div>
-      <WarehouseIntakePagination
+      <WasteTablePagination
         page={page}
         totalPages={totalPages}
         pageSize={pageSize}
@@ -274,86 +282,5 @@ function WarehouseIntakeTableRow({ row }: { row: WarehouseIntakeRow }) {
         <WasteHazardBadge isHazardous={row.isHazardous} />
       </td>
     </tr>
-  );
-}
-
-/**
- * Pie de paginación — nodo `3734:28523`.
- *
- * Los botones de navegación del nodo vienen con `opacity-35` porque en el diseño
- * hay una sola página. Acá esa opacidad se ata al estado `disabled`, que es lo
- * que la produce.
- */
-function WarehouseIntakePagination({
-  page,
-  totalPages,
-  pageSize,
-  totalRows,
-  onPageChange,
-}: {
-  page: number;
-  totalPages: number;
-  pageSize: number;
-  totalRows: number;
-  onPageChange?: (page: number) => void;
-}) {
-  const firstRow = totalRows === 0 ? 0 : (page - 1) * pageSize + 1;
-  const lastRow = totalRows === 0 ? 0 : firstRow + totalRows - 1;
-  const navButtonClass =
-    'flex size-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-[6px] border border-solid border-[#e3e3e3] bg-white px-[9px] py-px transition-opacity disabled:opacity-35';
-
-  return (
-    <div className="flex h-[53px] w-full items-center justify-between border-t border-solid border-[#e3e3e3] bg-white px-[16px] pb-[10px] pt-[11px]">
-      <p className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#646464]">
-        {/* Guion largo (–) como en el nodo `3734:28525`, no guion corto. */}
-        Mostrando {firstRow}–{lastRow} de {totalRows} datos
-      </p>
-      <div className="flex items-center gap-[4px]">
-        <button
-          type="button"
-          aria-label="Página anterior"
-          disabled={page <= 1}
-          onClick={() => onPageChange?.(page - 1)}
-          className={navButtonClass}
-        >
-          <WarehousePagePrevIcon className="block h-[10px] w-[12.5px] shrink-0 text-[#646464]" />
-        </button>
-        <button
-          type="button"
-          aria-current="page"
-          className="flex size-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-[6px] border border-solid border-[#c8a064] bg-[#c8a064] px-[9px] py-px text-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[#001e39]"
-        >
-          {page}
-        </button>
-        <button
-          type="button"
-          aria-label="Página siguiente"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange?.(page + 1)}
-          className={navButtonClass}
-        >
-          <WarehousePageNextIcon className="block h-[10px] w-[12.5px] shrink-0 text-[#646464]" />
-        </button>
-      </div>
-      <div className="flex items-center gap-[8px]">
-        <p className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#646464]">
-          Filas por página
-        </p>
-        {/*
-          Selector presentacional, como el resto de los controles de esta
-          iteración. El caret va posicionado —left-[31.75px] top-[11.5px] en el
-          nodo `3734:28540`— porque vive fuera de la caja del dropdown, que
-          reserva su lugar con pr-[25px].
-        */}
-        <div className="relative shrink-0">
-          <div className="flex h-[32px] w-[51px] items-center rounded-[6px] border border-solid border-[#d1d1d1] bg-white py-px pl-[11px] pr-[25px]">
-            <span className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[#646464]">
-              {pageSize}
-            </span>
-          </div>
-          <WarehouseRowsPerPageCaretIcon className="absolute left-[31.75px] top-[11.5px] block h-[9px] w-[11.25px] text-[#131313]" />
-        </div>
-      </div>
-    </div>
   );
 }
