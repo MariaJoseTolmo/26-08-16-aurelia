@@ -1,8 +1,5 @@
-import {
-  WarehousePageNextIcon,
-  WarehousePagePrevIcon,
-  WarehouseRowsPerPageCaretIcon,
-} from '../icons/WarehouseIntakeIcons';
+import { WarehouseCaretDownIcon } from '../icons/WarehouseControlIcons';
+import { WarehousePageNextIcon, WarehousePagePrevIcon } from '../icons/WarehouseIntakeIcons';
 
 /**
  * Pie de paginación de las tablas del módulo de residuos — nodos `3734:28523`
@@ -89,7 +86,8 @@ export function WasteTablePagination({
               {pageSize}
             </span>
           </div>
-          <WarehouseRowsPerPageCaretIcon className="absolute left-[31.75px] top-[11.5px] block h-[9px] w-[11.25px] text-[#131313]" />
+          {/* Mismo caret que el botón "Exportar" (`3817:58614`), en la caja de 11.25 × 9 del nodo `3734:28540`. */}
+          <WarehouseCaretDownIcon className="absolute left-[31.75px] top-[11.5px] block h-[9px] w-[11.25px] text-[#131313]" />
         </div>
       </div>
     </div>

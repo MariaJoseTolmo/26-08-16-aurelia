@@ -1,4 +1,4 @@
-import { WarehouseFormSubmitCheckIcon, WarehouseFormInfoIcon } from '../icons/WarehouseIntakeFormIcons';
+import { WarehouseFormAttachedCheckIcon, WarehouseFormInfoIcon } from '../icons/WarehouseIntakeFormIcons';
 import { WasteSecondaryActionButton } from './WasteSecondaryActionButton';
 
 /**
@@ -56,7 +56,7 @@ export function WarehouseIntakeFormActions({ canSubmit, onCancel, notice }: Ware
             >
               Registrar ingreso
             </span>
-            <WarehouseFormSubmitCheckIcon
+            <WarehouseFormAttachedCheckIcon
               className={`block h-[12px] w-[15px] shrink-0 ${canSubmit ? 'text-white' : 'text-[#acacac]'}`}
             />
           </button>

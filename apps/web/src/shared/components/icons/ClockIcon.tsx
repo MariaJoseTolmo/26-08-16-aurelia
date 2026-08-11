@@ -1,0 +1,31 @@
+import type { SVGProps } from 'react';
+
+/**
+ * Reloj compartido entre módulos.
+ *
+ * ES EL MISMO GLIFO que Figma exportó cuatro veces en cuatro cajas distintas, y
+ * antes vivía duplicado en cuatro componentes:
+ *
+ *   `1395:12291`  11.25 × 9    `SprAreaPendingReviewClockIcon`
+ *   `1395:12264`  13.75 × 11   `SprAreaWaitingClockIcon`
+ *   `3686:25781`  17.5  × 14   `WarehouseClockIcon`          ← el que se conserva
+ *   `3686:25797`  15    × 12   `WarehouseDueSoonBadgeIcon`
+ *
+ * Los cuatro `path` son proporcionales entre sí con dispersión ~5e-6, o sea el
+ * mismo dibujo escalado desde el origen. El checksum NO lo detectaba: cada
+ * exportación es un archivo distinto byte a byte.
+ *
+ * Se conserva la caja más grande porque es la de mayor precisión, y como todas
+ * tienen razón 1.25 reescalar por CSS no deforma: cada llamada pasa su `h-` y `w-`.
+ *
+ * VIVE EN `shared/` porque lo usan `modules/spr` y `modules/waste`. Dejarlo en uno
+ * de los dos obligaría al otro a importar de un módulo hermano, que es la dirección
+ * que `FRONTEND_GUIDELINES.md` no quiere.
+ */
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="17.5" height="14" viewBox="0 0 17.5 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M8.75 0C10.6065 0 12.387 0.737498 13.6997 2.05025C15.0125 3.36301 15.75 5.14348 15.75 7C15.75 8.85652 15.0125 10.637 13.6997 11.9497C12.387 13.2625 10.6065 14 8.75 14C6.89348 14 5.11301 13.2625 3.80025 11.9497C2.4875 10.637 1.75 8.85652 1.75 7C1.75 5.14348 2.4875 3.36301 3.80025 2.05025C5.11301 0.737498 6.89348 0 8.75 0ZM8.09375 3.28125V7C8.09375 7.21875 8.20312 7.42383 8.38633 7.54688L11.0113 9.29688C11.3121 9.49922 11.7195 9.41719 11.9219 9.11367C12.1242 8.81016 12.0422 8.40547 11.7387 8.20312L9.40625 6.65V3.28125C9.40625 2.91758 9.11367 2.625 8.75 2.625C8.38633 2.625 8.09375 2.91758 8.09375 3.28125Z" fill="currentColor" />
+    </svg>
+  );
+}

@@ -1,4 +1,4 @@
-import { WarehouseFormCategoryIcon } from '../icons/WarehouseIntakeFormIcons';
+import { WarehouseNonHazardousIcon } from '../icons/WarehouseTableIcons';
 import { WarehouseFormCard } from './WarehouseFormCard';
 import { WarehouseFormSelect, type WarehouseFormCatalogState } from './WarehouseFormControls';
 import { WarehouseIntakeHazardNotice } from './WarehouseIntakeHazardNotice';
@@ -49,7 +49,8 @@ export function WarehouseIntakeCategorySection({
 }: WarehouseIntakeCategorySectionProps) {
   return (
     <WarehouseFormCard
-      icon={<WarehouseFormCategoryIcon className="block h-[13.5px] w-[16.875px] shrink-0 text-[#131313]" />}
+      /* Mismo glifo que la pastilla "No peligroso" (`3765:42770`), en la caja de 16.875 × 13.5 del nodo `3713:26887`. */
+      icon={<WarehouseNonHazardousIcon className="block h-[13.5px] w-[16.875px] shrink-0 text-[#131313]" />}
       title={WAREHOUSE_INTAKE_CATEGORY_TITLE}
       description={WAREHOUSE_INTAKE_CATEGORY_DESCRIPTION}
     >

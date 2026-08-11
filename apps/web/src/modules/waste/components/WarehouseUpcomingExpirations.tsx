@@ -1,8 +1,5 @@
-import {
-  WarehouseClockIcon,
-  WarehouseDueSoonBadgeIcon,
-  WarehouseOverdueBadgeIcon,
-} from '../icons/WarehouseControlIcons';
+import { ClockIcon } from '../../../shared/components/icons/ClockIcon';
+import { WarehouseOverdueBadgeIcon } from '../icons/WarehouseControlIcons';
 import { EXPIRATION_KIND_STYLES, resolveExpirationKind } from '../wasteWarehouseThresholds';
 import { WarehouseSectionTitle } from './WarehouseSectionTitle';
 
@@ -60,7 +57,7 @@ export function WarehouseUpcomingExpirations({
 }: WarehouseUpcomingExpirationsProps) {
   return (
     <div className="flex w-full flex-col gap-[8px]">
-      <WarehouseSectionTitle icon={<WarehouseClockIcon className="block size-full" />}>
+      <WarehouseSectionTitle icon={<ClockIcon className="block size-full" />}>
         Próximos vencimientos
       </WarehouseSectionTitle>
 
@@ -80,7 +77,8 @@ export function WarehouseUpcomingExpirations({
 function WarehouseExpirationRow({ item, isLast }: { item: WarehouseExpirationItem; isLast: boolean }) {
   const kind = resolveExpirationKind(item.isOverdue);
   const style = EXPIRATION_KIND_STYLES[kind];
-  const Icon = kind === 'overdue' ? WarehouseOverdueBadgeIcon : WarehouseDueSoonBadgeIcon;
+  /* El de "por vencer" es el reloj compartido; el de "vencido" es otro glifo. */
+  const Icon = kind === 'overdue' ? WarehouseOverdueBadgeIcon : ClockIcon;
 
   return (
     <div

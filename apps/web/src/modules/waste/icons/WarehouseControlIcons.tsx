@@ -21,7 +21,7 @@ export function WarehouseExportIcon(props: IconProps) {
 }
 
 // Caret del botón "Exportar". Figma node 3817:58614. Fill original: #131313.
-export function WarehouseExportCaretIcon(props: IconProps) {
+export function WarehouseCaretDownIcon(props: IconProps) {
   return (
     <svg width="12.5" height="10" viewBox="0 0 12.5 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
       <path d="M5.81006 7.94092C6.0542 8.18506 6.45068 8.18506 6.69482 7.94092L10.4448 4.19092C10.689 3.94678 10.689 3.55029 10.4448 3.30615C10.2007 3.06201 9.8042 3.06201 9.56006 3.30615L6.25146 6.61475L2.94287 3.30811C2.69873 3.06396 2.30225 3.06396 2.05811 3.30811C1.81396 3.55225 1.81396 3.94873 2.05811 4.19287L5.80811 7.94287L5.81006 7.94092Z" fill="currentColor" />
@@ -47,15 +47,6 @@ export function WarehouseCalendarIcon(props: IconProps) {
   );
 }
 
-// Título "Próximos vencimientos". Figma node 3686:25781. Fill original: #131313.
-export function WarehouseClockIcon(props: IconProps) {
-  return (
-    <svg width="17.5" height="14" viewBox="0 0 17.5 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M8.75 0C10.6065 0 12.387 0.737498 13.6997 2.05025C15.0125 3.36301 15.75 5.14348 15.75 7C15.75 8.85652 15.0125 10.637 13.6997 11.9497C12.387 13.2625 10.6065 14 8.75 14C6.89348 14 5.11301 13.2625 3.80025 11.9497C2.4875 10.637 1.75 8.85652 1.75 7C1.75 5.14348 2.4875 3.36301 3.80025 2.05025C5.11301 0.737498 6.89348 0 8.75 0ZM8.09375 3.28125V7C8.09375 7.21875 8.20312 7.42383 8.38633 7.54688L11.0113 9.29688C11.3121 9.49922 11.7195 9.41719 11.9219 9.11367C12.1242 8.81016 12.0422 8.40547 11.7387 8.20312L9.40625 6.65V3.28125C9.40625 2.91758 9.11367 2.625 8.75 2.625C8.38633 2.625 8.09375 2.91758 8.09375 3.28125Z" fill="currentColor" />
-    </svg>
-  );
-}
-
 // Alerta del lote vencido. Figma node 3686:25788. Fill original: #BD3B5B.
 export function WarehouseOverdueBadgeIcon(props: IconProps) {
   return (
@@ -65,11 +56,3 @@ export function WarehouseOverdueBadgeIcon(props: IconProps) {
   );
 }
 
-// Reloj del lote por vencer. Figma node 3686:25797. Fill original: #E8720C.
-export function WarehouseDueSoonBadgeIcon(props: IconProps) {
-  return (
-    <svg width="15" height="12" viewBox="0 0 15 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M7.5 0C9.0913 0 10.6174 0.632141 11.7426 1.75736C12.8679 2.88258 13.5 4.4087 13.5 6C13.5 7.5913 12.8679 9.11742 11.7426 10.2426C10.6174 11.3679 9.0913 12 7.5 12C5.9087 12 4.38258 11.3679 3.25736 10.2426C2.13214 9.11742 1.5 7.5913 1.5 6C1.5 4.4087 2.13214 2.88258 3.25736 1.75736C4.38258 0.632141 5.9087 0 7.5 0ZM6.9375 2.8125V6C6.9375 6.1875 7.03125 6.36328 7.18828 6.46875L9.43828 7.96875C9.69609 8.14219 10.0453 8.07187 10.2188 7.81172C10.3922 7.55156 10.3219 7.20469 10.0617 7.03125L8.0625 5.7V2.8125C8.0625 2.50078 7.81172 2.25 7.5 2.25C7.18828 2.25 6.9375 2.50078 6.9375 2.8125Z" fill="currentColor" />
-    </svg>
-  );
-}

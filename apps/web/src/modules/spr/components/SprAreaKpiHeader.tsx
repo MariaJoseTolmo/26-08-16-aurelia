@@ -1,4 +1,4 @@
-import { SprAreaWaitingClockIcon } from '../icons/SprIcons';
+import { ClockIcon } from '../../../shared/components/icons/ClockIcon';
 import { SPR_ACTIVE_CYCLE, SPR_AREA_REVIEW } from '../spr.constants';
 
 interface SprAreaKpiHeaderProps {
@@ -64,7 +64,7 @@ export function SprAreaKpiHeader({
             label="Estado del área"
             value={
               <span className="inline-flex items-center gap-[5px]">
-                <SprAreaWaitingClockIcon className="h-[11px] w-[13.75px] shrink-0 text-[#463100]" />
+                <ClockIcon className="h-[11px] w-[13.75px] shrink-0 text-[#463100]" />
                 {SPR_AREA_REVIEW.areaStatusLabel}
               </span>
             }

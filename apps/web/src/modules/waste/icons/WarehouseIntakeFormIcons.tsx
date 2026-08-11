@@ -20,15 +20,6 @@ type IconProps = SVGProps<SVGSVGElement>;
  * Son dos glifos distintos, no el mismo en otro tamaño.
  */
 
-// Encabezado "Categoría y residuo específico". Figma node 3713:26887. Fill original: #131313.
-export function WarehouseFormCategoryIcon(props: IconProps) {
-  return (
-    <svg width="16.875" height="13.5" viewBox="0 0 16.875 13.5" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M4.33213 1.6875L3.65713 5.0625H1.47656C1.12588 5.0625 0.84375 4.78037 0.84375 4.42969V4.32158C0.84375 4.25303 0.854297 4.18711 0.875391 4.12119L1.54248 2.11992C1.62949 1.86152 1.87207 1.6875 2.14365 1.6875H4.33213ZM4.94912 5.0625L5.62412 1.6875H7.80469V5.0625H4.94912ZM9.07031 1.6875H11.2509L11.9259 5.0625H9.07031V1.6875ZM12.5429 1.6875H14.7313C15.0029 1.6875 15.2455 1.86152 15.3325 2.11992L15.9996 4.12119C16.0207 4.18447 16.0312 4.25303 16.0312 4.32158V4.42969C16.0312 4.78037 15.7491 5.0625 15.3984 5.0625H13.2179L12.5429 1.6875ZM1.52139 6.32812H15.3563C15.3457 6.3835 15.0056 8.26348 14.3306 11.9628C14.2515 12.3926 13.8586 12.6905 13.4235 12.651C12.9885 12.6114 12.6562 12.2502 12.6562 11.8125V11.3906H4.21875V11.8125C4.21875 12.2502 3.88652 12.6141 3.45146 12.6536C3.01641 12.6932 2.62354 12.3926 2.54443 11.9628C1.87207 8.26084 1.5293 6.3835 1.52139 6.32812Z" fill="currentColor" />
-    </svg>
-  );
-}
-
 // Encabezado "Datos del lote". Figma node 3713:26851. Fill original: #131313.
 export function WarehouseFormLotIcon(props: IconProps) {
   return (
@@ -111,11 +102,3 @@ export function WarehouseFormCloseIcon(props: IconProps) {
   );
 }
 
-// Check del botón "Registrar ingreso". Figma node 3565:3036. Fill original: #ACACAC.
-export function WarehouseFormSubmitCheckIcon(props: IconProps) {
-  return (
-    <svg width="15" height="12" viewBox="0 0 15 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
-      <path d="M12.4406 1.64297C12.7758 1.88672 12.8508 2.35547 12.607 2.69063L6.60703 10.9406C6.47813 11.1188 6.27891 11.2289 6.05859 11.2477C5.83828 11.2664 5.625 11.1844 5.47031 11.0297L2.47031 8.02969C2.17734 7.73672 2.17734 7.26094 2.47031 6.96797C2.76328 6.675 3.23906 6.675 3.53203 6.96797L5.91094 9.34688L11.3953 1.80703C11.6391 1.47187 12.1078 1.39688 12.443 1.64063L12.4406 1.64297Z" fill="currentColor" />
-    </svg>
-  );
-}

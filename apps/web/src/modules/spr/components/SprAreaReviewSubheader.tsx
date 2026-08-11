@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { SprAreaPendingReviewClockIcon, SprTraceabilityIcon } from '../icons/SprIcons';
+import { ClockIcon } from '../../../shared/components/icons/ClockIcon';
+import { SprTraceabilityIcon } from '../icons/SprIcons';
 import { SPR_AREA_REVIEW } from '../spr.constants';
 import { SPR_CYCLE_TRACEABILITY_ROUTE } from '../sprCycleTraceability.constants';
 import { SprHistoricalRangeBadge } from './SprHistoricalRangeBadge';
@@ -13,7 +14,7 @@ interface SprAreaReviewSubheaderProps {
 function SprPendingReviewBadge() {
   return (
     <div className="flex items-center gap-[3px] rounded-[5px] bg-[#ffeab8] px-[7px] py-[2px]">
-      <SprAreaPendingReviewClockIcon className="h-[9px] w-[11.25px] shrink-0 text-[#463100]" />
+      <ClockIcon className="h-[9px] w-[11.25px] shrink-0 text-[#463100]" />
       <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[10px] font-bold leading-[normal] text-[#463100]">
         {SPR_AREA_REVIEW.pendingReviewBadge}
       </p>

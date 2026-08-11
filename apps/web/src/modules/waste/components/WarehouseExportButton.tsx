@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WasteExportFormat } from '../../../shared/services/waste-warehouse-export.service';
-import { WarehouseExportCaretIcon, WarehouseExportIcon } from '../icons/WarehouseControlIcons';
+import { WarehouseCaretDownIcon, WarehouseExportIcon } from '../icons/WarehouseControlIcons';
 
 /**
  * Botón "Exportar" del módulo de residuos — nodos `3817:58610` (Control de
@@ -98,7 +98,7 @@ export function WarehouseExportButton({
         <span className="whitespace-nowrap text-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[#333333]">
           {exporting ? BUSY_LABELS[exporting] : 'Exportar'}
         </span>
-        <WarehouseExportCaretIcon className="block h-[10px] w-[12.5px] shrink-0 text-[#131313]" />
+        <WarehouseCaretDownIcon className="block h-[10px] w-[12.5px] shrink-0 text-[#131313]" />
       </button>
 
       {menuOpen ? (
