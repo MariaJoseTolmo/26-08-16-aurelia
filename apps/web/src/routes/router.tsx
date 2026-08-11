@@ -19,6 +19,7 @@ import { WarehouseIntakePage } from '../modules/waste/WarehouseIntakePage';
 import { WarehouseIntakeFormPage } from '../modules/waste/WarehouseIntakeFormPage';
 import { WasteWithdrawalRequestPage } from '../modules/waste/WasteWithdrawalRequestPage';
 import { WasteWithdrawalFormPage } from '../modules/waste/WasteWithdrawalFormPage';
+import { WasteSidrepDocumentsPage } from '../modules/waste/WasteSidrepDocumentsPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
       { path: 'waste/ingresos-bodega/nuevo', element: <WarehouseIntakeFormPage /> },
       { path: 'waste/solicitud-retiro', element: <WasteWithdrawalRequestPage /> },
       { path: 'waste/solicitud-retiro/nueva', element: <WasteWithdrawalFormPage /> },
+      { path: 'waste/solicitud-retiro/nueva/sidrep', element: <WasteSidrepDocumentsPage /> },
       { path: 'incidents', element: <IncidentsPage /> },
       { path: 'critical-controls', element: <CriticalControlsPage /> },
       { path: 'reports', element: <ReportsPage /> },
