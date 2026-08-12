@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BellIcon } from '../../shared/components/icons/BellIcon';
 import {
   SprConfirmSendIcon,
   SprHistoricalAlertIcon,
   SprInfoCircleIcon,
-  SprProcessStatusBellIcon,
   SprProcessStatusRejectedIcon,
   SprTraceabilityIcon,
 } from './icons/SprIcons';
@@ -469,7 +469,7 @@ export function SprReportAreaView({ areaName, detail, backHref = '/spr/reporte' 
               title="Pendiente de integración con notificaciones al Gerente"
               className="flex h-[27px] items-center gap-[5px] rounded-[6px] border border-[#e3e3e3] bg-white px-[12px] font-['Inter:Semi_Bold',sans-serif] text-[10.5px] font-semibold text-[#646464]"
             >
-              <SprProcessStatusBellIcon className="text-[#646464]" />
+              <BellIcon className="text-[#646464]" />
               {detail.reminderLabel}
             </button>
           ) : null}

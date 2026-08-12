@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BellIcon } from '../../shared/components/icons/BellIcon';
 import {
   SPR_CYCLE_TRACEABILITY,
   SPR_CYCLE_TRACEABILITY_FILTER_OPTIONS,
@@ -12,7 +13,6 @@ import {
 } from './sprCycleTraceability.constants';
 import {
   SprProcessStatusApprovedIcon,
-  SprProcessStatusBellIcon,
   SprProcessStatusDocumentIcon,
   SprProcessStatusRejectedIcon,
   SprWarningTriangleIcon,
@@ -33,7 +33,7 @@ function TraceabilityNodeIcon({ tone }: { tone: SprCycleTraceabilityEventTone })
   if (tone === 'rejection') return <SprProcessStatusRejectedIcon className="h-[8px] w-[10px]" />;
   if (tone === 'alert') return <SprWarningTriangleIcon className="h-[8px] w-[8px]" />;
   if (tone === 'pending') return <span className="text-[9px] font-bold leading-none">…</span>;
-  return <SprProcessStatusBellIcon className="h-[8px] w-[10px]" />;
+  return <BellIcon className="h-[8px] w-[10px]" />;
 }
 
 function LegendIcon({ tone }: { tone: SprCycleTraceabilityEventTone }) {
@@ -49,7 +49,7 @@ function PhaseDivider({ label }: { label: string }) {
     <div className="flex items-center gap-[12px] py-[24px]">
       <div className="h-px flex-1 bg-[#e3e3e3]" />
       <div className="flex items-center gap-[7px] rounded-[4px] border border-[#e3e3e3] bg-white px-[14px] py-[5px]">
-        <SprProcessStatusBellIcon className="h-[10px] w-[12.5px] text-[#24588b]" />
+        <BellIcon className="h-[10px] w-[12.5px] text-[#24588b]" />
         <p className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold text-[#001e39]">
           {label}
         </p>

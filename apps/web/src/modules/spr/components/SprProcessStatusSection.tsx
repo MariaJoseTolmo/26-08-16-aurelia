@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from 'react';
+import { BellIcon } from '../../../shared/components/icons/BellIcon';
 import {
   SprProcessStatusApprovedIcon,
-  SprProcessStatusBellIcon,
   SprProcessStatusClipboardCheckIcon,
   SprProcessStatusDocumentIcon,
   SprProcessStatusDoubleCheckIcon,
@@ -408,7 +408,7 @@ export function SprProcessStatusSection({
     <div className="w-full overflow-hidden rounded-[9px] border border-[#e3e3e3] bg-white">
       <div className="border-b border-[#e3e3e3] px-[14px] py-[10px]">
         <div className="flex items-center gap-[7px]">
-          <SprProcessStatusBellIcon className="h-[12px] w-[15px] shrink-0 text-[#24588b]" />
+          <BellIcon className="h-[12px] w-[15px] shrink-0 text-[#24588b]" />
           <p className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#001e39]">Estatus del proceso</p>
         </div>
       </div>
