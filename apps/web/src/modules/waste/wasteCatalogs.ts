@@ -155,6 +155,18 @@ export const WASTE_TYPE_CATALOG: WasteTypeCatalogEntry[] = [
  * así que el orden del espejo y el de la API coinciden en los residuos y pueden
  * diferir en las categorías. Se acepta: es un espejo con fecha de vencimiento.
  */
+/**
+ * Categoría del catálogo a la que pertenece un residuo, o `null` si el nombre no
+ * está en el maestro.
+ *
+ * Existe para no repetir la relación residuo→categoría en ningún otro lado: en el
+ * catálogo la categoría cuelga del residuo, así que derivarla es más seguro que
+ * guardarla dos veces y arriesgar que se desalineen.
+ */
+export function resolveWasteTypeCategory(wasteTypeName: string): string | null {
+  return WASTE_TYPE_CATALOG.find((entry) => entry.name === wasteTypeName)?.category ?? null;
+}
+
 export const WASTE_CATEGORY_OPTIONS: WasteOption[] = distinctOptions([...WASTE_CATEGORY_NAMES]);
 export const WASTE_UNIT_OPTIONS: WasteOption[] = distinctOptions([...WASTE_UNIT_NAMES]);
 export const WASTE_TYPE_OPTIONS: WasteOption[] = distinctOptions(

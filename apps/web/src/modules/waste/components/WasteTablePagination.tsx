@@ -21,7 +21,7 @@ interface WasteTablePaginationProps {
   page: number;
   totalPages: number;
   pageSize: number;
-  /** Filas que se están mostrando en esta página. */
+  /** Filas del conjunto COMPLETO, no de esta página. */
   totalRows: number;
   onPageChange?: (page: number) => void;
 }
@@ -34,7 +34,12 @@ export function WasteTablePagination({
   onPageChange,
 }: WasteTablePaginationProps) {
   const firstRow = totalRows === 0 ? 0 : (page - 1) * pageSize + 1;
-  const lastRow = totalRows === 0 ? 0 : firstRow + totalRows - 1;
+  /*
+   * El último es el fin de la PÁGINA acotado por el total, no `first + totalRows`:
+   * con 11 filas y 10 por página el nodo `3817:55609` dice "Mostrando 1–10 de 11
+   * datos", y sumar el total daba "1–11 de 11".
+   */
+  const lastRow = totalRows === 0 ? 0 : Math.min(firstRow + pageSize - 1, totalRows);
   const navButtonClass =
     'flex size-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-[6px] border border-solid border-[#e3e3e3] bg-white px-[9px] py-px transition-opacity disabled:opacity-35';
 

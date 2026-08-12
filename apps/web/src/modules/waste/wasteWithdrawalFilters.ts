@@ -68,8 +68,14 @@ export const EMPTY_WASTE_WITHDRAWAL_FILTERS: WasteWithdrawalFilters = {
   status: null,
 };
 
-/** Orden de los estados en el selector: el informativo primero, como en el nodo. */
-const STATUS_ORDER: WasteWithdrawalStatus[] = ['informational', 'closed'];
+/**
+ * Orden de los estados en el selector.
+ *
+ * Sigue el ciclo del retiro y no el alfabeto: un peligroso recién enviado queda
+ * `pending`, y termina `closed` cuando Medio Ambiente aprueba y emite el folio. El
+ * informativo va primero porque es el de los no peligrosos, que no pasan por ahí.
+ */
+const STATUS_ORDER: WasteWithdrawalStatus[] = ['informational', 'pending', 'closed'];
 
 /**
  * `2026-07-15` → `15-07-26`. Devuelve la entrada intacta si no es ISO.

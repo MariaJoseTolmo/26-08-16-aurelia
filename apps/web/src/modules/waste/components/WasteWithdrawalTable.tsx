@@ -7,12 +7,15 @@ import {
   type WasteWithdrawalFilters,
   type WasteWithdrawalSelectFilterKey,
 } from '../wasteWithdrawalFilters';
-import type { WasteWithdrawalRow } from '../wasteWithdrawalRows';
+import {
+  WASTE_WITHDRAWAL_FOLIO_PENDING_LABEL,
+  type WasteWithdrawalRow,
+} from '../wasteWithdrawalRows';
 import { WarehouseMonthFilterField } from './WarehouseMonthFilterField';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
 import { WarehouseTextFilterField } from './WarehouseTextFilterField';
 import { WasteTablePagination } from './WasteTablePagination';
-import { WasteWithdrawalStatusBadge } from './WasteWithdrawalStatusBadge';
+import { WasteWithdrawalPill, WasteWithdrawalStatusBadge } from './WasteWithdrawalStatusBadge';
 
 /**
  * Tabla de "Solicitud de retiro" — nodo Figma `3817:55311` (columnas en
@@ -58,6 +61,10 @@ import { WasteWithdrawalStatusBadge } from './WasteWithdrawalStatusBadge';
  *   11.5px #646464 (`3817:55544`). El nodo centra ambas.
  * - "ESTADO" dibuja `WasteWithdrawalStatusBadge`, que NO es la pastilla de
  *   peligrosidad con otros colores. Ver la nota de ese archivo.
+ *
+ * El nodo `3765:40905` agrega el estado `pending`, que toca las DOS columnas: el
+ * estado muestra "Pendiente" y el folio pasa a la pastilla "A espera de aprobación"
+ * en vez de "No aplica".
  */
 
 interface WasteWithdrawalColumnBase {
@@ -123,6 +130,11 @@ interface WasteWithdrawalTableProps {
   page?: number;
   totalPages?: number;
   pageSize?: number;
+  /**
+   * Filas del conjunto COMPLETO, no de esta página. El pie las necesita para decir
+   * "Mostrando 1–10 de 11 datos"; `rows` ya viene recortada a la página.
+   */
+  totalRows?: number;
   onPageChange?: (page: number) => void;
 }
 
@@ -135,6 +147,7 @@ export function WasteWithdrawalTable({
   page = 1,
   totalPages = 1,
   pageSize = 10,
+  totalRows,
   onPageChange,
 }: WasteWithdrawalTableProps) {
   return (
@@ -203,7 +216,7 @@ export function WasteWithdrawalTable({
         page={page}
         totalPages={totalPages}
         pageSize={pageSize}
-        totalRows={rows.length}
+        totalRows={totalRows ?? rows.length}
         onPageChange={onPageChange}
       />
     </div>
@@ -273,8 +286,16 @@ function WasteWithdrawalTableRow({ row }: { row: WasteWithdrawalRow }) {
         el "No aplica" en 11.5px #646464.
       */}
       <td className={`${CELL_CLASS} ${CELL_COLOR} text-center`}>
+        {/*
+          TRES estados, no dos. Con folio se muestra el folio; en `pending` va la
+          pastilla ámbar del nodo `3817:55964`, porque todavía no hay folio pero
+          tampoco es que no aplique; y recién si no es ninguno de los dos aparece
+          el "No aplica" de `3817:55544`.
+        */}
         {row.sidrepFolio ? (
           row.sidrepFolio
+        ) : row.status === 'pending' ? (
+          <WasteWithdrawalPill tone="amber">{WASTE_WITHDRAWAL_FOLIO_PENDING_LABEL}</WasteWithdrawalPill>
         ) : (
           <span className="text-[11.5px] text-[#646464]">No aplica</span>
         )}

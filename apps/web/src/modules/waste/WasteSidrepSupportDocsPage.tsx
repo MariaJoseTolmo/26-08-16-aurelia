@@ -10,6 +10,8 @@ import { WasteSidrepRequiredDocsSection } from './components/WasteSidrepRequired
 import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepVehiclePhotosSection } from './components/WasteSidrepVehiclePhotosSection';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
+import { resolveDisposalSiteLabel } from './wasteSidrepForm';
+import { createPendingWithdrawalRow } from './wasteWithdrawalRows';
 import {
   createWasteSidrepSupportDocsValues,
   isWasteSidrepSupportDocsComplete,
@@ -48,11 +50,30 @@ import {
 export function WasteSidrepSupportDocsPage() {
   const navigate = useNavigate();
   const draft = useWasteWithdrawalDraftStore((state) => state.draft);
+  const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
+  const submitDraft = useWasteWithdrawalDraftStore((state) => state.submitDraft);
   const [values, setValues] = useState<WasteSidrepSupportDocsValues>(
     createWasteSidrepSupportDocsValues,
   );
+  /**
+   * `new Date()` es impuro en render: se resuelve una sola vez al montar, igual que
+   * en el resto del módulo. Fecha del retiro de la fila temporal.
+   */
+  const [today] = useState(() => new Date());
+  const [submitted, setSubmitted] = useState(false);
 
-  /* Mismo guard que el paso 1: sin borrador no hay resumen que mostrar. */
+  /*
+   * SALIDA POR ENVÍO, Y VA ANTES DEL GUARD DEL BORRADOR.
+   *
+   * `submitDraft` limpia el borrador, así que después de enviar este paso se
+   * vuelve a renderizar con `draft === null` y el guard de abajo lo leería como
+   * "entró sin borrador", mandándolo al inicio del flujo. Las dos salidas compiten
+   * por el mismo render y gana la que se evalúa primero, así que la del envío se
+   * declara acá arriba en vez de resolverse con un `navigate` imperativo.
+   */
+  if (submitted) return <Navigate to="/waste/solicitud-retiro" replace />;
+
+  /* Sin borrador no hay resumen que mostrar: se vuelve al inicio del flujo. */
   if (!draft?.lot) return <Navigate to="/waste/solicitud-retiro/nueva" replace />;
 
   const canContinue = isWasteSidrepSupportDocsComplete(values);
@@ -63,6 +84,37 @@ export function WasteSidrepSupportDocsPage() {
 
   function handlePhotoChange(key: SidrepVehicleViewKey, file: File | null) {
     setValues((current) => ({ ...current, photos: { ...current.photos, [key]: file } }));
+  }
+
+  /**
+   * Cierra el envío y vuelve al histórico, que es donde aparece la fila temporal y
+   * el aviso (nodo `3765:40905`).
+   *
+   * ─────────────────────────────────────────────────────────────────────────────
+   * PROVISORIO: ESTE NO ES SU LUGAR DEFINITIVO
+   *
+   * El botón que envía es "Enviar solicitud" del paso 3 ("Revisión y envío"), que
+   * todavía no tiene nodo de Figma. Hasta que exista, el envío se dispara desde el
+   * "Continuar" del paso 2 para poder recorrer el flujo de punta a punta.
+   *
+   * Cuando llegue el paso 3, esto se mueve tal cual: `submitDraft` y
+   * `createPendingWithdrawalRow` no cambian, solo cambia quién los llama. Este
+   * `onContinue` vuelve a ser una navegación.
+   * ─────────────────────────────────────────────────────────────────────────────
+   */
+  function handleSubmit() {
+    if (!draft?.lot) return;
+
+    submitDraft(
+      createPendingWithdrawalRow({
+        lot: draft.lot,
+        quantity: draft.quantity,
+        recipient: resolveDisposalSiteLabel(sidrep?.disposalSite ?? null),
+        today,
+      }),
+    );
+    // La redirección la hace el guard de arriba, no un `navigate` acá: ver su nota.
+    setSubmitted(true);
   }
 
   return (
@@ -89,13 +141,15 @@ export function WasteSidrepSupportDocsPage() {
               </div>
             </div>
             {/*
-              "Continuar" queda SIN handler: el paso 3 ("Revisión y envío") es otro
-              nodo, todavía pendiente. "Volver a selección de residuo" es el rótulo
-              del nodo `4278:21347`, así que vuelve al inicio del flujo y no al paso 1.
+              "Volver a selección de residuo" es el rótulo del nodo `4278:21347`, así
+              que vuelve al inicio del flujo y no al paso 1.
+
+              "Continuar" envía la solicitud PROVISORIAMENTE — ver `handleSubmit`.
             */}
             <WasteSidrepFormActions
               canContinue={canContinue}
               onBack={() => navigate('/waste/solicitud-retiro/nueva')}
+              onContinue={handleSubmit}
             />
           </div>
         }

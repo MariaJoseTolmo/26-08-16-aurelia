@@ -17,8 +17,24 @@ import { WASTE_MONTH_SHORT_LABELS } from './wasteMonthFilter';
 
 export interface WasteWithdrawableLot {
   id: string;
-  /** Residuo específico. Nodo `3765:40610`. */
+  /**
+   * Residuo específico con el nombre CORTO que dibuja el modal. Nodo `3765:40610`
+   * escribe "Aceite usado", no el `name` completo del catálogo.
+   */
   wasteType: string;
+  /**
+   * `name` del residuo en `wasteCatalogs` ("Aceite usado / Aceites minerales
+   * usados").
+   *
+   * EXISTE PORQUE LOS DOS NOMBRES NO SON EL MISMO. La tabla del listado filtra con
+   * las alternativas del catálogo, así que una fila creada desde un lote tiene que
+   * llevar el nombre largo o su propio filtro no la encontraría. De acá también se
+   * deriva la categoría, que en el catálogo cuelga del residuo.
+   *
+   * Cuando exista el endpoint esto es un `wasteTypeId` y los dos rótulos se
+   * resuelven del maestro; hoy son dos strings que hay que mantener alineados.
+   */
+  wasteTypeName: string;
   /**
    * Sigla de la categoría que va en la pastilla: RESPEL, LODOS, GRASAS.
    *
@@ -50,6 +66,11 @@ export interface WasteWithdrawableLot {
   availableQuantity: string;
   /** Unidad en plural para el rótulo: "contenedores", "m³". Nodo `3765:40620`. */
   unitLabel: string;
+  /**
+   * `name` de la unidad en el catálogo ("Contenedor", "Metro cúbico"). Mismo motivo
+   * que `wasteTypeName`: `unitLabel` es display en plural, esto es el dato.
+   */
+  unitName: string;
 }
 
 /**
@@ -130,23 +151,23 @@ export function filterWithdrawableLots(lots: WasteWithdrawableLot[], query: stri
  */
 const SAMPLE_LOTS = [
   // Las cuatro filas del nodo `3765:40585`.
-  { dayOffset: -12, wasteType: 'Aceite usado', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 0.4, availableQuantity: '4', unitLabel: 'contenedores' },
-  { dayOffset: -158, wasteType: 'Baterías de plomo', categoryCode: 'RESPEL', isHazardous: true, origin: 'Plataforma 18', elapsedMonths: 5.2, availableQuantity: '4', unitLabel: 'contenedores' },
-  { dayOffset: -37, wasteType: 'Lodos de planta de tratamiento', categoryCode: 'LODOS', isHazardous: false, origin: 'PTAS Barrio Cívico', elapsedMonths: null, availableQuantity: '30', unitLabel: 'm³' },
-  { dayOffset: -9, wasteType: 'Mezclas de grasas y aceites', categoryCode: 'GRASAS', isHazardous: false, origin: 'Plataforma 18', elapsedMonths: null, availableQuantity: '25', unitLabel: 'm³' },
+  { dayOffset: -12, wasteType: 'Aceite usado', wasteTypeName: 'Aceite usado / Aceites minerales usados', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 0.4, availableQuantity: '4', unitLabel: 'contenedores', unitName: 'Contenedor' },
+  { dayOffset: -158, wasteType: 'Baterías de plomo', wasteTypeName: 'Baterías de plomo', categoryCode: 'RESPEL', isHazardous: true, origin: 'Plataforma 18', elapsedMonths: 5.2, availableQuantity: '4', unitLabel: 'contenedores', unitName: 'Contenedor' },
+  { dayOffset: -37, wasteType: 'Lodos de planta de tratamiento', wasteTypeName: 'Lodos del tratamiento de aguas residuales urbanas / PTAS', categoryCode: 'LODOS', isHazardous: false, origin: 'PTAS Barrio Cívico', elapsedMonths: null, availableQuantity: '30', unitLabel: 'm³', unitName: 'Metro cúbico' },
+  { dayOffset: -9, wasteType: 'Mezclas de grasas y aceites', wasteTypeName: 'Mezclas de grasas y aceites (separación agua/sustancias aceitosas)', categoryCode: 'GRASAS', isHazardous: false, origin: 'Plataforma 18', elapsedMonths: null, availableQuantity: '25', unitLabel: 'm³', unitName: 'Metro cúbico' },
   // Peligrosos: llevan plazo, así que muestran meses en bodega.
-  { dayOffset: -64, wasteType: 'Filtros de aceite', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 2.1, availableQuantity: '12', unitLabel: 'unidades' },
-  { dayOffset: -21, wasteType: 'Solventes halogenados', categoryCode: 'RESPEL', isHazardous: true, origin: 'Centro Consolidado de Residuos', elapsedMonths: 0.7, availableQuantity: '3', unitLabel: 'tambores' },
-  { dayOffset: -95, wasteType: 'Envases contaminados', categoryCode: 'RESPEL', isHazardous: true, origin: 'Bodega repuestos', elapsedMonths: 3.1, availableQuantity: '48', unitLabel: 'unidades' },
-  { dayOffset: -140, wasteType: 'Tubos fluorescentes', categoryCode: 'RESPEL', isHazardous: true, origin: 'Barrio Cívico', elapsedMonths: 4.6, availableQuantity: '120', unitLabel: 'unidades' },
-  { dayOffset: -172, wasteType: 'Sólidos contaminados con HC', categoryCode: 'RESPEL', isHazardous: true, origin: 'Depósito de Relave', elapsedMonths: 5.7, availableQuantity: '2.5', unitLabel: 'ton' },
-  { dayOffset: -46, wasteType: 'Refrigerante usado', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 1.5, availableQuantity: '6', unitLabel: 'tambores' },
-  { dayOffset: -36, wasteType: 'Chatarra eléctrica y electrónica', categoryCode: 'RESPEL', isHazardous: true, origin: 'Centro Consolidado de Residuos', elapsedMonths: 1.2, availableQuantity: '85', unitLabel: 'kg' },
-  { dayOffset: -113, wasteType: 'Tóner y cartuchos', categoryCode: 'RESPEL', isHazardous: true, origin: 'Barrio Cívico', elapsedMonths: 3.7, availableQuantity: '32', unitLabel: 'unidades' },
+  { dayOffset: -64, wasteType: 'Filtros de aceite', wasteTypeName: 'Filtros de aceite', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 2.1, availableQuantity: '12', unitLabel: 'unidades', unitName: 'Unidad' },
+  { dayOffset: -21, wasteType: 'Solventes halogenados', wasteTypeName: 'Residuos de solventes halogenados y no halogenados', categoryCode: 'RESPEL', isHazardous: true, origin: 'Centro Consolidado de Residuos', elapsedMonths: 0.7, availableQuantity: '3', unitLabel: 'tambores', unitName: 'Tambor' },
+  { dayOffset: -95, wasteType: 'Envases contaminados', wasteTypeName: 'Envases contaminados con hidrocarburos/aceites/grasas', categoryCode: 'RESPEL', isHazardous: true, origin: 'Bodega repuestos', elapsedMonths: 3.1, availableQuantity: '48', unitLabel: 'unidades', unitName: 'Unidad' },
+  { dayOffset: -140, wasteType: 'Tubos fluorescentes', wasteTypeName: 'Tubos fluorescentes, ampolletas Na-Hg y LFC', categoryCode: 'RESPEL', isHazardous: true, origin: 'Barrio Cívico', elapsedMonths: 4.6, availableQuantity: '120', unitLabel: 'unidades', unitName: 'Unidad' },
+  { dayOffset: -172, wasteType: 'Sólidos contaminados con HC', wasteTypeName: 'Sólidos contaminados con hidrocarburos', categoryCode: 'RESPEL', isHazardous: true, origin: 'Depósito de Relave', elapsedMonths: 5.7, availableQuantity: '2.5', unitLabel: 'ton', unitName: 'Tonelada' },
+  { dayOffset: -46, wasteType: 'Refrigerante usado', wasteTypeName: 'Refrigerante usado', categoryCode: 'RESPEL', isHazardous: true, origin: 'Truckshop', elapsedMonths: 1.5, availableQuantity: '6', unitLabel: 'tambores', unitName: 'Tambor' },
+  { dayOffset: -36, wasteType: 'Chatarra eléctrica y electrónica', wasteTypeName: 'Chatarra eléctrica y electrónica', categoryCode: 'RESPEL', isHazardous: true, origin: 'Centro Consolidado de Residuos', elapsedMonths: 1.2, availableQuantity: '85', unitLabel: 'kg', unitName: 'Kilogramo' },
+  { dayOffset: -113, wasteType: 'Tóner y cartuchos', wasteTypeName: 'Tóner y cartuchos de tinta de impresión', categoryCode: 'RESPEL', isHazardous: true, origin: 'Barrio Cívico', elapsedMonths: 3.7, availableQuantity: '32', unitLabel: 'unidades', unitName: 'Unidad' },
   // No peligrosos: sin plazo asociado.
-  { dayOffset: -53, wasteType: 'Chatarra ferrosa', categoryCode: 'CHATARRA', isHazardous: false, origin: 'Bodega repuestos', elapsedMonths: null, availableQuantity: '8', unitLabel: 'ton' },
-  { dayOffset: -18, wasteType: 'Madera no contaminada', categoryCode: 'MADERA', isHazardous: false, origin: 'Acceso faena', elapsedMonths: null, availableQuantity: '4.5', unitLabel: 'ton' },
-  { dayOffset: -5, wasteType: 'Residuos domésticos', categoryCode: 'RSD', isHazardous: false, origin: 'Campamento', elapsedMonths: null, availableQuantity: '320', unitLabel: 'kg' },
+  { dayOffset: -53, wasteType: 'Chatarra ferrosa', wasteTypeName: 'Chatarra (hierro y acero no galvanizados)', categoryCode: 'CHATARRA', isHazardous: false, origin: 'Bodega repuestos', elapsedMonths: null, availableQuantity: '8', unitLabel: 'ton', unitName: 'Tonelada' },
+  { dayOffset: -18, wasteType: 'Madera no contaminada', wasteTypeName: 'Madera no contaminada', categoryCode: 'MADERA', isHazardous: false, origin: 'Acceso faena', elapsedMonths: null, availableQuantity: '4.5', unitLabel: 'ton', unitName: 'Tonelada' },
+  { dayOffset: -5, wasteType: 'Residuos domésticos', wasteTypeName: 'Mezclas de residuos municipales (domésticos)', categoryCode: 'RSD', isHazardous: false, origin: 'Campamento', elapsedMonths: null, availableQuantity: '320', unitLabel: 'kg', unitName: 'Kilogramo' },
 ];
 
 export function buildWasteWithdrawableLots(today: Date): WasteWithdrawableLot[] {

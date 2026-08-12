@@ -47,6 +47,18 @@ export const WASTE_DISPOSAL_SITE_OPTIONS: WasteOption[] = [
   { value: 'relleno-til-til', label: 'Relleno Sanitario Til Til' },
 ];
 
+/**
+ * Rótulo del lugar de disposición elegido.
+ *
+ * La fila del listado muestra el DESTINATARIO, y el destinatario de un retiro es su
+ * lugar de disposición final. Mismo criterio que `resolveCarrierLabel`: la tabla
+ * necesita el rótulo, no el `value` interno.
+ */
+export function resolveDisposalSiteLabel(value: string | null): string {
+  if (!value) return '—';
+  return WASTE_DISPOSAL_SITE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 /** Tipos y tamaño que acepta la carga, del nodo `4230:10655`. */
 export const WEIGHING_TICKET_ACCEPT = 'image/png,image/jpeg,application/pdf';
 export const WEIGHING_TICKET_MAX_MB = 10;

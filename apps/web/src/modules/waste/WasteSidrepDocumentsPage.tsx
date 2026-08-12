@@ -79,6 +79,7 @@ function WasteSidrepDocumentsForm({
   lot: WasteWithdrawableLot;
 }) {
   const navigate = useNavigate();
+  const setSidrep = useWasteWithdrawalDraftStore((state) => state.setSidrep);
   const [values, setValues] = useState<WasteSidrepFormValues>(createWasteSidrepFormValues);
 
   /**
@@ -189,7 +190,15 @@ function WasteSidrepDocumentsForm({
             <WasteSidrepFormActions
               canContinue={canContinue}
               onBack={() => navigate('/waste/solicitud-retiro/nueva')}
-              onContinue={() => navigate('/waste/solicitud-retiro/nueva/sidrep/respaldos')}
+              onContinue={() => {
+                /*
+                 * Guarda antes de navegar, igual que el paso anterior: el paso 2 es
+                 * otra ruta y este `useState` se desmonta. El lugar de disposición es
+                 * lo que la fila temporal del listado muestra como DESTINATARIO.
+                 */
+                setSidrep(values);
+                navigate('/waste/solicitud-retiro/nueva/sidrep/respaldos');
+              }}
             />
           </div>
         }

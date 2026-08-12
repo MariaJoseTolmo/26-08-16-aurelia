@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
+import { Snackbar } from '../../shared/components/Snackbar';
+import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WasteWithdrawalIntro } from './components/WasteWithdrawalIntro';
@@ -43,6 +45,13 @@ import { buildWasteWithdrawalRows } from './wasteWithdrawalRows';
  * porque en el diseño son la misma cosa vista desde tres lugares, no tres juegos
  * de filtros distintos.
  */
+/** Filas por página del pie del nodo `3817:55609`. */
+const WASTE_WITHDRAWAL_PAGE_SIZE = 10;
+
+/** Texto del snackbar del nodo `3785:45722`. */
+export const WASTE_WITHDRAWAL_SUBMITTED_MESSAGE =
+  'Solicitud enviada a Medio ambiente. Se le notificará una vez que MA haya aprobado la solicitud.';
+
 export function WasteWithdrawalRequestPage() {
   /**
    * `new Date()` es impuro en render: se resuelve una sola vez al montar, igual
@@ -62,8 +71,32 @@ export function WasteWithdrawalRequestPage() {
   }));
   const [page, setPage] = useState(1);
 
-  const allRows = useMemo(() => buildWasteWithdrawalRows(today), [today]);
+  const pendingRequests = useWasteWithdrawalDraftStore((state) => state.pendingRequests);
+  const submissionNotice = useWasteWithdrawalDraftStore((state) => state.submissionNotice);
+  const dismissSubmissionNotice = useWasteWithdrawalDraftStore((state) => state.dismissSubmissionNotice);
+  /**
+   * Las solicitudes recién enviadas van ARRIBA de las de muestra, como en el nodo
+   * `3765:40905`, y pasan por los mismos filtros: una fila temporal que ignorara el
+   * período aplicado aparecería en un mes al que no pertenece.
+   */
+  const allRows = useMemo(
+    () => [...pendingRequests, ...buildWasteWithdrawalRows(today)],
+    [pendingRequests, today],
+  );
   const rows = useMemo(() => filterWithdrawalRows(allRows, filters), [allRows, filters]);
+
+  /**
+   * PAGINACIÓN REAL. El nodo `3765:40905` dice "Mostrando 1–10 de 11 datos" con dos
+   * páginas, así que la tabla recibe la PÁGINA y no el total: antes se le pasaban
+   * todas las filas y el pie mentía en cuanto pasaban de diez.
+   */
+  const totalPages = Math.max(1, Math.ceil(rows.length / WASTE_WITHDRAWAL_PAGE_SIZE));
+  /* Filtrar puede dejar la página actual fuera de rango; ahí se muestra la última. */
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * WASTE_WITHDRAWAL_PAGE_SIZE, safePage * WASTE_WITHDRAWAL_PAGE_SIZE),
+    [rows, safePage],
+  );
   const activeFilters = useMemo(
     () => buildWithdrawalFilterChips(filters, currentIsoMonth),
     [filters, currentIsoMonth],
@@ -105,15 +138,35 @@ export function WasteWithdrawalRequestPage() {
                 onNewRequest={() => navigate('/waste/solicitud-retiro/nueva')}
               />
               <WasteWithdrawalTable
-                rows={rows}
+                rows={pageRows}
                 filters={filters}
                 options={filterOptions}
                 onFilterChange={handleFilterChange}
                 today={today}
-                page={page}
+                page={safePage}
+                totalPages={totalPages}
+                pageSize={WASTE_WITHDRAWAL_PAGE_SIZE}
+                totalRows={rows.length}
                 onPageChange={setPage}
               />
             </div>
+            {/*
+              Snackbar del nodo `3785:45722`. Se emplaza al pie de la COLUMNA de
+              contenido y no de la ventana: en el nodo es hijo de `3765:41003`
+              (1060 × 801), a 24px del borde inferior. Va `fixed` con
+              `left-[220px]` —el ancho del sidebar— para que quede sobre esa columna
+              y no se mueva con el scroll de la tabla.
+
+              El nodo lo pone en `x=183.5` sobre 1060, que no es el centro exacto
+              (serían 163.5): es una colocación a mano. Se centra, que a la medida de
+              diseño son 20px de diferencia y aguanta cualquier ancho de ventana.
+            */}
+            <Snackbar
+              open={submissionNotice}
+              message={WASTE_WITHDRAWAL_SUBMITTED_MESSAGE}
+              onClose={dismissSubmissionNotice}
+              className="fixed bottom-[24px] left-[220px] right-0 z-[90] mx-auto w-[733px] max-w-[calc(100vw-260px)]"
+            />
           </div>
         }
       />
