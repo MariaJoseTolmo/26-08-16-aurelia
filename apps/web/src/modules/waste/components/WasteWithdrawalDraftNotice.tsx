@@ -90,7 +90,16 @@ export function WasteWithdrawalDraftNotice({
             `rounded-[12px]`. Es el `overflow-clip` del nodo.
           */
           className="relative flex w-full items-stretch overflow-hidden rounded-[12px] border border-solid border-[#e3e3e3] bg-white text-left hover:bg-[#fafcff]"
-          aria-label={`${WASTE_WITHDRAWAL_DRAFT_NOTICE.title}: continuar la ${WASTE_WITHDRAWAL_DRAFT_NOTICE.processName.toLowerCase()} en el paso ${progress.step} de ${progress.totalSteps}`}
+          /*
+            Sin pasos numerados el rótulo no puede decir "en el paso N de M": el
+            borrador todavía está en el formulario, o es un retiro que no pasa por
+            SIDREP. Ahí anuncia la acción, que es lo que el usuario necesita oír.
+          */
+          aria-label={
+            progress.steps
+              ? `${WASTE_WITHDRAWAL_DRAFT_NOTICE.title}: continuar la ${WASTE_WITHDRAWAL_DRAFT_NOTICE.processName.toLowerCase()} en el paso ${progress.steps.step} de ${progress.steps.totalSteps}`
+              : `${WASTE_WITHDRAWAL_DRAFT_NOTICE.title}: continuar la ${WASTE_WITHDRAWAL_DRAFT_NOTICE.processName.toLowerCase()}`
+          }
         >
           <div className="relative flex w-[219px] shrink-0 flex-col justify-center p-[14px]">
             <p className="font-['Inter:Bold',sans-serif] text-[15px] font-bold not-italic leading-[normal] text-[#131313]">
@@ -131,18 +140,24 @@ export function WasteWithdrawalDraftNotice({
                 discrepar. El nodo dibuja la barra al 38% con el rótulo en 33%
                 —`4278:15666` mide 236px sobre 621.59— y gana el número escrito, que
                 es el que se lee.
+
+                SIN PASOS NO HAY BARRA. Ver la nota de `steps` en
+                `wasteWithdrawalDraft`: dibujarla al 100% sobre un formulario
+                inconcluso diría lo contrario de lo que el aviso viene a decir.
               */}
-              <div className="flex w-full items-center gap-[8px] pt-[8px]">
-                <div className="h-[4px] min-w-px flex-1 overflow-hidden rounded-[2px] bg-[#e3e3e3]">
-                  <div
-                    className="h-[4px] rounded-[2px] bg-[#c8a064]"
-                    style={{ width: `${progress.percent}%` }}
-                  />
+              {progress.steps ? (
+                <div className="flex w-full items-center gap-[8px] pt-[8px]">
+                  <div className="h-[4px] min-w-px flex-1 overflow-hidden rounded-[2px] bg-[#e3e3e3]">
+                    <div
+                      className="h-[4px] rounded-[2px] bg-[#c8a064]"
+                      style={{ width: `${progress.steps.percent}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal] text-[#8e6e3e]">
+                    {progress.steps.percent}%
+                  </span>
                 </div>
-                <span className="shrink-0 font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal] text-[#8e6e3e]">
-                  {progress.percent}%
-                </span>
-              </div>
+              ) : null}
             </div>
 
             {/*
@@ -160,9 +175,11 @@ export function WasteWithdrawalDraftNotice({
               texto de Figma. Acá el ancho lo da el contenido —"Pasos 2/3" mide lo
               mismo que "Pasos 1/3"— y el texto va centrado.
             */}
-            <span className="absolute right-[10px] top-[11px] flex h-[18px] items-center rounded-[6px] border border-solid border-[#e8c86a] bg-[#ffeab8] px-[7px] font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal] text-[#463100]">
-              {progress.stepsLabel}
-            </span>
+            {progress.steps ? (
+              <span className="absolute right-[10px] top-[11px] flex h-[18px] items-center rounded-[6px] border border-solid border-[#e8c86a] bg-[#ffeab8] px-[7px] font-['Inter:Bold',sans-serif] text-[10px] font-bold not-italic leading-[normal] text-[#463100]">
+                {progress.steps.stepsLabel}
+              </span>
+            ) : null}
           </div>
         </button>
       </div>

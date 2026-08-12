@@ -2,7 +2,10 @@ import { WASTE_SIDREP_STEPS } from './components/WasteSidrepStepper';
 import { toIsoDate } from './wasteIntakeFilters';
 import type { WasteSidrepFormValues } from './wasteSidrepForm';
 import { formatIsoAsDdMmYy } from './wasteWithdrawalFilters';
-import type { WasteWithdrawalFormValues } from './wasteWithdrawalForm';
+import {
+  isWasteWithdrawalFormComplete,
+  type WasteWithdrawalFormValues,
+} from './wasteWithdrawalForm';
 
 /**
  * Estado BORRADOR de una solicitud de retiro y su progreso.
@@ -45,7 +48,7 @@ export const WASTE_WITHDRAWAL_DRAFT_NOTICE = {
   processName: 'Solicitud de retiro',
 } as const;
 
-export interface WasteWithdrawalDraftProgress {
+export interface WasteWithdrawalDraftSteps {
   /** Paso en curso, base 1 sobre `WASTE_SIDREP_STEPS`. */
   step: number;
   totalSteps: number;
@@ -53,8 +56,27 @@ export interface WasteWithdrawalDraftProgress {
   percent: number;
   /** "Pasos 1/3" — nodo `4278:15672`. */
   stepsLabel: string;
+}
+
+export interface WasteWithdrawalDraftProgress {
   /** Ruta del paso que falta completar, que es a donde lleva el aviso. */
   route: string;
+  /**
+   * Pasos numerados, o `null` cuando el borrador no tiene ninguno que numerar.
+   *
+   * LOS PASOS DEL AVISO SON LOS DE SIDREP, no los del formulario. El nodo `4278:15672`
+   * escribe "Pasos 1/3" y ese 3 es `WASTE_SIDREP_STEPS`, así que solo los borradores
+   * que YA entraron al flujo de documentos tienen un paso que mostrar. Quedan sin
+   * numerar dos casos:
+   *
+   *   el formulario base a medio llenar   todavía no llegó al paso 1
+   *   el retiro NO peligroso              nunca va a llegar: se registra de una
+   *
+   * En esos dos el aviso se dibuja sin barra ni pastilla. La alternativa —"Pasos 1/1"
+   * al 100%— sería una barra llena sobre un formulario inconcluso, que es lo contrario
+   * de lo que el aviso viene a decir.
+   */
+  steps: WasteWithdrawalDraftSteps | null;
 }
 
 /**
@@ -70,14 +92,26 @@ const WASTE_SIDREP_STEP_ROUTES = [
   '/waste/solicitud-retiro/nueva/sidrep/respaldos',
 ] as const;
 
+/** Ruta de la pantalla donde se llena el formulario base. */
+const WASTE_WITHDRAWAL_FORM_ROUTE = '/waste/solicitud-retiro/nueva';
+
 /**
  * Progreso del borrador en curso, o `null` si no hay ninguno.
  *
  * EL PASO SE DEDUCE DE QUÉ HAY GUARDADO, no de un contador aparte. Un contador sería
  * un segundo lugar donde vive la verdad, y bastaría con que una pantalla se olvidara
- * de incrementarlo para que el aviso llevara al paso equivocado. Acá la regla es
- * directa: hay borrador y no hay datos de traslado → falta el paso 1; ya hay datos de
- * traslado → falta el paso 2.
+ * de incrementarlo para que el aviso llevara al paso equivocado.
+ *
+ * Los tres casos, en el orden en que ocurren:
+ *
+ *   formulario base incompleto  → vuelve a `/nueva` a terminarlo, sin pasos
+ *   NO peligroso                → vuelve a `/nueva` a registrarlo, sin pasos
+ *   peligroso y completo        → paso 1 o 2 de SIDREP según haya datos de traslado
+ *
+ * QUE EL BASE INCOMPLETO VUELVA A `/nueva` NO ES UN DETALLE. Con el formulario
+ * guardándose mientras se llena, existe el borrador de alguien que eligió el lote y se
+ * fue; mandarlo al paso 1 de SIDREP lo dejaría en una pantalla cuyo propio guard lo
+ * rebota, porque le falta la cantidad y el transportista.
  *
  * El porcentaje y el rótulo salen del MISMO `step`, así que no pueden contradecirse.
  * El nodo dibuja la barra al 38% con el rótulo en 33% —es una barra puesta a mano—,
@@ -94,16 +128,23 @@ export function resolveWasteWithdrawalDraftProgress(
    */
   if (!draft?.lot) return null;
 
+  /* Sin el tronco común completo, o sin SIDREP por delante, no hay paso que numerar. */
+  if (!draft.lot.isHazardous || !isWasteWithdrawalFormComplete(draft)) {
+    return { route: WASTE_WITHDRAWAL_FORM_ROUTE, steps: null };
+  }
+
   const totalSteps = WASTE_SIDREP_STEPS.length;
   const step = sidrep ? 2 : 1;
 
   return {
-    step,
-    totalSteps,
-    percent: Math.round((step / totalSteps) * 100),
-    stepsLabel: `Pasos ${step}/${totalSteps}`,
     /* El paso 3 no tiene pantalla: cae en la última que sí existe. */
     route: WASTE_SIDREP_STEP_ROUTES[step - 1] ?? WASTE_SIDREP_STEP_ROUTES[1],
+    steps: {
+      step,
+      totalSteps,
+      percent: Math.round((step / totalSteps) * 100),
+      stepsLabel: `Pasos ${step}/${totalSteps}`,
+    },
   };
 }
 

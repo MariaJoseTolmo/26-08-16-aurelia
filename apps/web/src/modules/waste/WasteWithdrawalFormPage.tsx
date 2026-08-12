@@ -109,16 +109,30 @@ export function WasteWithdrawalFormPage() {
    * hace `WarehouseIntakeFormPage` con su formulario—.
    */
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [values, setValues] = useState<WasteWithdrawalFormValues>(createWasteWithdrawalFormValues);
+  /**
+   * RETOMA EL BORRADOR AL MONTAR. El aviso "Formulario inconcluso" promete "continúa
+   * donde lo dejaste": si esta pantalla arrancara vacía, el aviso llevaría a un
+   * formulario en blanco y la promesa sería falsa.
+   *
+   * El lector del store va en el inicializador de `useState` y no en un `useEffect`:
+   * `persist` hidrata desde `localStorage` de forma síncrona, así que el valor ya está
+   * en el primer render y no hace falta un segundo pase que pise lo que el usuario
+   * pudo haber tecleado en el medio.
+   */
+  const [values, setValues] = useState<WasteWithdrawalFormValues>(
+    () => useWasteWithdrawalDraftStore.getState().draft ?? createWasteWithdrawalFormValues(),
+  );
   /**
    * Campos del retiro NO peligroso. Van en su propio `useState` y no en `values` por
    * lo que explica `wasteWithdrawalDirectForm`: son de esta variante y el flujo SIDREP
    * no los conoce.
    */
   const [directValues, setDirectValues] = useState<WasteWithdrawalDirectValues>(
-    createWasteWithdrawalDirectValues,
+    () => useWasteWithdrawalDraftStore.getState().direct ?? createWasteWithdrawalDirectValues(),
   );
   const setDraft = useWasteWithdrawalDraftStore((state) => state.setDraft);
+  const setDirect = useWasteWithdrawalDraftStore((state) => state.setDirect);
+  const clearDraft = useWasteWithdrawalDraftStore((state) => state.clearDraft);
   const registerWithdrawal = useWasteWithdrawalDraftStore((state) => state.registerWithdrawal);
 
   const lots = useMemo(() => buildWasteWithdrawableLots(today), [today]);
@@ -132,11 +146,36 @@ export function WasteWithdrawalFormPage() {
    */
   const canRegister = isFormComplete && isWasteWithdrawalDirectComplete(directValues);
 
+  /**
+   * GUARDA EL BORRADOR EN CADA CAMBIO, no al salir.
+   *
+   * En el camino peligroso había un momento natural para guardar —"Continuar a
+   * documentos SIDREP"—, pero el retiro no peligroso se llena y se cierra en esta
+   * misma pantalla: no hay ningún otro instante en el que guardar. Y es lo que promete
+   * el aviso, que dice "guardados localmente".
+   *
+   * SOLO CON LOTE ELEGIDO. Sin lote no hay nada que retomar, y un borrador vacío haría
+   * aparecer "Formulario inconcluso" por el solo hecho de haber abierto la pantalla.
+   *
+   * El estado siguiente se calcula ANTES de los dos `set`, en vez de escribir en el
+   * store dentro del updater de `useState`: un updater tiene que ser puro, y React lo
+   * llama dos veces en desarrollo.
+   */
+  function applyValues(next: WasteWithdrawalFormValues) {
+    setValues(next);
+    if (next.lot) setDraft(next);
+  }
+
+  function applyDirectValues(next: WasteWithdrawalDirectValues) {
+    setDirectValues(next);
+    if (values.lot) setDirect(next);
+  }
+
   function updateValue<TField extends keyof WasteWithdrawalFormValues>(
     field: TField,
     value: WasteWithdrawalFormValues[TField],
   ) {
-    setValues((current) => ({ ...current, [field]: value }));
+    applyValues({ ...values, [field]: value });
   }
 
   /**
@@ -146,16 +185,17 @@ export function WasteWithdrawalFormPage() {
    * Es el mismo criterio que `handleCategoryChange` en el formulario de ingreso.
    */
   function handleLotConfirm(lot: WasteWithdrawableLot) {
-    setValues((current) => (current.lot?.id === lot.id ? current : { ...current, lot, quantity: '' }));
+    if (values.lot?.id !== lot.id) applyValues({ ...values, lot, quantity: '' });
     setPickerOpen(false);
   }
 
   /**
    * Avanza al paso 1 del flujo SIDREP.
    *
-   * Guarda el borrador ANTES de navegar: la pantalla siguiente es otra ruta, así
-   * que este `useState` se desmonta y sin el store perdería el lote, la cantidad y
-   * el transportista que su tarjeta de resumen necesita mostrar.
+   * Vuelve a guardar aunque el borrador ya esté al día por el autoguardado: es el
+   * único lugar donde el guardado es un REQUISITO —la pantalla siguiente es otra ruta
+   * y sin el store perdería el lote, la cantidad y el transportista que su tarjeta de
+   * resumen necesita— y dejarlo atado a un efecto de más arriba lo haría frágil.
    */
   function handleContinueToSidrep() {
     setDraft(values);
@@ -227,12 +267,10 @@ export function WasteWithdrawalFormPage() {
                   ) : (
                     <WasteWithdrawalDirectRegistrationSection
                       plate={directValues.plate}
-                      onPlateChange={(value) =>
-                        setDirectValues((current) => ({ ...current, plate: value }))
-                      }
+                      onPlateChange={(value) => applyDirectValues({ ...directValues, plate: value })}
                       disposalSite={directValues.disposalSite}
                       onDisposalSiteChange={(value) =>
-                        setDirectValues((current) => ({ ...current, disposalSite: value }))
+                        applyDirectValues({ ...directValues, disposalSite: value })
                       }
                       canRegister={canRegister}
                       onRegister={handleRegister}
@@ -241,7 +279,18 @@ export function WasteWithdrawalFormPage() {
                 ) : null}
               </div>
             </div>
-            <WasteWithdrawalFormActions onCancel={() => navigate('/waste/solicitud-retiro')} />
+            {/*
+              "Cancelar retiro" DESCARTA el borrador, y eso es lo que lo distingue de
+              irse por el sidebar. Cancelar es una decisión explícita de abandonar la
+              solicitud; si dejara el borrador, el aviso "Formulario inconcluso" seguiría
+              ofreciendo retomar algo que el usuario acaba de tirar.
+            */}
+            <WasteWithdrawalFormActions
+              onCancel={() => {
+                clearDraft();
+                navigate('/waste/solicitud-retiro');
+              }}
+            />
             <WasteWithdrawalLotPickerModal
               open={pickerOpen}
               lots={lots}

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { WasteWithdrawalFormValues } from '../../modules/waste/wasteWithdrawalForm';
 import type { WasteSidrepFormValues } from '../../modules/waste/wasteSidrepForm';
+import type { WasteWithdrawalDirectValues } from '../../modules/waste/wasteWithdrawalDirectForm';
 import type { WasteWithdrawalRow } from '../../modules/waste/wasteWithdrawalRows';
 
 /**
@@ -58,6 +59,15 @@ interface WasteWithdrawalDraftState {
    */
   sidrep: WasteSidrepFormValues | null;
   /**
+   * Campos del retiro NO peligroso (patente y lugar de disposición final).
+   *
+   * Viajan por acá por un motivo distinto que `sidrep`: no cruzan una ruta, sino una
+   * RECARGA. El retiro no peligroso se llena y se registra en la misma pantalla, así
+   * que sin esto "continúa donde lo dejaste" devolvería al usuario a un formulario con
+   * el lote puesto y los dos campos en blanco.
+   */
+  direct: WasteWithdrawalDirectValues | null;
+  /**
    * Cuándo se guardó por última vez, en ISO, o `null` sin borrador.
    *
    * Lo escribe el store y no la pantalla: es un dato del guardado, no del formulario,
@@ -89,6 +99,7 @@ interface WasteWithdrawalDraftState {
   submissionNotice: WasteWithdrawalNoticeKind | null;
   setDraft: (values: WasteWithdrawalFormValues) => void;
   setSidrep: (values: WasteSidrepFormValues) => void;
+  setDirect: (values: WasteWithdrawalDirectValues) => void;
   clearDraft: () => void;
   /**
    * Cierra el envío: guarda la fila temporal, prende el aviso y descarta el
@@ -127,12 +138,12 @@ interface WasteWithdrawalDraftState {
 /**
  * Borrador vacío.
  *
- * Existe como constante porque los TRES cierres tienen que limpiar los mismos tres
+ * Existe como constante porque los TRES cierres tienen que limpiar los mismos cuatro
  * campos —enviar, registrar y cancelar—, y el día que se agregue un quinto, olvidarlo
  * en uno de ellos deja un borrador huérfano que hace aparecer "Formulario inconcluso"
  * de algo ya cerrado.
  */
-const CLEARED_DRAFT = { draft: null, sidrep: null, savedAt: null } as const;
+const CLEARED_DRAFT = { draft: null, sidrep: null, direct: null, savedAt: null } as const;
 
 function prependLocalRow(
   rows: WasteWithdrawalRow[],
@@ -146,11 +157,13 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
     (set) => ({
       draft: null,
       sidrep: null,
+      direct: null,
       savedAt: null,
       pendingRequests: [],
       submissionNotice: null,
       setDraft: (values) => set({ draft: values, savedAt: new Date().toISOString() }),
       setSidrep: (values) => set({ sidrep: values, savedAt: new Date().toISOString() }),
+      setDirect: (values) => set({ direct: values, savedAt: new Date().toISOString() }),
       clearDraft: () => set({ ...CLEARED_DRAFT }),
       submitDraft: (row) =>
         set((state) => ({
@@ -184,6 +197,7 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
       partialize: (state) => ({
         draft: state.draft,
         sidrep: state.sidrep ? { ...state.sidrep, weighingTicket: null } : null,
+        direct: state.direct,
         savedAt: state.savedAt,
       }),
     },
