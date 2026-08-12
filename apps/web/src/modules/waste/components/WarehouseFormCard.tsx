@@ -28,18 +28,27 @@ import type { ReactNode } from 'react';
  * `info` es "Qué pasa después de registrar" (nodo `3713:27413`), que usa el
  * mismo azul que la pastilla "No peligroso" de las tablas (`#e6f3ff`/`#0d3862`);
  * `warning` es "Este retiro requiere el flujo completo SIDREP" (nodo
- * `3765:39060`), en `#fff0e6` con borde `#f5c4a0` y texto `#6b3a1f`.
+ * `3765:39060`), en `#fff0e6` con borde `#f5c4a0` y texto `#6b3a1f`; `success` es
+ * "Este retiro no requiere aprobación" (nodo `3785:44731`), en `#e0ffd3` con borde
+ * `#a8dfa8` y texto `#2a5c16`.
+ *
+ * `success` NO ES UN VERDE NUEVO: `#e0ffd3`/`#2a5c16` es el mismo par que SPR ya usa
+ * para sus filas "Completado" en `SprProcessStatusSection`. El borde `#a8dfa8` sí lo
+ * aporta este nodo, que es el primero que dibuja la tarjeta entera en verde.
  *
  * OJO con `warning`: el icono de su encabezado NO va del color del título. El
  * nodo `3765:39062` viene en `#E8720C` y el texto en `#6b3a1f`, así que el color
- * del icono lo pone quien lo pasa y no esta tabla.
+ * del icono lo pone quien lo pasa y no esta tabla. En `success` en cambio el icono
+ * SÍ va del color del título (`3785:44733` y `3785:44735` son los dos `#2a5c16`),
+ * pero se sigue pasando desde afuera para no partir la convención.
  */
-type WarehouseFormCardTone = 'default' | 'info' | 'warning';
+type WarehouseFormCardTone = 'default' | 'info' | 'warning' | 'success';
 
 const CARD_TONE: Record<WarehouseFormCardTone, { shell: string; title: string; description: string }> = {
   default: { shell: 'border-[#e3e3e3] bg-white', title: 'text-[#131313]', description: 'text-[#646464]' },
   info: { shell: 'border-[#c5d8f0] bg-[#e6f3ff]', title: 'text-[#0d3862]', description: 'text-[#0d3862]' },
   warning: { shell: 'border-[#f5c4a0] bg-[#fff0e6]', title: 'text-[#6b3a1f]', description: 'text-[#6b3a1f]' },
+  success: { shell: 'border-[#a8dfa8] bg-[#e0ffd3]', title: 'text-[#2a5c16]', description: 'text-[#2a5c16]' },
 };
 
 interface WarehouseFormCardProps {

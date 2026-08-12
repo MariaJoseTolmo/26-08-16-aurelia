@@ -39,6 +39,14 @@ import type { WasteWithdrawalRow } from '../../modules/waste/wasteWithdrawalRows
  * porque la solicitud podría estar ya aprobada. El segundo es un aviso de un solo
  * uso; reaparecer al recargar sería un snackbar sin causa.
  */
+/**
+ * Cuál de los dos cierres dejó el aviso pendiente.
+ *
+ *   `sidrep`  la solicitud peligrosa se envió a Medio ambiente (nodo `3785:45722`)
+ *   `direct`  el retiro no peligroso se registró de una (nodo `3785:44731`)
+ */
+export type WasteWithdrawalNoticeKind = 'sidrep' | 'direct';
+
 interface WasteWithdrawalDraftState {
   /** `null` cuando no hay una solicitud en curso. */
   draft: WasteWithdrawalFormValues | null;
@@ -69,8 +77,16 @@ interface WasteWithdrawalDraftState {
    * del listado y el arreglo desaparece.
    */
   pendingRequests: WasteWithdrawalRow[];
-  /** `true` justo después de enviar, para que el listado muestre el snackbar. */
-  submissionNotice: boolean;
+  /**
+   * Qué acción cerró el retiro, para que el listado elija el texto del snackbar, o
+   * `null` si no hay aviso pendiente.
+   *
+   * DEJÓ DE SER UN BOOLEANO cuando apareció el segundo camino: los dos terminan en el
+   * histórico con un aviso verde, pero uno dice que la solicitud viajó a Medio ambiente
+   * y el otro que el retiro quedó registrado. Con un booleano, el segundo habría
+   * mostrado el texto del primero.
+   */
+  submissionNotice: WasteWithdrawalNoticeKind | null;
   setDraft: (values: WasteWithdrawalFormValues) => void;
   setSidrep: (values: WasteSidrepFormValues) => void;
   clearDraft: () => void;
@@ -83,8 +99,46 @@ interface WasteWithdrawalDraftState {
    * acaba de mandar.
    */
   submitDraft: (row: Omit<WasteWithdrawalRow, 'id'>) => void;
+  /**
+   * Cierra un retiro NO peligroso: guarda la fila, prende SU aviso y descarta el
+   * borrador.
+   *
+   * Es una acción aparte de `submitDraft` y no un parámetro suyo porque son dos cosas
+   * distintas del negocio: una ENVÍA a Medio ambiente y la otra REGISTRA de una. Lo que
+   * las diferencia hacia afuera es justamente el texto del aviso.
+   */
+  registerWithdrawal: (row: Omit<WasteWithdrawalRow, 'id'>) => void;
   /** Apaga el snackbar. Lo llama el propio aviso al cerrarse. */
   dismissSubmissionNotice: () => void;
+}
+
+/**
+ * Agrega la fila al tope de las locales.
+ *
+ * La MÁS RECIENTE PRIMERO: es el orden del nodo `3765:40905`, que pone la solicitud
+ * recién cerrada arriba de todo. El `id` se asigna acá y no en la fábrica de filas
+ * porque depende de cuántas haya, que es algo que solo sabe el store.
+ *
+ * El prefijo es `local-` y no `pendiente-`: la fila puede quedar en "Pendiente" —si se
+ * envió a Medio ambiente— o en "Informativo" —si se registró de una—, así que un id
+ * que dijera "pendiente" mentiría en la mitad de los casos. Lo que tienen en común es
+ * ser locales, sin id del servidor.
+ */
+/**
+ * Borrador vacío.
+ *
+ * Existe como constante porque los TRES cierres tienen que limpiar los mismos tres
+ * campos —enviar, registrar y cancelar—, y el día que se agregue un quinto, olvidarlo
+ * en uno de ellos deja un borrador huérfano que hace aparecer "Formulario inconcluso"
+ * de algo ya cerrado.
+ */
+const CLEARED_DRAFT = { draft: null, sidrep: null, savedAt: null } as const;
+
+function prependLocalRow(
+  rows: WasteWithdrawalRow[],
+  row: Omit<WasteWithdrawalRow, 'id'>,
+): { pendingRequests: WasteWithdrawalRow[] } {
+  return { pendingRequests: [{ ...row, id: `local-${rows.length + 1}` }, ...rows] };
 }
 
 export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
@@ -94,26 +148,23 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
       sidrep: null,
       savedAt: null,
       pendingRequests: [],
-      submissionNotice: false,
+      submissionNotice: null,
       setDraft: (values) => set({ draft: values, savedAt: new Date().toISOString() }),
       setSidrep: (values) => set({ sidrep: values, savedAt: new Date().toISOString() }),
-      clearDraft: () => set({ draft: null, sidrep: null, savedAt: null }),
+      clearDraft: () => set({ ...CLEARED_DRAFT }),
       submitDraft: (row) =>
         set((state) => ({
-          /*
-           * La más reciente primero: es el orden del nodo, que la pone arriba de todo.
-           * El `id` se asigna acá y no en la fábrica porque depende de cuántas haya.
-           */
-          pendingRequests: [
-            { ...row, id: `pendiente-${state.pendingRequests.length + 1}` },
-            ...state.pendingRequests,
-          ],
-          submissionNotice: true,
-          draft: null,
-          sidrep: null,
-          savedAt: null,
+          ...prependLocalRow(state.pendingRequests, row),
+          ...CLEARED_DRAFT,
+          submissionNotice: 'sidrep',
         })),
-      dismissSubmissionNotice: () => set({ submissionNotice: false }),
+      registerWithdrawal: (row) =>
+        set((state) => ({
+          ...prependLocalRow(state.pendingRequests, row),
+          ...CLEARED_DRAFT,
+          submissionNotice: 'direct',
+        })),
+      dismissSubmissionNotice: () => set({ submissionNotice: null }),
     }),
     {
       /* Mismo prefijo que las claves de sesión (`aurelia_token`, `aurelia_user`). */

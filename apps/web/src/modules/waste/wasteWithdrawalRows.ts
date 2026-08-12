@@ -109,14 +109,20 @@ const SAMPLE_ROWS = [
 ];
 
 /**
- * Fila temporal de una solicitud recién enviada.
+ * Fila local de un retiro que el front acaba de cerrar y la API todavía no devuelve.
  *
- * La construye quien confirma el envío, no el store: los datos vienen repartidos
- * entre el borrador —lote, cantidad— y el paso SIDREP —lugar de disposición—, y
- * armarla afuera evita que el store tenga que conocer las dos formas.
+ * LOS DOS CAMINOS LA USAN, y ahí está el `status` como parámetro:
  *
- * El `id` lleva prefijo `pendiente-` para que no choque con los índices de las
- * muestras ni, más adelante, con los ids que devuelva la API.
+ *   peligroso     se ENVÍA a Medio ambiente  → `pending`        (nodo `3765:40905`)
+ *   no peligroso  se REGISTRA directo        → `informational`  (nodo `3785:44731`)
+ *
+ * El estado no se deduce de `lot.isHazardous` acá aunque hoy coincida: quien llama es
+ * el que sabe qué acción cerró: "Enviar solicitud" y "Registrar retiro" son dos cosas
+ * distintas, y un peligroso rechazado y devuelto tendría el mismo lote con otro estado.
+ *
+ * La construye quien confirma la acción, no el store: los datos vienen repartidos
+ * entre el borrador —lote, cantidad— y la pantalla que cierra —lugar de disposición—,
+ * y armarla afuera evita que el store tenga que conocer las dos formas.
  *
  * TRADUCE DEL LOTE AL CATÁLOGO, y esa es su razón de ser. El modal dibuja nombres
  * CORTOS —"Aceite usado", `3765:40610`— y una sigla de categoría —"RESPEL"—, pero
@@ -125,19 +131,26 @@ const SAMPLE_ROWS = [
  * Por eso toma `wasteTypeName` y `unitName` del lote y deriva la categoría del
  * maestro.
  *
+ * SIN FOLIO EN LOS DOS CASOS, y por motivos distintos: al peligroso todavía no se lo
+ * emitieron y el no peligroso no lleva. Es lo que sostiene la correlación
+ * folio ↔ estado de la tabla, donde `informational` se dibuja "No aplica".
+ *
  * NO devuelve `id`: lo asigna el store al guardarla, que es quien sabe cuántas hay.
  */
-export function createPendingWithdrawalRow({
+export function createWithdrawalRowFromLot({
   lot,
   quantity,
   recipient,
+  status,
   today,
 }: {
   lot: WasteWithdrawableLot;
   /** Cantidad a retirar confirmada, no el saldo del lote. */
   quantity: string;
-  /** Lugar de disposición final elegido en el paso SIDREP, ya como rótulo. */
+  /** Lugar de disposición final elegido, ya como rótulo. */
   recipient: string;
+  /** Qué acción cerró el retiro. */
+  status: WasteWithdrawalStatus;
   today: Date;
 }): Omit<WasteWithdrawalRow, 'id'> {
   return {
@@ -148,9 +161,8 @@ export function createPendingWithdrawalRow({
     quantity,
     unit: lot.unitName,
     recipient,
-    // Sin folio y en `pending`: es lo que sostiene la correlación de la tabla.
     sidrepFolio: null,
-    status: 'pending',
+    status,
   };
 }
 

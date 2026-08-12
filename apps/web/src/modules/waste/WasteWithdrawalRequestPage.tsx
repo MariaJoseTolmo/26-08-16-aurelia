@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { Snackbar } from '../../shared/components/Snackbar';
-import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
+import {
+  useWasteWithdrawalDraftStore,
+  type WasteWithdrawalNoticeKind,
+} from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WasteWithdrawalDraftNotice } from './components/WasteWithdrawalDraftNotice';
@@ -54,9 +57,38 @@ import { buildWasteWithdrawalRows } from './wasteWithdrawalRows';
 /** Filas por página del pie del nodo `3817:55609`. */
 const WASTE_WITHDRAWAL_PAGE_SIZE = 10;
 
-/** Texto del snackbar del nodo `3785:45722`. */
+/** Texto del snackbar del nodo `3785:45722`, el del retiro PELIGROSO enviado. */
 export const WASTE_WITHDRAWAL_SUBMITTED_MESSAGE =
   'Solicitud enviada a Medio ambiente. Se le notificará una vez que MA haya aprobado la solicitud.';
+
+/**
+ * Texto del snackbar del retiro NO peligroso registrado.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A CONFIRMAR CON DISEÑO: NO HAY NODO QUE LO DIBUJE
+ *
+ * No está inventado de cero —se arma con lo que afirma el nodo `3785:44737`, que es
+ * la tarjeta que dispara la acción: "se registra directamente con un N° de Registro
+ * Interno y alimenta el consolidado SINADER — sin pasar por revisión de Medio
+ * Ambiente"—, pero es copy que el diseño todavía no escribió para este lugar.
+ *
+ * NO PUEDE SER EL MISMO QUE EL DE ARRIBA: ese dice que la solicitud viajó a Medio
+ * ambiente y que van a notificar una aprobación, y este camino existe justamente
+ * porque no pasa por ahí.
+ *
+ * NO INCLUYE EL NÚMERO. El N° de Registro Interno lo emite el backend y no hay
+ * endpoint todavía; inventarle un formato ("RI-2026-00042") sería mostrarle al
+ * usuario un identificador que no existe y que además no podría buscar.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const WASTE_WITHDRAWAL_REGISTERED_MESSAGE =
+  'Retiro registrado con N° de Registro Interno. Alimenta el consolidado SINADER, sin revisión de Medio ambiente.';
+
+/** Texto del aviso según qué acción lo dejó pendiente. */
+const NOTICE_MESSAGE: Record<WasteWithdrawalNoticeKind, string> = {
+  sidrep: WASTE_WITHDRAWAL_SUBMITTED_MESSAGE,
+  direct: WASTE_WITHDRAWAL_REGISTERED_MESSAGE,
+};
 
 export function WasteWithdrawalRequestPage() {
   /**
@@ -196,8 +228,8 @@ export function WasteWithdrawalRequestPage() {
               diseño son 20px de diferencia y aguanta cualquier ancho de ventana.
             */}
             <Snackbar
-              open={submissionNotice}
-              message={WASTE_WITHDRAWAL_SUBMITTED_MESSAGE}
+              open={submissionNotice !== null}
+              message={submissionNotice ? NOTICE_MESSAGE[submissionNotice] : ''}
               onClose={dismissSubmissionNotice}
               className="fixed bottom-[24px] left-[220px] right-0 z-[90] mx-auto w-[733px] max-w-[calc(100vw-260px)]"
             />

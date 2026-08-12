@@ -4,18 +4,26 @@ import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteWithdrawalDirectRegistrationSection } from './components/WasteWithdrawalDirectRegistrationSection';
 import { WasteWithdrawalFormActions } from './components/WasteWithdrawalFormActions';
 import { WasteWithdrawalFormIntro } from './components/WasteWithdrawalFormIntro';
 import { WasteWithdrawalLotPickerModal } from './components/WasteWithdrawalLotPickerModal';
 import { WasteWithdrawalSelectedLotSection } from './components/WasteWithdrawalSelectedLotSection';
 import { WasteWithdrawalSidrepNoticeSection } from './components/WasteWithdrawalSidrepNoticeSection';
 import { WasteWithdrawalWasteSection } from './components/WasteWithdrawalWasteSection';
+import { resolveDisposalSiteLabel } from './wasteSidrepForm';
 import { buildWasteWithdrawableLots, type WasteWithdrawableLot } from './wasteWithdrawableLots';
+import {
+  createWasteWithdrawalDirectValues,
+  isWasteWithdrawalDirectComplete,
+  type WasteWithdrawalDirectValues,
+} from './wasteWithdrawalDirectForm';
 import {
   createWasteWithdrawalFormValues,
   isWasteWithdrawalFormComplete,
   type WasteWithdrawalFormValues,
 } from './wasteWithdrawalForm';
+import { createWithdrawalRowFromLot } from './wasteWithdrawalRows';
 
 /**
  * Vista "Nueva solicitud" del módulo de residuos. Se llega desde el botón
@@ -48,9 +56,19 @@ import {
  *   `3765:39024`  "Lote seleccionado"  → `WasteWithdrawalSelectedLotSection`
  *   `3765:39060`  aviso SIDREP         → `WasteWithdrawalSidrepNoticeSection`
  *
- * El aviso SIDREP cuelga de `isHazardous`, no de una lectura propia: su texto dice
- * "Al ser categoría RESPEL…". La pantalla para un lote NO peligroso es otro nodo,
- * todavía pendiente.
+ * CON UN LOTE NO PELIGROSO ELEGIDO la pantalla es el nodo `3785:44514`, que repite
+ * las dos primeras tarjetas y cambia la tercera:
+ *
+ *   `3785:44731`  "Este retiro no requiere aprobación" → `WasteWithdrawalDirectRegistrationSection`
+ *
+ * LAS DOS TERCERAS TARJETAS SON EXCLUYENTES y cuelgan de `isHazardous`, no de una
+ * lectura propia: una dice "Al ser categoría RESPEL…" y la otra "Al no ser categoría
+ * RESPEL…". La condición está en el copy.
+ *
+ * Y NO SON EL MISMO PASO. La peligrosa CONTINÚA a tres pantallas de documentos SIDREP;
+ * la no peligrosa TERMINA acá, registrando el retiro. Por eso el primario de la no
+ * peligrosa vive dentro de su tarjeta y la barra de acciones sigue trayendo solo
+ * "Cancelar retiro" en las dos variantes (nodos `3765:38885` y `3785:44708`).
  *
  * El header NO repite el rótulo del botón que trae acá: el nodo `3765:38866`
  * dice "Solicitudes de retiro — Residuos", no "Nueva solicitud". El título de la
@@ -92,10 +110,27 @@ export function WasteWithdrawalFormPage() {
    */
   const [pickerOpen, setPickerOpen] = useState(false);
   const [values, setValues] = useState<WasteWithdrawalFormValues>(createWasteWithdrawalFormValues);
+  /**
+   * Campos del retiro NO peligroso. Van en su propio `useState` y no en `values` por
+   * lo que explica `wasteWithdrawalDirectForm`: son de esta variante y el flujo SIDREP
+   * no los conoce.
+   */
+  const [directValues, setDirectValues] = useState<WasteWithdrawalDirectValues>(
+    createWasteWithdrawalDirectValues,
+  );
   const setDraft = useWasteWithdrawalDraftStore((state) => state.setDraft);
+  const registerWithdrawal = useWasteWithdrawalDraftStore((state) => state.registerWithdrawal);
 
   const lots = useMemo(() => buildWasteWithdrawableLots(today), [today]);
-  const canContinue = isWasteWithdrawalFormComplete(values);
+  /** Tronco común: lote, cantidad dentro del saldo y transportista. */
+  const isFormComplete = isWasteWithdrawalFormComplete(values);
+  const canContinue = isFormComplete;
+  /**
+   * "Registrar retiro" pide el tronco común MÁS los dos campos de su tarjeta. No
+   * alcanza con la patente y el lugar: registrar un retiro sin cantidad ni
+   * transportista es una fila que no dice nada.
+   */
+  const canRegister = isFormComplete && isWasteWithdrawalDirectComplete(directValues);
 
   function updateValue<TField extends keyof WasteWithdrawalFormValues>(
     field: TField,
@@ -127,6 +162,33 @@ export function WasteWithdrawalFormPage() {
     navigate('/waste/solicitud-retiro/nueva/sidrep');
   }
 
+  /**
+   * Cierra el retiro NO peligroso — nodo `3785:44731`.
+   *
+   * NO GUARDA BORRADOR. Este camino no cambia de ruta: registra y vuelve al histórico,
+   * así que el lote y la cantidad no tienen que sobrevivir a nada. Llamar a `setDraft`
+   * acá dejaría además un borrador huérfano que haría aparecer el aviso "Formulario
+   * inconcluso" de una solicitud que ya se registró.
+   *
+   * El DESTINATARIO de la fila es el lugar de disposición final, igual que en el camino
+   * peligroso: es a quién se le entrega el residuo.
+   */
+  function handleRegister() {
+    if (!values.lot) return;
+
+    registerWithdrawal(
+      createWithdrawalRowFromLot({
+        lot: values.lot,
+        quantity: values.quantity,
+        recipient: resolveDisposalSiteLabel(directValues.disposalSite),
+        /* Registrado de una: informativo y sin folio, como manda la tabla. */
+        status: 'informational',
+        today,
+      }),
+    );
+    navigate('/waste/solicitud-retiro');
+  }
+
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Nueva solicitud">
       <AppSidebar />
@@ -152,16 +214,30 @@ export function WasteWithdrawalFormPage() {
                   />
                 ) : null}
                 {/*
-                  La tarjeta SIDREP cuelga de `isHazardous` y no de una
-                  interpretación: su propio texto dice "Al ser categoría RESPEL…".
-                  La pantalla para un lote NO peligroso es otro nodo, todavía
-                  pendiente, así que acá simplemente no se muestra.
+                  Las dos terceras tarjetas son EXCLUYENTES y la condición está en su
+                  propio copy: "Al ser categoría RESPEL…" contra "Al no ser categoría
+                  RESPEL…". Sin lote todavía no se muestra ninguna.
                 */}
-                {values.lot?.isHazardous ? (
-                  <WasteWithdrawalSidrepNoticeSection
-                    canContinue={canContinue}
-                    onContinue={handleContinueToSidrep}
-                  />
+                {values.lot ? (
+                  values.lot.isHazardous ? (
+                    <WasteWithdrawalSidrepNoticeSection
+                      canContinue={canContinue}
+                      onContinue={handleContinueToSidrep}
+                    />
+                  ) : (
+                    <WasteWithdrawalDirectRegistrationSection
+                      plate={directValues.plate}
+                      onPlateChange={(value) =>
+                        setDirectValues((current) => ({ ...current, plate: value }))
+                      }
+                      disposalSite={directValues.disposalSite}
+                      onDisposalSiteChange={(value) =>
+                        setDirectValues((current) => ({ ...current, disposalSite: value }))
+                      }
+                      canRegister={canRegister}
+                      onRegister={handleRegister}
+                    />
+                  )
                 ) : null}
               </div>
             </div>

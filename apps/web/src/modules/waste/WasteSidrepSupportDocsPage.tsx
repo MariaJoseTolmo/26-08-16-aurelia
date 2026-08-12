@@ -11,7 +11,7 @@ import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepVehiclePhotosSection } from './components/WasteSidrepVehiclePhotosSection';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
 import { resolveDisposalSiteLabel } from './wasteSidrepForm';
-import { createPendingWithdrawalRow } from './wasteWithdrawalRows';
+import { createWithdrawalRowFromLot } from './wasteWithdrawalRows';
 import {
   createWasteSidrepSupportDocsValues,
   isWasteSidrepSupportDocsComplete,
@@ -98,7 +98,7 @@ export function WasteSidrepSupportDocsPage() {
    * "Continuar" del paso 2 para poder recorrer el flujo de punta a punta.
    *
    * Cuando llegue el paso 3, esto se mueve tal cual: `submitDraft` y
-   * `createPendingWithdrawalRow` no cambian, solo cambia quién los llama. Este
+   * `createWithdrawalRowFromLot` no cambian, solo cambia quién los llama. Este
    * `onContinue` vuelve a ser una navegación.
    * ─────────────────────────────────────────────────────────────────────────────
    */
@@ -106,10 +106,12 @@ export function WasteSidrepSupportDocsPage() {
     if (!draft?.lot) return;
 
     submitDraft(
-      createPendingWithdrawalRow({
+      createWithdrawalRowFromLot({
         lot: draft.lot,
         quantity: draft.quantity,
         recipient: resolveDisposalSiteLabel(sidrep?.disposalSite ?? null),
+        /* Enviada a Medio ambiente: queda esperando aprobación. */
+        status: 'pending',
         today,
       }),
     );
