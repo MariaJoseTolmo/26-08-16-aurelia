@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { WasteWithdrawalFormValues } from '../../modules/waste/wasteWithdrawalForm';
 import type { WasteSidrepFormValues } from '../../modules/waste/wasteSidrepForm';
 import type { WasteWithdrawalRow } from '../../modules/waste/wasteWithdrawalRows';
@@ -18,14 +19,25 @@ import type { WasteWithdrawalRow } from '../../modules/waste/wasteWithdrawalRows
  * lugares. Y NO es server state: nada de esto existe todavía en la API, así que
  * TanStack Query no tiene nada que cachear.
  *
- * NO SE PERSISTE. Sin middleware `persist` a propósito: el borrador incluye el lote
- * completo con su saldo, y un saldo guardado en el navegador envejece —otro usuario
- * puede retirar del mismo lote—. Recargar la pantalla del paso 2 devuelve al paso 1,
- * que es lo correcto mientras no haya un borrador en el servidor.
+ * SE PERSISTE EL BORRADOR, Y ESO CAMBIÓ DE CRITERIO.
  *
- * Eso vale también para `pendingRequests`: una fila temporal que sobreviviera a la
- * recarga mentiría, porque la solicitud podría ya estar aprobada del lado del
- * servidor.
+ * Antes este store no llevaba `persist`, con el argumento de que el borrador incluye
+ * el lote con su saldo y un saldo guardado en el navegador envejece. El nodo
+ * `4278:15644` zanja la discusión: su aviso dice "Continúa donde lo dejaste ·
+ * guardados localmente". Eso es una PROMESA al usuario, y dibujarla sobre un store
+ * volátil sería mentirle —el mismo criterio por el que el botón "Exportar" va
+ * deshabilitado en vez de fingir que descarga—. El propio texto es además el
+ * descargo: avisa que lo guardado es local y no del servidor.
+ *
+ * QUEDA PENDIENTE, y es el riesgo real de esta decisión: al retomar un borrador hay
+ * que RE-VALIDAR el saldo del lote contra la API. Mientras los lotes sean datos de
+ * muestra no hay saldo que envejezca, pero el día que exista el endpoint, resumir sin
+ * revalidar puede dejar pasar una cantidad que ya no está disponible.
+ *
+ * NO SE PERSISTEN `pendingRequests` NI `submissionNotice`. La primera es un espejo de
+ * lo que el servidor todavía no devolvió: sobrevivir a la recarga la haría mentir,
+ * porque la solicitud podría estar ya aprobada. El segundo es un aviso de un solo
+ * uso; reaparecer al recargar sería un snackbar sin causa.
  */
 interface WasteWithdrawalDraftState {
   /** `null` cuando no hay una solicitud en curso. */
@@ -37,6 +49,15 @@ interface WasteWithdrawalDraftState {
    * de disposición final como DESTINATARIO, y ese dato lo eligió una ruta anterior.
    */
   sidrep: WasteSidrepFormValues | null;
+  /**
+   * Cuándo se guardó por última vez, en ISO, o `null` sin borrador.
+   *
+   * Lo escribe el store y no la pantalla: es un dato del guardado, no del formulario,
+   * y dejarlo en manos de quien llama abre la puerta a que una pantalla se olvide y
+   * el aviso muestre la hora de otro paso. Va como STRING y no como `Date` porque
+   * viaja a `localStorage`, donde un `Date` vuelve convertido en texto.
+   */
+  savedAt: string | null;
   /**
    * Solicitudes enviadas que todavía no volvieron de la API: las filas TEMPORALES
    * del listado (nodo `3765:40905`). Se muestran arriba de las demás con folio
@@ -66,27 +87,54 @@ interface WasteWithdrawalDraftState {
   dismissSubmissionNotice: () => void;
 }
 
-export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>((set) => ({
-  draft: null,
-  sidrep: null,
-  pendingRequests: [],
-  submissionNotice: false,
-  setDraft: (values) => set({ draft: values }),
-  setSidrep: (values) => set({ sidrep: values }),
-  clearDraft: () => set({ draft: null, sidrep: null }),
-  submitDraft: (row) =>
-    set((state) => ({
-      /*
-       * La más reciente primero: es el orden del nodo, que la pone arriba de todo.
-       * El `id` se asigna acá y no en la fábrica porque depende de cuántas haya.
-       */
-      pendingRequests: [
-        { ...row, id: `pendiente-${state.pendingRequests.length + 1}` },
-        ...state.pendingRequests,
-      ],
-      submissionNotice: true,
+export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
+  persist(
+    (set) => ({
       draft: null,
       sidrep: null,
-    })),
-  dismissSubmissionNotice: () => set({ submissionNotice: false }),
-}));
+      savedAt: null,
+      pendingRequests: [],
+      submissionNotice: false,
+      setDraft: (values) => set({ draft: values, savedAt: new Date().toISOString() }),
+      setSidrep: (values) => set({ sidrep: values, savedAt: new Date().toISOString() }),
+      clearDraft: () => set({ draft: null, sidrep: null, savedAt: null }),
+      submitDraft: (row) =>
+        set((state) => ({
+          /*
+           * La más reciente primero: es el orden del nodo, que la pone arriba de todo.
+           * El `id` se asigna acá y no en la fábrica porque depende de cuántas haya.
+           */
+          pendingRequests: [
+            { ...row, id: `pendiente-${state.pendingRequests.length + 1}` },
+            ...state.pendingRequests,
+          ],
+          submissionNotice: true,
+          draft: null,
+          sidrep: null,
+          savedAt: null,
+        })),
+      dismissSubmissionNotice: () => set({ submissionNotice: false }),
+    }),
+    {
+      /* Mismo prefijo que las claves de sesión (`aurelia_token`, `aurelia_user`). */
+      name: 'aurelia_waste_withdrawal_draft',
+      /*
+       * Solo el borrador. `partialize` es lo que impide que `pendingRequests` y
+       * `submissionNotice` se cuelen en `localStorage`: sin él, `persist` guarda todo
+       * el estado y esos dos volverían a aparecer en cada recarga.
+       *
+       * Y EL TICKET DE PESAJE SE CAE A PROPÓSITO. `weighingTicket` es un `File`, y un
+       * `File` no sobrevive a `JSON.stringify`: se guardaría como `{}`, o sea un
+       * objeto VERDADERO que ya no es un archivo. Cualquier `if (weighingTicket)`
+       * pasaría y recién fallaría al leerle el nombre o al subirlo. Guardarlo en
+       * `null` es lo honesto: al retomar el borrador hay que volver a adjuntarlo, que
+       * es lo que de verdad pasa —el archivo nunca salió del navegador—.
+       */
+      partialize: (state) => ({
+        draft: state.draft,
+        sidrep: state.sidrep ? { ...state.sidrep, weighingTicket: null } : null,
+        savedAt: state.savedAt,
+      }),
+    },
+  ),
+);

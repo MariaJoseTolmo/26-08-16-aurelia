@@ -5,6 +5,7 @@ import { Snackbar } from '../../shared/components/Snackbar';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteWithdrawalDraftNotice } from './components/WasteWithdrawalDraftNotice';
 import { WasteWithdrawalIntro } from './components/WasteWithdrawalIntro';
 import { WasteWithdrawalTable } from './components/WasteWithdrawalTable';
 import { WasteWithdrawalToolbar } from './components/WasteWithdrawalToolbar';
@@ -17,6 +18,11 @@ import {
   type WasteWithdrawalFilterKey,
   type WasteWithdrawalFilters,
 } from './wasteWithdrawalFilters';
+import {
+  formatWasteDraftSavedAt,
+  resolveWasteWithdrawalDraftProgress,
+} from './wasteWithdrawalDraft';
+import { resolveCarrierLabel } from './wasteWithdrawalForm';
 import { buildWasteWithdrawalRows } from './wasteWithdrawalRows';
 
 /**
@@ -74,6 +80,20 @@ export function WasteWithdrawalRequestPage() {
   const pendingRequests = useWasteWithdrawalDraftStore((state) => state.pendingRequests);
   const submissionNotice = useWasteWithdrawalDraftStore((state) => state.submissionNotice);
   const dismissSubmissionNotice = useWasteWithdrawalDraftStore((state) => state.dismissSubmissionNotice);
+  const draft = useWasteWithdrawalDraftStore((state) => state.draft);
+  const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
+  const savedAt = useWasteWithdrawalDraftStore((state) => state.savedAt);
+
+  /**
+   * Borrador en curso, o `null`. El aviso del nodo `4278:15644` aparece SOLO cuando
+   * hay uno: una tarjeta de "formulario inconcluso" sin formulario que retomar sería
+   * ruido permanente en la vista.
+   */
+  const draftProgress = useMemo(
+    () => resolveWasteWithdrawalDraftProgress(draft, sidrep),
+    [draft, sidrep],
+  );
+
   /**
    * Las solicitudes recién enviadas van ARRIBA de las de muestra, como en el nodo
    * `3765:40905`, y pasan por los mismos filtros: una fila temporal que ignorara el
@@ -123,6 +143,20 @@ export function WasteWithdrawalRequestPage() {
           <div className="h-[calc(100vh-56px)] w-full overflow-y-auto bg-[#f7f7f7]">
             <div className="flex w-full flex-col items-start gap-[14px] px-[22px] py-[18px]">
               <WasteWithdrawalIntro />
+              {/*
+                Entre la bajada y la barra de acciones, que es donde lo emplaza el
+                nodo `4278:14803`: la intro en `y=18`, el aviso en `y=80` (18 + 48 +
+                14) y la barra en `y=244.5` (80 + 150.5 + 14). O sea entra en el
+                mismo `gap-[14px]` de la columna, sin geometría propia.
+              */}
+              {draftProgress ? (
+                <WasteWithdrawalDraftNotice
+                  progress={draftProgress}
+                  carrierLabel={resolveCarrierLabel(draft?.carrier ?? null)}
+                  savedAtLabel={savedAt ? formatWasteDraftSavedAt(savedAt, today) : ''}
+                  onResume={() => navigate(draftProgress.route)}
+                />
+              ) : null}
               <WasteWithdrawalToolbar
                 activeFilters={activeFilters}
                 period={filters.period}
