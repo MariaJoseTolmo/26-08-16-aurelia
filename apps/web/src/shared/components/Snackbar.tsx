@@ -22,10 +22,14 @@ import { SnackbarCheckIcon } from './icons/SnackbarCheckIcon';
  * (14px bold, `leading-[22.7px]`, `tracking-[0.28px]`). O sea es el mismo componente
  * del UI Kit copiado. Se extrae acá, en `shared/`, porque lo van a usar dos módulos.
  *
- * NO se migraron esas dos copias en esta entrega: estan dentro de flujos de
- * inspecciones que no se tocaron y su check esta dibujado a mano en 24 × 24 con
- * `stroke`, mientras el asset real del nodo es un `path` relleno de 20 × 20. Cambiarlo
- * altera su render, asi que es una decision de esas pantallas. Queda anotado.
+ * DE ESAS DOS COPIAS YA SE UNIFICÓ EL CHECK: las dos usan `SnackbarCheckIcon` en la
+ * misma caja de 24 con el glifo en 20, así que el dibujo del anillo con el check dejó
+ * de estar aproximado a mano con `stroke`.
+ *
+ * LO QUE FALTA ES EL CASCARÓN, y no es un olvido. Esas dos copias llevan dos cosas que
+ * este componente no tiene porque su nodo las trae OCULTAS: una X de cerrar y una
+ * `shadow`. Migrarlas entero pide sumarle esas props —y en un caso reacomodar su
+ * temporizador propio de 3200ms—, que es tocar flujos de inspecciones. Queda anotado.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * `role="status"` con `aria-live="polite"` para que el lector de pantalla lo anuncie

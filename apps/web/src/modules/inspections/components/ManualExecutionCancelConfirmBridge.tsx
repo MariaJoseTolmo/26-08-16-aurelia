@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-
-function InfoIcon() {
-  return <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2" /><path d="M16 14.5v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><circle cx="16" cy="10.5" r="1.5" fill="currentColor" /></svg>;
-}
-
-function CloseIcon() {
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 2l12 12M14 2 2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-}
+import { InspectionCloseIcon, InspectionInfoIcon } from '../icons/InspectionsIcons';
 
 function isManualExecutionCancel(button: HTMLButtonElement) {
   if (button.dataset.manualExecutionCancelConfirm === 'true') return false;
@@ -64,7 +57,7 @@ export function ManualExecutionCancelConfirmBridge() {
 
   if (!open) return null;
 
-  const node = <div className={`${dialogHost ? 'absolute' : 'fixed'} inset-0 z-[10020] flex items-center justify-center bg-[rgba(19,19,19,0.75)] px-[16px]`} role="presentation"><div className="w-[328px] max-w-full rounded-[16px] bg-white p-[16px] shadow-[0_4px_14px_rgba(19,19,19,0.24)]" role="dialog" aria-modal="true" aria-labelledby="manual-cancel-title"><div className="flex items-center justify-between"><div className="text-[#24588b]"><InfoIcon /></div><button type="button" className="flex size-[32px] items-center justify-center text-[#131313]" onClick={closeDialog} aria-label="Cerrar cancelación"><CloseIcon /></button></div><div className="mt-[32px] flex flex-col gap-[8px]"><p id="manual-cancel-title" className="text-[18px] font-bold leading-[22px] tracking-[0.36px] text-[#2a2a2a]">Cancelar</p><p className="whitespace-pre-line text-[14px] font-normal leading-[22.7px] tracking-[0.28px] text-[#131313]">Usted está dando por cancelada la ejecución de esta inspección. Al hacer esto se borrarán todos los datos ingresados.{`\n`}¿Estás de acuerdo?</p></div><div className="mt-[32px] flex flex-col gap-[12px]"><button type="button" data-manual-execution-cancel-confirm="true" className="flex h-[40px] w-full items-center justify-center rounded-[8px] bg-[#c8a064] px-[16px] py-[8px] text-[14px] font-bold tracking-[0.28px] text-white" onClick={confirmCancel}>Cancelar ejecución</button><button type="button" className="flex h-[40px] w-full items-center justify-center rounded-[8px] border border-[#c8a064] bg-white px-[16px] py-[8px] text-[14px] font-bold tracking-[0.28px] text-[#c8a064]" onClick={closeDialog}>Volver al formulario</button></div></div></div>;
+  const node = <div className={`${dialogHost ? 'absolute' : 'fixed'} inset-0 z-[10020] flex items-center justify-center bg-[rgba(19,19,19,0.75)] px-[16px]`} role="presentation"><div className="w-[328px] max-w-full rounded-[16px] bg-white p-[16px] shadow-[0_4px_14px_rgba(19,19,19,0.24)]" role="dialog" aria-modal="true" aria-labelledby="manual-cancel-title"><div className="flex items-center justify-between"><div className="text-[#24588b]"><InspectionInfoIcon /></div><button type="button" className="flex size-[32px] items-center justify-center text-[#131313]" onClick={closeDialog} aria-label="Cerrar cancelación"><InspectionCloseIcon /></button></div><div className="mt-[32px] flex flex-col gap-[8px]"><p id="manual-cancel-title" className="text-[18px] font-bold leading-[22px] tracking-[0.36px] text-[#2a2a2a]">Cancelar</p><p className="whitespace-pre-line text-[14px] font-normal leading-[22.7px] tracking-[0.28px] text-[#131313]">Usted está dando por cancelada la ejecución de esta inspección. Al hacer esto se borrarán todos los datos ingresados.{`\n`}¿Estás de acuerdo?</p></div><div className="mt-[32px] flex flex-col gap-[12px]"><button type="button" data-manual-execution-cancel-confirm="true" className="flex h-[40px] w-full items-center justify-center rounded-[8px] bg-[#c8a064] px-[16px] py-[8px] text-[14px] font-bold tracking-[0.28px] text-white" onClick={confirmCancel}>Cancelar ejecución</button><button type="button" className="flex h-[40px] w-full items-center justify-center rounded-[8px] border border-[#c8a064] bg-white px-[16px] py-[8px] text-[14px] font-bold tracking-[0.28px] text-[#c8a064]" onClick={closeDialog}>Volver al formulario</button></div></div></div>;
 
   return dialogHost ? createPortal(node, dialogHost) : node;
 }
