@@ -20,6 +20,7 @@ import type {
   WasteTypeResponse,
   WasteUnitResponse,
 } from '@aurelia/contracts';
+import type { WithdrawerCompany } from './wasteWithdrawalSectorDraft';
 import type { WasteWithdrawalFormValues } from './wasteWithdrawalForm';
 import type { WasteWithdrawableLot } from './wasteWithdrawableLots';
 
@@ -61,11 +62,8 @@ export function isWasteWithdrawalTruckshopComplete(values: WasteWithdrawalTrucks
 interface TruckshopDraftInput {
   values: WasteWithdrawalTruckshopValues;
   sectorLabel: string;
-  /**
-   * Empresa contratista que retira, que en este camino ES el transportista: el
-   * nodo `4085:77594` muestra "[Nombre de la EECC]" y no un selector.
-   */
-  company: { id: string; name: string };
+  /** Ver `resolveWithdrawerCompany`, que es de dónde sale. */
+  company: WithdrawerCompany;
   wasteTypes: WasteTypeResponse[];
   categories: WasteOperationalCategoryResponse[];
   units: WasteUnitResponse[];

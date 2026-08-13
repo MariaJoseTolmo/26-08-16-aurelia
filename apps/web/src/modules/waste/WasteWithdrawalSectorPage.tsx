@@ -5,7 +5,6 @@ import {
   useWasteCategories,
   useWasteUnits,
 } from '../../shared/hooks/useWasteCatalogs';
-import { SIMULATED_WASTE_WITHDRAWER_COMPANY } from '../../shared/auth/simulated-role';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { useSessionStore } from '../../shared/stores/session.store';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
@@ -15,13 +14,23 @@ import type { WarehouseFormCatalogState } from './components/WarehouseFormContro
 import { WasteWithdrawalFormActions } from './components/WasteWithdrawalFormActions';
 import { WasteWithdrawalFormIntro } from './components/WasteWithdrawalFormIntro';
 import { WasteWithdrawalSectorSection } from './components/WasteWithdrawalSectorSection';
+import { WasteWithdrawalLotPickerModal } from './components/WasteWithdrawalLotPickerModal';
+import { WasteWithdrawalSelectedLotSection } from './components/WasteWithdrawalSelectedLotSection';
 import { WasteWithdrawalSidrepNoticeSection } from './components/WasteWithdrawalSidrepNoticeSection';
 import { WasteWithdrawalTruckshopLotSection } from './components/WasteWithdrawalTruckshopLotSection';
+import { WasteWithdrawalWasteSection } from './components/WasteWithdrawalWasteSection';
+import { buildWasteWithdrawableLots, type WasteWithdrawableLot } from './wasteWithdrawableLots';
 import { toCategoryOptions, toUnitOptions, toWasteTypeOptions } from './warehouseIntakeForm';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
+import { isWithdrawalQuantityWithinAvailable } from './wasteWithdrawalForm';
+import {
+  createWarehouseWithdrawalDraft,
+  resolveWithdrawerCompany,
+} from './wasteWithdrawalSectorDraft';
 import {
   resolveWasteWithdrawalSectorLabel,
   WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR,
+  WASTE_WITHDRAWAL_WAREHOUSE_SECTOR,
 } from './wasteWithdrawalSectors';
 import {
   createTruckshopWithdrawalDraft,
@@ -52,8 +61,28 @@ import {
  *
  *   `4223:9920`  "Lote seleccionado"       → `WasteWithdrawalTruckshopLotSection`
  *
- * Con Bodega (Plataforma 18) el diseño no dibuja nada extra. La bifurcación es
- * por sector y no un "hay sector elegido": el nodo solo la muestra con Truckshop.
+ * CON BODEGA (PLATAFORMA 18) la pantalla es el nodo `4218:7583`, que suma otra:
+ *
+ *   `4218:7716`  "Residuo a retirar"      → `WasteWithdrawalWasteSection`
+ *
+ * Tampoco es un componente nuevo: `4218:7716` es el `3765:38875` de la otra nueva
+ * solicitud —se compararon el icono y los tres textos, son los mismos—, así que
+ * viene con su modal de selección de lote.
+ *
+ * CON EL LOTE ELEGIDO Y PELIGROSO la pantalla es el nodo `3748:32500`, que suma
+ * las dos últimas:
+ *
+ *   `3748:32789`  "Lote seleccionado"      → `WasteWithdrawalSelectedLotSection`
+ *   `3748:32690`  aviso SIDREP             → `WasteWithdrawalSidrepNoticeSection`
+ *
+ * Las dos ya existían. La primera es la `3765:39024` SIN el selector de
+ * transportista —por eso esa prop pasó a ser opcional— y la segunda es la
+ * `3765:39060` de siempre, en su estado deshabilitado.
+ *
+ * LOS DOS SECTORES NO SON DOS ESTADOS DEL MISMO FORMULARIO. Bodega ELIGE un lote ya
+ * recepcionado, con su saldo y su fecha de ingreso; Truckshop DESCRIBE el residuo
+ * contra los catálogos porque nunca pasó por una recepción. Por eso son dos
+ * tarjetas distintas y no una con campos que aparecen y desaparecen.
  *
  * Y CON UN RESIDUO PELIGROSO se suma una tercera, el nodo `4230:10019`:
  *
@@ -126,6 +155,35 @@ export function WasteWithdrawalSectorPage() {
   const user = useSessionStore((state) => state.user);
 
   const isTruckshop = sector === WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR;
+  const isWarehouse = sector === WASTE_WITHDRAWAL_WAREHOUSE_SECTOR;
+
+  /**
+   * Lote elegido en el modal y si el modal está abierto — camino de bodega.
+   *
+   * `new Date()` se resuelve una sola vez al montar, igual que en el resto del
+   * módulo: alimenta las fechas de ingreso de los lotes de muestra.
+   */
+  const [today] = useState(() => new Date());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [warehouseLot, setWarehouseLot] = useState<WasteWithdrawableLot | null>(null);
+  const [warehouseQuantity, setWarehouseQuantity] = useState('');
+  const lots = useMemo(() => buildWasteWithdrawableLots(today), [today]);
+
+  /**
+   * Cantidad pedida dentro del saldo del lote.
+   *
+   * Se reusa la regla del otro camino en vez de escribir un `quantity !== ''`:
+   * pasarse del disponible es una solicitud que la API va a rechazar, y ese chequeo
+   * ya está resuelto. NO se usa `isWasteWithdrawalFormComplete`, que además exige
+   * transportista: por este camino el transportista es la EECC y no se elige.
+   */
+  const warehouseReady = warehouseLot
+    ? isWithdrawalQuantityWithinAvailable({
+        lot: warehouseLot,
+        quantity: warehouseQuantity,
+        carrier: null,
+      })
+    : false;
 
   /*
    * Los tres catálogos se piden SIEMPRE, no solo con Truckshop elegido: son
@@ -195,10 +253,53 @@ export function WasteWithdrawalSectorPage() {
    * Plataforma 18— haría que volver a Truckshop mostrara datos viejos como si
    * fueran de esta sesión.
    */
+  /**
+   * Cambiar de sector LIMPIA lo elegido en el sector anterior.
+   *
+   * Limpia LOS DOS caminos y no solo el que se deja: los datos de Truckshop no
+   * describen un retiro que ahora sale de bodega, y el lote de bodega no es el
+   * residuo que se estaba describiendo. Como la tarjeta del sector saliente
+   * desaparece, dejarlos escondidos haría que volver muestre datos viejos como si
+   * fueran de esta sesión. Es el mismo criterio que `handleLotConfirm` en
+   * `WasteWithdrawalFormPage`.
+   */
   function handleSectorChange(value: string) {
     if (value === sector) return;
     setSector(value);
     setLot(createWasteWithdrawalTruckshopValues());
+    setWarehouseLot(null);
+    setWarehouseQuantity('');
+  }
+
+  /**
+   * Cambiar de lote LIMPIA la cantidad.
+   *
+   * Sin esto queda tecleada una cantidad válida para el saldo anterior contra un
+   * lote que puede tener menos disponible, y el aviso SIDREP habilitado sobre una
+   * solicitud que la API rechazaría. Es literal el mismo caso que `handleLotConfirm`
+   * en `WasteWithdrawalFormPage`.
+   */
+  function handleLotConfirm(confirmed: WasteWithdrawableLot) {
+    if (warehouseLot?.id !== confirmed.id) {
+      setWarehouseLot(confirmed);
+      setWarehouseQuantity('');
+    }
+    setPickerOpen(false);
+  }
+
+  /** Avanza al paso 1 de SIDREP con el lote real que se eligió del modal. */
+  function handleContinueFromWarehouse() {
+    if (!sector || !warehouseLot) return;
+
+    setDraft(
+      createWarehouseWithdrawalDraft({
+        lot: warehouseLot,
+        quantity: warehouseQuantity,
+        sectorLabel: resolveWasteWithdrawalSectorLabel(sector),
+        company: resolveWithdrawerCompany(user),
+      }),
+    );
+    navigate('/waste/solicitud-retiro/nueva/sidrep');
   }
 
   /**
@@ -219,16 +320,7 @@ export function WasteWithdrawalSectorPage() {
       createTruckshopWithdrawalDraft({
         values: lot,
         sectorLabel: resolveWasteWithdrawalSectorLabel(sector),
-        /*
-         * La empresa sale de la SESIÓN, que es lo que el nodo `4085:77594` llama
-         * "[Nombre de la EECC]". El fallback simulado entra solo si el usuario no
-         * tiene empresa asignada: sin transportista el paso 1 de SIDREP no puede
-         * validar el transporte y su "Continuar" queda muerto.
-         */
-        company:
-          user?.companyId && user.companyName
-            ? { id: user.companyId, name: user.companyName }
-            : SIMULATED_WASTE_WITHDRAWER_COMPANY,
+        company: resolveWithdrawerCompany(user),
         wasteTypes: wasteTypesQuery.data ?? [],
         categories: categoriesQuery.data ?? [],
         units: unitsQuery.data ?? [],
@@ -250,9 +342,44 @@ export function WasteWithdrawalSectorPage() {
                 <WasteWithdrawalFormIntro />
                 <WasteWithdrawalSectorSection value={sector} onChange={handleSectorChange} />
                 {/*
-                  La tarjeta cuelga de Truckshop y de nada más: es lo que declara
-                  el nodo `4223:9770`. Con Bodega (Plataforma 18) el diseño no
-                  dibuja ninguna sección extra, así que no se inventa una.
+                  Bodega abre "Residuo a retirar" (nodo `4218:7716`), que es el mismo
+                  `3765:38875` de la otra nueva solicitud —icono y textos idénticos,
+                  comparados contra el asset—. Acá el residuo se ELIGE de los lotes
+                  recepcionados; en Truckshop se describe.
+                */}
+                {isWarehouse ? (
+                  <WasteWithdrawalWasteSection
+                    selectedLot={warehouseLot}
+                    onSelect={() => setPickerOpen(true)}
+                  />
+                ) : null}
+                {/*
+                  Con lote elegido se suma "Lote seleccionado" (nodo `3748:32789`),
+                  que es la tarjeta `3765:39024` SIN el selector de transportista:
+                  acá el transportista es la EECC del usuario y no hay nada que
+                  elegir.
+                */}
+                {isWarehouse && warehouseLot ? (
+                  <WasteWithdrawalSelectedLotSection
+                    lot={warehouseLot}
+                    quantity={warehouseQuantity}
+                    onQuantityChange={setWarehouseQuantity}
+                  />
+                ) : null}
+                {/*
+                  Y si el lote es PELIGROSO, el aviso SIDREP (nodo `3748:32690`, el
+                  mismo `3765:39060` de siempre). La condición está en su copy: "Al
+                  ser categoría RESPEL…".
+                */}
+                {isWarehouse && warehouseLot?.isHazardous ? (
+                  <WasteWithdrawalSidrepNoticeSection
+                    canContinue={warehouseReady}
+                    onContinue={handleContinueFromWarehouse}
+                  />
+                ) : null}
+                {/*
+                  La tarjeta de Truckshop cuelga de ese sector y de nada más: es lo
+                  que declara el nodo `4223:9770`.
                 */}
                 {isTruckshop ? (
                   <WasteWithdrawalTruckshopLotSection
@@ -289,6 +416,17 @@ export function WasteWithdrawalSectorPage() {
                 clearDraft();
                 navigate('/waste/solicitud-retiro');
               }}
+            />
+            {/*
+              El mismo modal `3765:40585` de la otra nueva solicitud. Vive fuera del
+              scroll, como allá, porque se dibuja sobre toda la pantalla.
+            */}
+            <WasteWithdrawalLotPickerModal
+              open={pickerOpen}
+              lots={lots}
+              selectedLotId={warehouseLot?.id ?? null}
+              onClose={() => setPickerOpen(false)}
+              onConfirm={handleLotConfirm}
             />
           </div>
         }

@@ -16,8 +16,19 @@ import type { WasteOption } from './wasteFilterPrimitives';
  */
 export const WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR = 'truckshop';
 
+/**
+ * Bodega (Plataforma 18).
+ *
+ * LOS DOS SECTORES ABREN TARJETAS DISTINTAS, y esa es la diferencia de fondo entre
+ * ellos: la bodega ELIGE un lote ya recepcionado del modal `3765:40585` (nodo
+ * `4218:7583`), mientras que Truckshop lo DESCRIBE contra los catálogos (nodo
+ * `4223:9770`). Tiene sentido: lo que sale de bodega pasó por una recepción y tiene
+ * saldo; lo que sale del taller, no.
+ */
+export const WASTE_WITHDRAWAL_WAREHOUSE_SECTOR = 'warehouse-platform-18';
+
 export const WASTE_WITHDRAWAL_SECTOR_OPTIONS: WasteOption[] = [
-  { value: 'warehouse-platform-18', label: 'Bodega (Plataforma 18)' },
+  { value: WASTE_WITHDRAWAL_WAREHOUSE_SECTOR, label: 'Bodega (Plataforma 18)' },
   { value: WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR, label: 'Truckshop' },
 ];
 

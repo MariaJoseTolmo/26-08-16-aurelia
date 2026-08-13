@@ -37,6 +37,16 @@ import {
  * `WASTE_CARRIER_OPTIONS`—. El día que exista el endpoint se le pasa el estado del
  * `useQuery` y esta tarjeta no cambia: los cuatro estados de carga ya los sabe
  * dibujar `WarehouseFormSelect`.
+ *
+ * EL TRANSPORTISTA ES OPCIONAL, y el nodo `3748:32789` es por qué: la misma tarjeta
+ * en el camino del retirador dibuja la fila 2 con UN solo campo, "Cantidad a
+ * retirar", ocupando todo el ancho. No es un recorte arbitrario —ahí el
+ * transportista es la propia EECC del usuario y no hay nada que elegir; ver
+ * `4085:77594`, que lo muestra como "[Nombre de la EECC]"—.
+ *
+ * Sin `onCarrierChange` la fila queda con un hijo `flex-1`, que es exactamente lo
+ * que declara `3748:32812`. No hace falta otra maqueta ni otro componente: es la
+ * misma tarjeta con un campo menos.
  */
 
 /** Rótulo del nodo `3765:39028`. */
@@ -46,15 +56,16 @@ interface WasteWithdrawalSelectedLotSectionProps {
   lot: WasteWithdrawableLot;
   quantity: string;
   onQuantityChange: (value: string) => void;
-  carrier: string | null;
-  onCarrierChange: (value: string | null) => void;
+  carrier?: string | null;
+  /** Sin esto la tarjeta no dibuja el selector de transportista. */
+  onCarrierChange?: (value: string | null) => void;
 }
 
 export function WasteWithdrawalSelectedLotSection({
   lot,
   quantity,
   onQuantityChange,
-  carrier,
+  carrier = null,
   onCarrierChange,
 }: WasteWithdrawalSelectedLotSectionProps) {
   return (
@@ -88,19 +99,21 @@ export function WasteWithdrawalSelectedLotSection({
               value={quantity}
               onChange={onQuantityChange}
             />
-            <WarehouseFormSelect
-              tone="dropdown"
-              label="Empresa transportista"
-              placeholder="Seleccione"
-              value={carrier}
-              onChange={onCarrierChange}
-              state={{
-                options: WASTE_CARRIER_OPTIONS,
-                isLoading: false,
-                isError: false,
-                onRetry: () => {},
-              }}
-            />
+            {onCarrierChange ? (
+              <WarehouseFormSelect
+                tone="dropdown"
+                label="Empresa transportista"
+                placeholder="Seleccione"
+                value={carrier}
+                onChange={onCarrierChange}
+                state={{
+                  options: WASTE_CARRIER_OPTIONS,
+                  isLoading: false,
+                  isError: false,
+                  onRetry: () => {},
+                }}
+              />
+            ) : null}
           </div>
         </div>
       </div>
