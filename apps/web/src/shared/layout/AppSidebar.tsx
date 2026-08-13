@@ -45,6 +45,7 @@ const SIDEBAR_EXPANDED_MODULES_STORAGE_KEY = 'aurelia.sidebar.expanded-modules';
 
 const WASTE_WITHDRAWAL_ROUTE = '/waste/solicitud-retiro';
 const WASTE_DASHBOARD_ROUTE = '/waste/dashboard';
+const WASTE_HISTORY_ROUTE = '/waste/historico';
 
 function readExpandedModules(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -573,13 +574,18 @@ function buildWasteWithdrawerItems(): SidebarItem[] {
  * no encuentra módulo activo, el sidebar cae al listado entero y volverían a
  * filtrarse.
  *
- * Sólo Dashboard tiene ruta. Los otros cuatro van `disabled` porque sus vistas no
- * existen todavía; se les asigna `to` cuando se implementen.
+ * Dashboard e Histórico tienen ruta. Los otros tres van `disabled` porque sus
+ * vistas no existen todavía; se les asigna `to` cuando se implementen.
  *
  * El icono de Dashboard es el `dashboard` que ya está en `AppSidebarIcons`: el
  * asset del nodo `3830:62307` es el MISMO glifo de torta, sólo escalado a 14 × 10
  * desde los 17 × 13 del módulo. No se agrega un SVG duplicado. Igual criterio con
  * el engranaje de Administración (`3830:62327` → `admin`).
+ *
+ * `wasteHistory` SÍ es un asset nuevo (nodo `3087:15709`): es un reloj con flecha
+ * de retroceso y no coincide con ningún glifo del set —se diffearon los paths
+ * contra los 25 iconos del archivo—. Antes apuntaba a `wasteWarehouse`, que es la
+ * torta de bodega y no lo que dibuja el diseño.
  */
 function buildWasteEnvApproverItems(): SidebarItem[] {
   const wasteModule = mainItems.find((item) => item.label === 'Residuos');
@@ -592,7 +598,7 @@ function buildWasteEnvApproverItems(): SidebarItem[] {
       children: [
         { label: 'Dashboard', to: WASTE_DASHBOARD_ROUTE, end: true, icon: 'dashboard' },
         { label: 'Folios SIDREP', icon: 'wasteWithdrawal', disabled: true },
-        { label: 'Histórico', icon: 'wasteWarehouse', disabled: true },
+        { label: 'Histórico', to: WASTE_HISTORY_ROUTE, end: true, icon: 'wasteHistory' },
         { label: 'Reporte SINADER', icon: 'wasteIntake', disabled: true },
         { label: 'Administración', icon: 'admin', disabled: true },
       ],

@@ -24,6 +24,7 @@ import { WasteWithdrawalSectorPage } from '../modules/waste/WasteWithdrawalSecto
 import { WasteSidrepDocumentsPage } from '../modules/waste/WasteSidrepDocumentsPage';
 import { WasteSidrepSupportDocsPage } from '../modules/waste/WasteSidrepSupportDocsPage';
 import { WasteSidrepReviewPage } from '../modules/waste/WasteSidrepReviewPage';
+import { WasteHistoryPage } from '../modules/waste/WasteHistoryPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
       { path: 'spr/monitoreo-kpis', element: <SprKpiMonitoringPage /> },
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
       { path: 'waste/dashboard', element: <WasteDashboardPage /> },
+      { path: 'waste/historico', element: <WasteHistoryPage /> },
       { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
       { path: 'waste/ingresos-bodega', element: <WarehouseIntakePage /> },
       { path: 'waste/ingresos-bodega/nuevo', element: <WarehouseIntakeFormPage /> },
