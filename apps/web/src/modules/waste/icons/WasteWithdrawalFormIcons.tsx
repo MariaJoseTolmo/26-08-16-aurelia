@@ -49,6 +49,23 @@ export function WasteWithdrawalSectionIcon(props: IconProps) {
   );
 }
 
+/**
+ * Encabezado "Sector" de la selección de sector — nodo `4217:7223`. Fill
+ * original: `#131313`.
+ *
+ * Glifo nuevo: se buscó su primer coeficiente (`M4.17977 1.06348`) contra todos
+ * los `.svg` y `.tsx` del repo y no aparece en ninguno. Comparte la caja de
+ * 16.875 × 13.5 de los otros iconos de sección, así que entra derecho en el
+ * Heading 3 de `WarehouseFormCard`.
+ */
+export function WasteWithdrawalSectorIcon(props: IconProps) {
+  return (
+    <svg width="16.875" height="13.5" viewBox="0 0 16.875 13.5" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M4.17977 1.06348L3.47977 4.56348H1.21844C0.854773 4.56348 0.562195 4.2709 0.562195 3.90723V3.79512C0.562195 3.72402 0.573132 3.65566 0.595007 3.5873L1.2868 1.51191C1.37704 1.24395 1.6286 1.06348 1.91024 1.06348H4.17977ZM4.81962 4.56348L5.51962 1.06348H7.78094V4.56348H4.81962ZM9.09344 1.06348H11.3548L12.0548 4.56348H9.09344V1.06348ZM12.6946 1.06348H14.9641C15.2458 1.06348 15.4974 1.24395 15.5876 1.51191L16.2794 3.5873C16.3013 3.65293 16.3122 3.72402 16.3122 3.79512V3.90723C16.3122 4.2709 16.0196 4.56348 15.6559 4.56348H13.3946L12.6946 1.06348ZM1.26493 5.87598H15.6122C15.6013 5.9334 15.2485 7.88301 14.5485 11.7193C14.4665 12.165 14.0591 12.474 13.6079 12.433C13.1567 12.392 12.8122 12.0174 12.8122 11.5635V11.126H4.06219V11.5635C4.06219 12.0174 3.71766 12.3947 3.26649 12.4357C2.81532 12.4768 2.4079 12.165 2.32587 11.7193C1.6286 7.88027 1.27313 5.9334 1.26493 5.87598Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 // "Close" del modal de selección. Figma node 3765:40593. Fill original: black.
 // El asset viene como la caja COMPLETA de 32 × 32 con la cruz de ~13.5px
 // centrada, así que se renderiza a 32 × 32 —el tamaño del botón— y no se recorta.

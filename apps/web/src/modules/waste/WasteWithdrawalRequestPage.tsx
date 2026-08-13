@@ -6,6 +6,7 @@ import {
   useWasteWithdrawalDraftStore,
   type WasteWithdrawalNoticeKind,
 } from '../../shared/stores/waste-withdrawal-draft.store';
+import { useIsWasteWithdrawer } from '../../shared/stores/simulated-role.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WasteWithdrawalDraftNotice } from './components/WasteWithdrawalDraftNotice';
@@ -108,6 +109,22 @@ export function WasteWithdrawalRequestPage() {
     period: currentIsoMonth,
   }));
   const [page, setPage] = useState(1);
+  /**
+   * "Nueva solicitud" BIFURCA POR ROL — nodos `3765:38765` y `4217:7111`.
+   *
+   * El retirador de residuos arranca su solicitud eligiendo el SECTOR del que sale
+   * el retiro; el resto de los usuarios arranca eligiendo el RESIDUO. Son dos
+   * pantallas distintas, así que la decisión es de ruta y no de estado interno de
+   * la pantalla de destino.
+   *
+   * La bifurcación vive acá, en el único lugar que la necesita, y no en un guard
+   * de la ruta: las dos rutas siguen siendo alcanzables por URL. Es una simulación
+   * de rol, no un control de acceso — ver `shared/auth/simulated-role`.
+   */
+  const isWasteWithdrawer = useIsWasteWithdrawer();
+  const newRequestRoute = isWasteWithdrawer
+    ? '/waste/solicitud-retiro/nueva/sector'
+    : '/waste/solicitud-retiro/nueva';
 
   const pendingRequests = useWasteWithdrawalDraftStore((state) => state.pendingRequests);
   const submissionNotice = useWasteWithdrawalDraftStore((state) => state.submissionNotice);
@@ -201,7 +218,7 @@ export function WasteWithdrawalRequestPage() {
                  * engaña más que un control deshabilitado.
                  */
                 exportDisabled
-                onNewRequest={() => navigate('/waste/solicitud-retiro/nueva')}
+                onNewRequest={() => navigate(newRequestRoute)}
               />
               <WasteWithdrawalTable
                 rows={pageRows}

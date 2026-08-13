@@ -19,6 +19,7 @@ import { WarehouseIntakePage } from '../modules/waste/WarehouseIntakePage';
 import { WarehouseIntakeFormPage } from '../modules/waste/WarehouseIntakeFormPage';
 import { WasteWithdrawalRequestPage } from '../modules/waste/WasteWithdrawalRequestPage';
 import { WasteWithdrawalFormPage } from '../modules/waste/WasteWithdrawalFormPage';
+import { WasteWithdrawalSectorPage } from '../modules/waste/WasteWithdrawalSectorPage';
 import { WasteSidrepDocumentsPage } from '../modules/waste/WasteSidrepDocumentsPage';
 import { WasteSidrepSupportDocsPage } from '../modules/waste/WasteSidrepSupportDocsPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       { path: 'waste/ingresos-bodega/nuevo', element: <WarehouseIntakeFormPage /> },
       { path: 'waste/solicitud-retiro', element: <WasteWithdrawalRequestPage /> },
       { path: 'waste/solicitud-retiro/nueva', element: <WasteWithdrawalFormPage /> },
+      { path: 'waste/solicitud-retiro/nueva/sector', element: <WasteWithdrawalSectorPage /> },
       { path: 'waste/solicitud-retiro/nueva/sidrep', element: <WasteSidrepDocumentsPage /> },
       { path: 'waste/solicitud-retiro/nueva/sidrep/respaldos', element: <WasteSidrepSupportDocsPage /> },
       { path: 'incidents', element: <IncidentsPage /> },

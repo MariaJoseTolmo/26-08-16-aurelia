@@ -54,6 +54,26 @@ export function useWasteTypes(categoryId: string | null) {
   });
 }
 
+/**
+ * Catálogo COMPLETO de residuos, sin acotar por categoría.
+ *
+ * Lo pide la tarjeta "Lote seleccionado" de la solicitud del retirador (nodo
+ * `4223:9920`), donde "Residuo" y "Categoría" son dos selectores independientes:
+ * ese nodo no encadena nada y su tarjeta no enuncia ninguna regla que los ate,
+ * al revés de `3713:26885` en la recepción a bodega.
+ *
+ * Va con su propia query key —`'all'` en vez de `{ categoryId: null }`— para no
+ * compartir entrada de cache con `useWasteTypes(null)`, que está DESHABILITADA y
+ * significa lo contrario: "todavía no hay categoría elegida".
+ */
+export function useAllWasteTypes() {
+  return useQuery({
+    queryKey: ['waste', 'types', 'all'],
+    queryFn: () => listWasteTypes(),
+    staleTime: CATALOG_STALE_TIME_MS,
+  });
+}
+
 export function useOriginSectors() {
   return useQuery({
     queryKey: ['organization', 'sectors'],
