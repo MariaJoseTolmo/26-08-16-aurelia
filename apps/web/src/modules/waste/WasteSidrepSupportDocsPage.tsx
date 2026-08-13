@@ -10,8 +10,6 @@ import { WasteSidrepRequiredDocsSection } from './components/WasteSidrepRequired
 import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepVehiclePhotosSection } from './components/WasteSidrepVehiclePhotosSection';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
-import { resolveDisposalSiteLabel } from './wasteSidrepForm';
-import { createWithdrawalRowFromLot } from './wasteWithdrawalRows';
 import {
   createWasteSidrepSupportDocsValues,
   isWasteSidrepSupportDocsComplete,
@@ -45,33 +43,15 @@ import {
  * va a rechazar.
  *
  * LOS SEIS ARCHIVOS NO SE SUBEN TODAVÍA. No hay endpoint de respaldos; quedan en el
- * estado local del paso, igual que el resto del flujo, y se envían cuando exista.
+ * borrador, igual que el resto del flujo, y se envían cuando exista.
  */
 export function WasteSidrepSupportDocsPage() {
   const navigate = useNavigate();
   const draft = useWasteWithdrawalDraftStore((state) => state.draft);
-  const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
-  const submitDraft = useWasteWithdrawalDraftStore((state) => state.submitDraft);
+  const setSupport = useWasteWithdrawalDraftStore((state) => state.setSupport);
   const [values, setValues] = useState<WasteSidrepSupportDocsValues>(
     createWasteSidrepSupportDocsValues,
   );
-  /**
-   * `new Date()` es impuro en render: se resuelve una sola vez al montar, igual que
-   * en el resto del módulo. Fecha del retiro de la fila temporal.
-   */
-  const [today] = useState(() => new Date());
-  const [submitted, setSubmitted] = useState(false);
-
-  /*
-   * SALIDA POR ENVÍO, Y VA ANTES DEL GUARD DEL BORRADOR.
-   *
-   * `submitDraft` limpia el borrador, así que después de enviar este paso se
-   * vuelve a renderizar con `draft === null` y el guard de abajo lo leería como
-   * "entró sin borrador", mandándolo al inicio del flujo. Las dos salidas compiten
-   * por el mismo render y gana la que se evalúa primero, así que la del envío se
-   * declara acá arriba en vez de resolverse con un `navigate` imperativo.
-   */
-  if (submitted) return <Navigate to="/waste/solicitud-retiro" replace />;
 
   /* Sin borrador no hay resumen que mostrar: se vuelve al inicio del flujo. */
   if (!draft?.lot) return <Navigate to="/waste/solicitud-retiro/nueva" replace />;
@@ -87,36 +67,19 @@ export function WasteSidrepSupportDocsPage() {
   }
 
   /**
-   * Cierra el envío y vuelve al histórico, que es donde aparece la fila temporal y
-   * el aviso (nodo `3765:40905`).
+   * Avanza al paso 3, "Revisión y envío" (nodo `3765:35418`).
    *
-   * ─────────────────────────────────────────────────────────────────────────────
-   * PROVISORIO: ESTE NO ES SU LUGAR DEFINITIVO
+   * ACÁ YA NO SE ENVÍA. El envío vivía provisoriamente en este botón —con su nota
+   * diciendo que se movería cuando existiera el nodo del paso 3—; ahora existe, y
+   * `submitDraft` pasó a `WasteSidrepReviewPage` sin cambios.
    *
-   * El botón que envía es "Enviar solicitud" del paso 3 ("Revisión y envío"), que
-   * todavía no tiene nodo de Figma. Hasta que exista, el envío se dispara desde el
-   * "Continuar" del paso 2 para poder recorrer el flujo de punta a punta.
-   *
-   * Cuando llegue el paso 3, esto se mueve tal cual: `submitDraft` y
-   * `createWithdrawalRowFromLot` no cambian, solo cambia quién los llama. Este
-   * `onContinue` vuelve a ser una navegación.
-   * ─────────────────────────────────────────────────────────────────────────────
+   * GUARDAR ES UN REQUISITO, no una optimización: el paso 3 lista los seis adjuntos
+   * en su tarjeta "Documentos adjuntos" y es otra ruta, así que este `useState` se
+   * desmonta. Mismo motivo que el `setSidrep` del paso 1.
    */
-  function handleSubmit() {
-    if (!draft?.lot) return;
-
-    submitDraft(
-      createWithdrawalRowFromLot({
-        lot: draft.lot,
-        quantity: draft.quantity,
-        recipient: resolveDisposalSiteLabel(sidrep?.disposalSite ?? null),
-        /* Enviada a Medio ambiente: queda esperando aprobación. */
-        status: 'pending',
-        today,
-      }),
-    );
-    // La redirección la hace el guard de arriba, no un `navigate` acá: ver su nota.
-    setSubmitted(true);
+  function handleContinue() {
+    setSupport(values);
+    navigate('/waste/solicitud-retiro/nueva/sidrep/revision');
   }
 
   return (
@@ -149,8 +112,6 @@ export function WasteSidrepSupportDocsPage() {
             {/*
               "Volver a selección de residuo" es el rótulo del nodo `4278:21347`, así
               que vuelve al inicio del flujo y no al paso 1.
-
-              "Continuar" envía la solicitud PROVISORIAMENTE — ver `handleSubmit`.
             */}
             <WasteSidrepFormActions
               canContinue={canContinue}
@@ -159,7 +120,7 @@ export function WasteSidrepSupportDocsPage() {
               onBack={() =>
                 navigate(draft.sector ? '/waste/solicitud-retiro/nueva/sector' : '/waste/solicitud-retiro/nueva')
               }
-              onContinue={handleSubmit}
+              onContinue={handleContinue}
             />
           </div>
         }

@@ -131,6 +131,7 @@ export function WasteWithdrawalRequestPage() {
   const dismissSubmissionNotice = useWasteWithdrawalDraftStore((state) => state.dismissSubmissionNotice);
   const draft = useWasteWithdrawalDraftStore((state) => state.draft);
   const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
+  const support = useWasteWithdrawalDraftStore((state) => state.support);
   const savedAt = useWasteWithdrawalDraftStore((state) => state.savedAt);
 
   /**
@@ -139,8 +140,8 @@ export function WasteWithdrawalRequestPage() {
    * ruido permanente en la vista.
    */
   const draftProgress = useMemo(
-    () => resolveWasteWithdrawalDraftProgress(draft, sidrep),
-    [draft, sidrep],
+    () => resolveWasteWithdrawalDraftProgress(draft, sidrep, support),
+    [draft, sidrep, support],
   );
 
   /**

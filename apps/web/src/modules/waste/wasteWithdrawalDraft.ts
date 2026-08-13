@@ -1,6 +1,7 @@
 import { WASTE_SIDREP_STEPS } from './components/WasteSidrepStepper';
 import { toIsoDate } from './wasteIntakeFilters';
 import type { WasteSidrepFormValues } from './wasteSidrepForm';
+import type { WasteSidrepSupportDocsValues } from './wasteSidrepSupportDocs';
 import { formatIsoAsDdMmYy } from './wasteWithdrawalFilters';
 import {
   isWasteWithdrawalFormComplete,
@@ -82,14 +83,14 @@ export interface WasteWithdrawalDraftProgress {
 /**
  * Rutas de los pasos del flujo SIDREP, en el orden de `WASTE_SIDREP_STEPS`.
  *
- * El paso 3 ("Revisión y envío") TODAVÍA NO TIENE PANTALLA, así que no tiene ruta.
- * Igual no es alcanzable: `resolveWasteWithdrawalDraftProgress` solo devuelve 1 o 2
- * porque el store no registra que se haya completado el paso 2. Cuando exista, se
- * agrega acá y el resto del archivo no cambia.
+ * Los tres ya tienen pantalla. El paso 3 se agregó cuando apareció su nodo
+ * (`3765:35418`) y, como anticipaba la nota anterior, no hubo que tocar nada más
+ * de este archivo.
  */
 const WASTE_SIDREP_STEP_ROUTES = [
   '/waste/solicitud-retiro/nueva/sidrep',
   '/waste/solicitud-retiro/nueva/sidrep/respaldos',
+  '/waste/solicitud-retiro/nueva/sidrep/revision',
 ] as const;
 
 /**
@@ -132,6 +133,7 @@ function resolveFormRoute(draft: WasteWithdrawalFormValues): string {
 export function resolveWasteWithdrawalDraftProgress(
   draft: WasteWithdrawalFormValues | null,
   sidrep: WasteSidrepFormValues | null,
+  support: WasteSidrepSupportDocsValues | null = null,
 ): WasteWithdrawalDraftProgress | null {
   /*
    * Se exige el LOTE y no solo el borrador: sin lote no hay nada que retomar, y es
@@ -146,11 +148,15 @@ export function resolveWasteWithdrawalDraftProgress(
   }
 
   const totalSteps = WASTE_SIDREP_STEPS.length;
-  const step = sidrep ? 2 : 1;
+  /*
+   * El paso se deduce de qué hay guardado: con los respaldos ya cargados el
+   * borrador quedó parado en "Revisión y envío", que es la única pantalla que
+   * falta recorrer.
+   */
+  const step = support ? 3 : sidrep ? 2 : 1;
 
   return {
-    /* El paso 3 no tiene pantalla: cae en la última que sí existe. */
-    route: WASTE_SIDREP_STEP_ROUTES[step - 1] ?? WASTE_SIDREP_STEP_ROUTES[1],
+    route: WASTE_SIDREP_STEP_ROUTES[step - 1] ?? WASTE_SIDREP_STEP_ROUTES[0],
     steps: {
       step,
       totalSteps,

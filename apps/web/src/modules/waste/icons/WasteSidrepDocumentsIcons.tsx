@@ -24,7 +24,38 @@ type IconProps = SVGProps<SVGSVGElement>;
  *
  * OJO: `4230:10651`, la nube del ticket de pesaje, SÍ es propia. Mide lo mismo que
  * `3564:1389` (17.5 × 14) pero es otro dibujo — mismo tamaño no implica mismo glifo.
+ *
+ * DEL PASO 3 ("Revisión y envío", nodo `3765:35418`) TAMPOCO ENTRÓ CASI NADA. Sus
+ * cinco glifos se compararon uno por uno contra el repo y cuatro ya existían:
+ *
+ *   `3765:35694`  "Datos del residuo y transporte" → `WarehouseFormOriginIcon`
+ *   `3765:35731`  "Peso del residuo"               → `WasteSidrepWeightIcon`
+ *   `3765:35745`  "Documentos adjuntos"            → `WasteSidrepRequiredDocsIcon`
+ *   `3765:35752`  check de cada fila adjunta       → `WarehouseFormAttachedCheckIcon`
+ *   `3765:35806`  "Qué pasa después de enviar"     → `ClockIcon` de `shared/`,
+ *                 el mismo dibujo escalado 17.5/16.875 (razón constante 1.037)
+ *
+ * El único propio es el avión de "Enviar solicitud", que va abajo.
  */
+
+/**
+ * Avión de "Enviar solicitud" — nodo `4278:21432`. Fill original: `white`.
+ *
+ * Glifo nuevo: se buscó su primer coeficiente (`M13.3219 0.036619`) contra todos
+ * los `.svg` y `.tsx` del repo y no aparece. Es el ÚNICO asset que suma el paso 3.
+ *
+ * Su caja natural es 15 × 13.028 y no 15 × 12 como declara el nodo: en Figma el
+ * dibujo desborda la caja arriba y abajo (`inset-[-5.44%_0_-3.12%_0]`). Se conserva
+ * el `viewBox` del asset y quien lo usa le pasa los 15 × 12 del nodo, igual que con
+ * `WasteWithdrawalDraftFormIcon`.
+ */
+export function WasteSidrepSendIcon(props: IconProps) {
+  return (
+    <svg width="15" height="13.028" viewBox="0 0 15 13.028" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}>
+      <path d="M13.3219 0.036619C13.5516 -0.0454123 13.8047 0.0131814 13.9781 0.184275C14.1516 0.355369 14.2078 0.610838 14.1258 0.840525L9.95391 12.4866C9.83672 12.8124 9.52969 13.028 9.18516 13.028C8.85234 13.028 8.55234 12.8265 8.42813 12.5194L6.92344 8.81631C6.81797 8.55849 6.86484 8.26318 7.04531 8.05224L9.26016 5.41787C9.37969 5.2749 9.37031 5.06631 9.23906 4.93506C9.10781 4.80381 8.89688 4.79443 8.75625 4.91396L6.12188 7.12412C5.90859 7.30224 5.61563 7.34912 5.35781 7.24599L1.64297 5.73428C1.33594 5.61006 1.13437 5.31006 1.13437 4.97724C1.13437 4.63271 1.35 4.32568 1.67578 4.20849L13.3219 0.036619Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 // Encabezado "Peso del residuo". Figma node 4230:10643. Fill original: #131313.
 // El `path` se sale del viewBox de 16.875 (llega a 16.89) porque en Figma el nodo

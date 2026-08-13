@@ -3,7 +3,9 @@ import { persist } from 'zustand/middleware';
 import type { WasteWithdrawalFormValues } from '../../modules/waste/wasteWithdrawalForm';
 import type { WasteSidrepFormValues } from '../../modules/waste/wasteSidrepForm';
 import type { WasteWithdrawalDirectValues } from '../../modules/waste/wasteWithdrawalDirectForm';
+import type { WasteSidrepSupportDocsValues } from '../../modules/waste/wasteSidrepSupportDocs';
 import type { WasteWithdrawalRow } from '../../modules/waste/wasteWithdrawalRows';
+import type { WeighingTicketAnalysisResponse } from '../services/waste-withdrawal-validation.service';
 
 /**
  * Borrador de la solicitud de retiro mientras cruza rutas.
@@ -68,6 +70,22 @@ interface WasteWithdrawalDraftState {
    */
   direct: WasteWithdrawalDirectValues | null;
   /**
+   * Valores del paso 2 del flujo SIDREP: los dos documentos y las cuatro fotos.
+   *
+   * Viajan por acá por lo mismo que `sidrep`: el paso 3 los LISTA en su tarjeta
+   * "Documentos adjuntos" (nodo `3765:35743`) y es otra ruta.
+   */
+  support: WasteSidrepSupportDocsValues | null;
+  /**
+   * Los tres pesos que el backend transcribió del ticket, en el paso 1.
+   *
+   * NO SON UN VALOR DE FORMULARIO —nadie los teclea— pero el paso 3 los muestra en
+   * su tarjeta "Peso del residuo" (nodo `3765:35729`). Vienen de una `useMutation`,
+   * que no tiene cache por clave como una query, así que sin guardarlos acá se
+   * pierden al cambiar de ruta.
+   */
+  weights: WeighingTicketAnalysisResponse | null;
+  /**
    * Cuándo se guardó por última vez, en ISO, o `null` sin borrador.
    *
    * Lo escribe el store y no la pantalla: es un dato del guardado, no del formulario,
@@ -99,6 +117,8 @@ interface WasteWithdrawalDraftState {
   submissionNotice: WasteWithdrawalNoticeKind | null;
   setDraft: (values: WasteWithdrawalFormValues) => void;
   setSidrep: (values: WasteSidrepFormValues) => void;
+  setSupport: (values: WasteSidrepSupportDocsValues) => void;
+  setWeights: (weights: WeighingTicketAnalysisResponse | null) => void;
   setDirect: (values: WasteWithdrawalDirectValues) => void;
   clearDraft: () => void;
   /**
@@ -143,7 +163,14 @@ interface WasteWithdrawalDraftState {
  * en uno de ellos deja un borrador huérfano que hace aparecer "Formulario inconcluso"
  * de algo ya cerrado.
  */
-const CLEARED_DRAFT = { draft: null, sidrep: null, direct: null, savedAt: null } as const;
+const CLEARED_DRAFT = {
+  draft: null,
+  sidrep: null,
+  support: null,
+  weights: null,
+  direct: null,
+  savedAt: null,
+} as const;
 
 function prependLocalRow(
   rows: WasteWithdrawalRow[],
@@ -157,12 +184,21 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
     (set) => ({
       draft: null,
       sidrep: null,
+      support: null,
+      weights: null,
       direct: null,
       savedAt: null,
       pendingRequests: [],
       submissionNotice: null,
       setDraft: (values) => set({ draft: values, savedAt: new Date().toISOString() }),
       setSidrep: (values) => set({ sidrep: values, savedAt: new Date().toISOString() }),
+      setSupport: (values) => set({ support: values, savedAt: new Date().toISOString() }),
+      /*
+       * Los pesos NO tocan `savedAt`: no son una edición del usuario sino el
+       * resultado de una transcripción, y mover la hora de guardado por algo que
+       * el usuario no hizo haría mentir al aviso "Hoy 16:54" del histórico.
+       */
+      setWeights: (weights) => set({ weights }),
       setDirect: (values) => set({ direct: values, savedAt: new Date().toISOString() }),
       clearDraft: () => set({ ...CLEARED_DRAFT }),
       submitDraft: (row) =>
@@ -188,6 +224,8 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
        *
        * 1 — el borrador suma `sector`, `carrierLabel` y el transportista del
        *     camino del retirador.
+       * 2 — aparecen `support` y `weights`, que el paso 3 necesita para listar los
+       *     adjuntos y mostrar el peso neto.
        *
        * Sin esto, un borrador escrito por una versión anterior se rehidrata con los
        * campos nuevos en `undefined` y la pantalla que los espera queda rota sin que
@@ -196,7 +234,7 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
        * "Continuar" no se habilitaba nunca—. Un `localStorage` sobreviviente es un
        * dato de otra versión del programa, y hay que tratarlo como tal.
        */
-      version: 1,
+      version: 2,
       /**
        * Los borradores de versiones anteriores se DESCARTAN, no se migran.
        *
@@ -221,6 +259,20 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
       partialize: (state) => ({
         draft: state.draft,
         sidrep: state.sidrep ? { ...state.sidrep, weighingTicket: null } : null,
+        /*
+         * `support` se guarda SIN sus archivos, por lo mismo que el ticket: los seis
+         * son `File` y un `File` no sobrevive a `JSON.stringify`. Se conserva la
+         * forma —para no tener que distinguir "no hay paso 2" de "no hay archivos"—
+         * pero con los seis en `null`, que es lo honesto: al retomar hay que volver
+         * a adjuntarlos.
+         */
+        support: state.support
+          ? {
+              docs: { dispatchGuide: null, safetyDataSheet: null },
+              photos: { front: null, rear: null, left: null, right: null },
+            }
+          : null,
+        weights: state.weights,
         direct: state.direct,
         savedAt: state.savedAt,
       }),

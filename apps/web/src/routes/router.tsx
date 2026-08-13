@@ -22,6 +22,7 @@ import { WasteWithdrawalFormPage } from '../modules/waste/WasteWithdrawalFormPag
 import { WasteWithdrawalSectorPage } from '../modules/waste/WasteWithdrawalSectorPage';
 import { WasteSidrepDocumentsPage } from '../modules/waste/WasteSidrepDocumentsPage';
 import { WasteSidrepSupportDocsPage } from '../modules/waste/WasteSidrepSupportDocsPage';
+import { WasteSidrepReviewPage } from '../modules/waste/WasteSidrepReviewPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
       { path: 'waste/solicitud-retiro/nueva/sector', element: <WasteWithdrawalSectorPage /> },
       { path: 'waste/solicitud-retiro/nueva/sidrep', element: <WasteSidrepDocumentsPage /> },
       { path: 'waste/solicitud-retiro/nueva/sidrep/respaldos', element: <WasteSidrepSupportDocsPage /> },
+      { path: 'waste/solicitud-retiro/nueva/sidrep/revision', element: <WasteSidrepReviewPage /> },
       { path: 'incidents', element: <IncidentsPage /> },
       { path: 'critical-controls', element: <CriticalControlsPage /> },
       { path: 'reports', element: <ReportsPage /> },

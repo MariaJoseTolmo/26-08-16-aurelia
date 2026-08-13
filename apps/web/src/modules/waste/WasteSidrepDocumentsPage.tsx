@@ -80,6 +80,7 @@ function WasteSidrepDocumentsForm({
 }) {
   const navigate = useNavigate();
   const setSidrep = useWasteWithdrawalDraftStore((state) => state.setSidrep);
+  const setWeights = useWasteWithdrawalDraftStore((state) => state.setWeights);
   const [values, setValues] = useState<WasteSidrepFormValues>(createWasteSidrepFormValues);
 
   /**
@@ -211,6 +212,12 @@ function WasteSidrepDocumentsForm({
                  * lo que la fila temporal del listado muestra como DESTINATARIO.
                  */
                 setSidrep(values);
+                /*
+                 * Los pesos van al store junto con el paso: vienen de una
+                 * `useMutation`, que no cachea por clave, así que sin esto el paso 3
+                 * no tendría de dónde sacar el peso neto que muestra su tarjeta.
+                 */
+                setWeights(weights);
                 navigate('/waste/solicitud-retiro/nueva/sidrep/respaldos');
               }}
             />

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { WasteWithdrawalContinueArrowIcon } from '../icons/WasteWithdrawalFormIcons';
 import { WasteSecondaryActionButton } from './WasteSecondaryActionButton';
 
@@ -32,13 +33,27 @@ interface WasteSidrepFormActionsProps {
   canContinue: boolean;
   onBack: () => void;
   onContinue?: () => void;
+  /**
+   * Rótulo del primario. El paso 3 cierra con "Enviar solicitud" (nodo
+   * `4278:21431`) en vez de "Continuar": ahí ya no se avanza, se firma.
+   */
+  continueLabel?: string;
+  /**
+   * Glifo del primario. Por defecto la flecha; el paso 3 pone el avión de
+   * `4278:21432`. Recibe el color por `currentColor`, así que el `className` con la
+   * caja y el tono lo pone quien lo pasa.
+   */
+  continueIcon?: (className: string) => ReactNode;
 }
 
 export function WasteSidrepFormActions({
   canContinue,
   onBack,
   onContinue,
+  continueLabel = SIDREP_CONTINUE_LABEL,
+  continueIcon,
 }: WasteSidrepFormActionsProps) {
+  const iconClassName = `block h-[12px] w-[15px] shrink-0 ${canContinue ? 'text-white' : 'text-[#acacac]'}`;
   return (
     <div className="w-full shrink-0 border-t border-solid border-[#e3e3e3] bg-white">
       <div className="flex w-full items-center justify-end px-[28px] pb-[14px] pt-[15px]">
@@ -57,11 +72,13 @@ export function WasteSidrepFormActions({
                 canContinue ? 'text-white' : 'text-[#acacac]'
               }`}
             >
-              {SIDREP_CONTINUE_LABEL}
+              {continueLabel}
             </span>
-            <WasteWithdrawalContinueArrowIcon
-              className={`block h-[12px] w-[15px] shrink-0 ${canContinue ? 'text-white' : 'text-[#acacac]'}`}
-            />
+            {continueIcon ? (
+              continueIcon(iconClassName)
+            ) : (
+              <WasteWithdrawalContinueArrowIcon className={iconClassName} />
+            )}
           </button>
         </div>
       </div>
