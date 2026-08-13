@@ -182,6 +182,30 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
     {
       /* Mismo prefijo que las claves de sesión (`aurelia_token`, `aurelia_user`). */
       name: 'aurelia_waste_withdrawal_draft',
+      /**
+       * Versión del borrador guardado. SE SUBE CADA VEZ QUE CAMBIA LA FORMA de
+       * `WasteWithdrawalFormValues`.
+       *
+       * 1 — el borrador suma `sector`, `carrierLabel` y el transportista del
+       *     camino del retirador.
+       *
+       * Sin esto, un borrador escrito por una versión anterior se rehidrata con los
+       * campos nuevos en `undefined` y la pantalla que los espera queda rota sin que
+       * nada lo avise: fue exactamente lo que pasó al agregar el transportista de la
+       * EECC —el paso 1 de SIDREP leía `carrier: null` de un borrador viejo y su
+       * "Continuar" no se habilitaba nunca—. Un `localStorage` sobreviviente es un
+       * dato de otra versión del programa, y hay que tratarlo como tal.
+       */
+      version: 1,
+      /**
+       * Los borradores de versiones anteriores se DESCARTAN, no se migran.
+       *
+       * Migrar exigiría inventar los campos que faltan —de qué sector salía, qué
+       * empresa transportaba— y ninguno se puede deducir de lo guardado. Perder un
+       * formulario a medio llenar es molesto; retomarlo con datos inventados en una
+       * solicitud que va a Medio Ambiente es peor.
+       */
+      migrate: () => ({ ...CLEARED_DRAFT }),
       /*
        * Solo el borrador. `partialize` es lo que impide que `pendingRequests` y
        * `submissionNotice` se cuelen en `localStorage`: sin él, `persist` guarda todo

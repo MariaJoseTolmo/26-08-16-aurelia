@@ -201,7 +201,9 @@ export function WasteWithdrawalRequestPage() {
               {draftProgress ? (
                 <WasteWithdrawalDraftNotice
                   progress={draftProgress}
-                  carrierLabel={resolveCarrierLabel(draft?.carrier ?? null)}
+                  /* El retirador trae su EECC ya resuelta; sin ella, el id se
+                     busca entre las opciones de muestra. */
+                  carrierLabel={draft?.carrierLabel ?? resolveCarrierLabel(draft?.carrier ?? null)}
                   savedAtLabel={savedAt ? formatWasteDraftSavedAt(savedAt, today) : ''}
                   onResume={() => navigate(draftProgress.route)}
                 />

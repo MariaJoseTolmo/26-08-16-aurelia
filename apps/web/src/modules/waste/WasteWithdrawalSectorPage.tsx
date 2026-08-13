@@ -5,7 +5,10 @@ import {
   useWasteCategories,
   useWasteUnits,
 } from '../../shared/hooks/useWasteCatalogs';
+import { SIMULATED_WASTE_WITHDRAWER_COMPANY } from '../../shared/auth/simulated-role';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
+import { useSessionStore } from '../../shared/stores/session.store';
+import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import type { WarehouseFormCatalogState } from './components/WarehouseFormControls';
@@ -16,8 +19,12 @@ import { WasteWithdrawalSidrepNoticeSection } from './components/WasteWithdrawal
 import { WasteWithdrawalTruckshopLotSection } from './components/WasteWithdrawalTruckshopLotSection';
 import { toCategoryOptions, toUnitOptions, toWasteTypeOptions } from './warehouseIntakeForm';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
-import { WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR } from './wasteWithdrawalSectors';
 import {
+  resolveWasteWithdrawalSectorLabel,
+  WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR,
+} from './wasteWithdrawalSectors';
+import {
+  createTruckshopWithdrawalDraft,
   createWasteWithdrawalTruckshopValues,
   isWasteWithdrawalTruckshopComplete,
   type WasteWithdrawalTruckshopValues,
@@ -58,22 +65,31 @@ import {
  * icono es el glifo de la pastilla "Peligroso" escalado 1.35, el mismo que ya
  * resuelve `WarehouseHazardousIcon`—.
  *
+ * "Continuar a documentos SIDREP" lleva al paso 1 del flujo SIDREP, el nodo
+ * `3765:34511`, que es la MISMA pantalla que ya usa el otro camino
+ * (`WasteSidrepDocumentsPage`) con un campo más en su resumen: "Sector".
+ *
+ * Para llegar hay que dejar el borrador en `waste-withdrawal-draft.store`, que es
+ * lo que esa pantalla lee y lo que su guard exige. La traducción de lo que se
+ * describe acá al `WasteWithdrawableLot` que espera allá vive en
+ * `createTruckshopWithdrawalDraft`, junto con la lista de qué campos este camino
+ * NO puede conocer.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
- * A CONFIRMAR CON DISEÑO: EL CTA DEL AVISO SIDREP NO NAVEGA
+ * A CONFIRMAR CON DISEÑO: ESTE CAMINO NO TIENE SALDO NI TRANSPORTISTA
  *
- * "Continuar a documentos SIDREP" se renderiza en su estado activo —es lo que
- * dibuja el nodo— pero NO se le pasa `onContinue`, así que no lleva a ningún lado.
+ * El resumen del nodo `4085:77576` dibuja "2 de 4 contenedores" y
+ * "[Nombre de la EECC]", pero ninguno de los dos datos existe en este flujo:
  *
- * NO ES UN OLVIDO. La ruta que sería su destino natural,
- * `/waste/solicitud-retiro/nueva/sidrep`, arranca con
- * `if (!draft?.lot) return <Navigate to="/waste/solicitud-retiro/nueva" />`: pide
- * un lote en `waste-withdrawal-draft.store` y esta pantalla no crea ninguno —acá
- * el lote se está describiendo, no eligiendo de los ya registrados—. Mandarlo ahí
- * expulsaría al retirador a la pantalla del OTRO flujo, que es peor que no hacer
- * nada. Fabricar un lote para poblar el store sería inventarle un id y un saldo
- * que no existen.
+ *   el "de 4"     sale del saldo de un lote recepcionado, y acá el residuo se
+ *                 DESCRIBE en vez de elegirse de la lista de lotes con saldo
+ *   la EECC       es el placeholder de la empresa del usuario logueado, no de un
+ *                 selector — esta pantalla no pide transportista
  *
- * Falta el nodo que diga a dónde va este botón en este camino.
+ * Se muestran sin inventar: la cantidad queda "2 contenedores" y el transportista
+ * cae al "—" de `resolveCarrierLabel`. Falta definir si el retirador debería
+ * elegir un lote registrado —y entonces tiene saldo— o si su empresa sale de la
+ * sesión.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * El encabezado del cuerpo se reusa TAL CUAL, con sus dos textos por defecto: los
@@ -105,6 +121,9 @@ export function WasteWithdrawalSectorPage() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<string | null>(null);
   const [lot, setLot] = useState<WasteWithdrawalTruckshopValues>(createWasteWithdrawalTruckshopValues);
+  const setDraft = useWasteWithdrawalDraftStore((state) => state.setDraft);
+  const clearDraft = useWasteWithdrawalDraftStore((state) => state.clearDraft);
+  const user = useSessionStore((state) => state.user);
 
   const isTruckshop = sector === WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR;
 
@@ -182,6 +201,42 @@ export function WasteWithdrawalSectorPage() {
     setLot(createWasteWithdrawalTruckshopValues());
   }
 
+  /**
+   * Avanza al paso 1 del flujo SIDREP — nodo `3765:34511`.
+   *
+   * GUARDAR ES UN REQUISITO, no una optimización: la pantalla siguiente es otra
+   * ruta, este `useState` se desmonta y su tarjeta de resumen necesita el residuo,
+   * la cantidad y el sector. Es el mismo motivo que `handleContinueToSidrep` en
+   * `WasteWithdrawalFormPage`.
+   *
+   * Además es lo que hace pasar el guard de esa pantalla, que devuelve al listado
+   * cuando el borrador no trae lote.
+   */
+  function handleContinueToSidrep() {
+    if (!sector) return;
+
+    setDraft(
+      createTruckshopWithdrawalDraft({
+        values: lot,
+        sectorLabel: resolveWasteWithdrawalSectorLabel(sector),
+        /*
+         * La empresa sale de la SESIÓN, que es lo que el nodo `4085:77594` llama
+         * "[Nombre de la EECC]". El fallback simulado entra solo si el usuario no
+         * tiene empresa asignada: sin transportista el paso 1 de SIDREP no puede
+         * validar el transporte y su "Continuar" queda muerto.
+         */
+        company:
+          user?.companyId && user.companyName
+            ? { id: user.companyId, name: user.companyName }
+            : SIMULATED_WASTE_WITHDRAWER_COMPANY,
+        wasteTypes: wasteTypesQuery.data ?? [],
+        categories: categoriesQuery.data ?? [],
+        units: unitsQuery.data ?? [],
+      }),
+    );
+    navigate('/waste/solicitud-retiro/nueva/sidrep');
+  }
+
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Nueva solicitud (sector)">
       <AppSidebar />
@@ -216,16 +271,25 @@ export function WasteWithdrawalSectorPage() {
                   compararon los dos assets y son el mismo glifo.
                 */}
                 {isTruckshop && hazardousWaste ? (
-                  <WasteWithdrawalSidrepNoticeSection canContinue={isWasteWithdrawalTruckshopComplete(lot)} />
+                  <WasteWithdrawalSidrepNoticeSection
+                    canContinue={isWasteWithdrawalTruckshopComplete(lot)}
+                    onContinue={handleContinueToSidrep}
+                  />
                 ) : null}
               </div>
             </div>
             {/*
-              "Cancelar retiro" vuelve al histórico. Acá no hay borrador que
-              descartar —el sector no se persiste—, así que no llama a `clearDraft`:
-              hacerlo borraría el borrador del OTRO flujo, que es de otra pantalla.
+              "Cancelar retiro" DESCARTA el borrador, igual que en la pantalla
+              hermana. Desde que el CTA de SIDREP escribe en el store, cancelar sin
+              limpiar dejaría el aviso "Formulario inconcluso" ofreciendo retomar una
+              solicitud que el usuario acaba de tirar.
             */}
-            <WasteWithdrawalFormActions onCancel={() => navigate('/waste/solicitud-retiro')} />
+            <WasteWithdrawalFormActions
+              onCancel={() => {
+                clearDraft();
+                navigate('/waste/solicitud-retiro');
+              }}
+            />
           </div>
         }
       />

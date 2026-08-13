@@ -14,6 +14,25 @@
 
 export const SIMULATED_ROLE_QUERY_PARAM = 'role';
 
+/**
+ * Empresa contratista del rol simulado.
+ *
+ * El retirador retira POR una EECC, y el resumen del paso 1 de SIDREP muestra su
+ * nombre donde el nodo `4085:77594` escribe "[Nombre de la EECC]". Ese dato sale
+ * de la sesión (`companyId` / `companyName`), pero el usuario con el que se
+ * demuestra la simulación puede no tener empresa asignada, y sin transportista la
+ * validación de transporte no corre y "Continuar" no se habilita nunca.
+ *
+ * Vive ACÁ y no en el módulo de residuos a propósito: es dato inventado, y el dato
+ * inventado va todo junto en el archivo de la simulación, donde se borra de una
+ * cuando exista la infraestructura de roles. Solo se usa como ÚLTIMO recurso,
+ * cuando la sesión no trae empresa.
+ */
+export const SIMULATED_WASTE_WITHDRAWER_COMPANY = {
+  id: 'simulated-eecc',
+  name: 'EECC simulada',
+} as const;
+
 export const WASTE_WITHDRAWER_ROLE = 'WASTE_WITHDRAWER';
 
 export type SimulatedRole = typeof WASTE_WITHDRAWER_ROLE;

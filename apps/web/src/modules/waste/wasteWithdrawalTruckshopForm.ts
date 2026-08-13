@@ -15,6 +15,14 @@
  * un `readOnly`.
  */
 
+import type {
+  WasteOperationalCategoryResponse,
+  WasteTypeResponse,
+  WasteUnitResponse,
+} from '@aurelia/contracts';
+import type { WasteWithdrawalFormValues } from './wasteWithdrawalForm';
+import type { WasteWithdrawableLot } from './wasteWithdrawableLots';
+
 export interface WasteWithdrawalTruckshopValues {
   /** Selector "Residuo". Nodo `4223:9966`. */
   wasteTypeId: string | null;
@@ -48,4 +56,88 @@ export function isWasteWithdrawalTruckshopComplete(values: WasteWithdrawalTrucks
     values.unitId !== null &&
     values.quantity.trim().length > 0
   );
+}
+
+interface TruckshopDraftInput {
+  values: WasteWithdrawalTruckshopValues;
+  sectorLabel: string;
+  /**
+   * Empresa contratista que retira, que en este camino ES el transportista: el
+   * nodo `4085:77594` muestra "[Nombre de la EECC]" y no un selector.
+   */
+  company: { id: string; name: string };
+  wasteTypes: WasteTypeResponse[];
+  categories: WasteOperationalCategoryResponse[];
+  units: WasteUnitResponse[];
+}
+
+/**
+ * Arma el borrador que el paso 1 de SIDREP espera, a partir de lo que describió
+ * esta pantalla.
+ *
+ * ES UNA TRADUCCIÓN, NO UN LOTE REAL, y el punto entero de esta función es dejar
+ * eso explícito en un solo lugar. `WasteSidrepDocumentsPage` está tipada alrededor
+ * de `WasteWithdrawableLot` porque el otro camino ELIGE un lote ya recepcionado del
+ * modal `3765:40585`; el del retirador lo DESCRIBE contra los catálogos, así que
+ * hay tres campos del modelo que este camino no puede conocer:
+ *
+ *   `id`                el lote no existe en bodega todavía
+ *   `entryDate`         nunca ingresó, así que no hay fecha de ingreso
+ *   `availableQuantity` no hay saldo contra el cual comparar
+ *
+ * Los tres van VACÍOS y no inventados. Es lo que deja que el resumen dibuje
+ * "2 contenedores" en vez de un "2 de 4" con un 4 salido de la nada, y lo que hace
+ * que un `lotId` vacío se note el día que exista el endpoint de validación en vez
+ * de viajar un id plausible y equivocado.
+ *
+ * `elapsedMonths` va en `null`, que en el modelo ya significa "sin plazo asociado"
+ * y es la lectura correcta acá: no hay estadía en bodega que contar.
+ */
+export function createTruckshopWithdrawalDraft({
+  values,
+  sectorLabel,
+  company,
+  wasteTypes,
+  categories,
+  units,
+}: TruckshopDraftInput): WasteWithdrawalFormValues {
+  const wasteType = wasteTypes.find((type) => type.id === values.wasteTypeId);
+  const category = categories.find((item) => item.id === values.categoryId);
+  const unit = units.find((item) => item.id === values.unitId);
+
+  const lot: WasteWithdrawableLot = {
+    id: '',
+    wasteType: wasteType?.name ?? '',
+    wasteTypeName: wasteType?.name ?? '',
+    /* La pastilla del resumen escribe la SIGLA ("RESPEL"), que es el `code` del catálogo. */
+    categoryCode: category?.code ?? '',
+    isHazardous: wasteType?.isHazardous ?? false,
+    entryDate: '',
+    origin: sectorLabel,
+    elapsedMonths: null,
+    availableQuantity: '',
+    unitLabel: unit?.name ?? '',
+    unitName: unit?.name ?? '',
+  };
+
+  return {
+    lot,
+    quantity: values.quantity,
+    /*
+     * EL TRANSPORTISTA ES LA PROPIA EECC. Esta pantalla no lo pide porque el nodo
+     * `4085:77594` no dibuja un selector sino "[Nombre de la EECC]": el dato sale
+     * del usuario logueado.
+     *
+     * NO ES COSMÉTICO Y NO PUEDE QUEDAR EN `null`. El paso 1 de SIDREP arma su
+     * `ValidateWithdrawalTransportRequest` solo si hay `carrier`; sin él la query
+     * queda deshabilitada, `transportValid` nunca pasa a `true` y "Continuar" no se
+     * habilita aunque el formulario esté completo.
+     *
+     * Va el ID en `carrier` —que es lo que viaja como `carrierId`— y el nombre en
+     * `carrierLabel`, que es lo que se muestra.
+     */
+    carrier: company.id,
+    carrierLabel: company.name,
+    sector: sectorLabel,
+  };
 }

@@ -133,6 +133,10 @@ export function WasteSidrepSupportDocsPage() {
                   lot={draft.lot}
                   quantity={draft.quantity}
                   carrier={draft.carrier}
+                  carrierLabel={draft.carrierLabel ?? null}
+                  /* El resumen es el mismo en los tres pasos: si el paso 1 muestra
+                     "Sector", el 2 también. */
+                  sector={draft.sector ?? null}
                   currentStep={2}
                 />
                 <WasteSidrepRequiredDocsSection docs={values.docs} onDocChange={handleDocChange} />
@@ -150,7 +154,11 @@ export function WasteSidrepSupportDocsPage() {
             */}
             <WasteSidrepFormActions
               canContinue={canContinue}
-              onBack={() => navigate('/waste/solicitud-retiro/nueva')}
+              /* Mismo criterio que el paso 1: "Volver a selección de residuo" es
+                 `/nueva/sector` para el retirador y `/nueva` para el resto. */
+              onBack={() =>
+                navigate(draft.sector ? '/waste/solicitud-retiro/nueva/sector' : '/waste/solicitud-retiro/nueva')
+              }
               onContinue={handleSubmit}
             />
           </div>

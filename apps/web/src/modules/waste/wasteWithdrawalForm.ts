@@ -17,10 +17,35 @@ export interface WasteWithdrawalFormValues {
   quantity: string;
   /** Empresa transportista elegida. Nodo `3765:39057`. */
   carrier: string | null;
+  /**
+   * Sector del que sale el retiro, o `null` cuando el borrador no viene del
+   * camino del retirador.
+   *
+   * OPCIONAL PORQUE SOLO UN CAMINO LO CONOCE. El flujo que arranca en
+   * `WasteWithdrawalFormPage` elige un LOTE ya recepcionado, que trae su propio
+   * `origin`; el del retirador (`WasteWithdrawalSectorPage`) arranca eligiendo el
+   * sector y por eso puede informarlo. El resumen de SIDREP muestra el campo
+   * "Sector" (nodo `4223:8680`) solo cuando llega.
+   *
+   * Va como `string | null` y no se agrega al `createWasteWithdrawalFormValues`
+   * con otro valor: los borradores ya persistidos en `localStorage` no lo traen y
+   * se leen como `undefined`, que el consumidor normaliza a `null`.
+   */
+  sector?: string | null;
+  /**
+   * Rótulo del transportista cuando NO sale de `WASTE_CARRIER_OPTIONS`.
+   *
+   * En el camino del retirador el transportista es su propia empresa, que viene de
+   * la sesión: `carrier` lleva el `companyId` —que es lo que viaja a la validación
+   * de transporte— y esto el `companyName`, que es lo que se muestra. Sin el par,
+   * `resolveCarrierLabel` no encontraría el id entre las opciones de muestra y
+   * caería a mostrar el UUID.
+   */
+  carrierLabel?: string | null;
 }
 
 export function createWasteWithdrawalFormValues(): WasteWithdrawalFormValues {
-  return { lot: null, quantity: '', carrier: null };
+  return { lot: null, quantity: '', carrier: null, sector: null, carrierLabel: null };
 }
 
 /**

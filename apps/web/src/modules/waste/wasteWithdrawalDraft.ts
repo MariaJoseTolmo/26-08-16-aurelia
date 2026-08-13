@@ -92,8 +92,20 @@ const WASTE_SIDREP_STEP_ROUTES = [
   '/waste/solicitud-retiro/nueva/sidrep/respaldos',
 ] as const;
 
-/** Ruta de la pantalla donde se llena el formulario base. */
-const WASTE_WITHDRAWAL_FORM_ROUTE = '/waste/solicitud-retiro/nueva';
+/**
+ * Ruta de la pantalla donde se llena el formulario base, según el camino.
+ *
+ * SON DOS Y NO UNA. `/nueva` elige el residuo de un lote recepcionado; el
+ * retirador arranca en `/nueva/sector` describiéndolo a partir del sector. Un
+ * destino fijo mandaría al retirador a retomar su borrador en la pantalla del otro
+ * flujo, que no sabe leerlo y donde además tendría que volver a empezar.
+ *
+ * El sector en el borrador es lo que distingue los dos: solo el camino del
+ * retirador lo escribe.
+ */
+function resolveFormRoute(draft: WasteWithdrawalFormValues): string {
+  return draft.sector ? '/waste/solicitud-retiro/nueva/sector' : '/waste/solicitud-retiro/nueva';
+}
 
 /**
  * Progreso del borrador en curso, o `null` si no hay ninguno.
@@ -130,7 +142,7 @@ export function resolveWasteWithdrawalDraftProgress(
 
   /* Sin el tronco común completo, o sin SIDREP por delante, no hay paso que numerar. */
   if (!draft.lot.isHazardous || !isWasteWithdrawalFormComplete(draft)) {
-    return { route: WASTE_WITHDRAWAL_FORM_ROUTE, steps: null };
+    return { route: resolveFormRoute(draft), steps: null };
   }
 
   const totalSteps = WASTE_SIDREP_STEPS.length;

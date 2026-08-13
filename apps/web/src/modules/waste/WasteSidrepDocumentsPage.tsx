@@ -147,6 +147,8 @@ function WasteSidrepDocumentsForm({
                   lot={lot}
                   quantity={draft.quantity}
                   carrier={draft.carrier}
+                  carrierLabel={draft.carrierLabel ?? null}
+                  sector={draft.sector ?? null}
                   currentStep={1}
                 />
                 <WasteSidrepTransportSection
@@ -189,7 +191,19 @@ function WasteSidrepDocumentsForm({
             </div>
             <WasteSidrepFormActions
               canContinue={canContinue}
-              onBack={() => navigate('/waste/solicitud-retiro/nueva')}
+              /*
+               * "Volver" tiene que devolver a la pantalla de la que se VINO, y son
+               * dos: `/nueva` elige el residuo de un lote recepcionado, `/nueva/sector`
+               * lo describe partiendo del sector. Un destino fijo mandaría al
+               * retirador a la pantalla del otro flujo, que es la misma trampa que el
+               * guard de arriba.
+               *
+               * El sector en el borrador es lo que distingue los dos caminos: solo el
+               * del retirador lo escribe.
+               */
+              onBack={() =>
+                navigate(draft.sector ? '/waste/solicitud-retiro/nueva/sector' : '/waste/solicitud-retiro/nueva')
+              }
               onContinue={() => {
                 /*
                  * Guarda antes de navegar, igual que el paso anterior: el paso 2 es
