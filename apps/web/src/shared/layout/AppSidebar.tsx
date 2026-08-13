@@ -13,6 +13,7 @@ import {
 import { useNotifications } from '../hooks/useNotifications';
 import { logout } from '../services/auth.service';
 import { useSessionStore } from '../stores/session.store';
+import { useIsWasteWithdrawer } from '../stores/simulated-role.store';
 import { formatPrimaryRoleLabel, formatUserInitials, roleLabel } from '../utils/roles';
 import { AppNotificationsPanel } from './AppNotificationsPanel';
 import { sidebarIconSvgs, type SidebarIconName } from './AppSidebarIcons';
@@ -41,6 +42,8 @@ type SidebarItem = {
 };
 
 const SIDEBAR_EXPANDED_MODULES_STORAGE_KEY = 'aurelia.sidebar.expanded-modules';
+
+const WASTE_WITHDRAWAL_ROUTE = '/waste/solicitud-retiro';
 
 function readExpandedModules(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -536,7 +539,31 @@ function buildSprSidebarChildren(roles: Role[]): SidebarChildItem[] {
   return children;
 }
 
-function resolveSidebarItems(roles: Role[]): SidebarItem[] {
+/**
+ * Sidebar del rol simulado `WASTE_WITHDRAWER` — nodo Figma `2999:4882`.
+ *
+ * "Módulos" queda con un único módulo, Residuos, y ese módulo con un único
+ * hijo, "Solicitud de retiro": Control de bodega e Ingresos a bodega no son de
+ * este rol. Se recorta la lista completa —y no sólo los hijos— para que
+ * tampoco se filtren cuando `findActiveModule` no encuentra módulo activo y el
+ * sidebar cae al listado entero.
+ */
+function buildWasteWithdrawerItems(): SidebarItem[] {
+  const wasteModule = mainItems.find((item) => item.label === 'Residuos');
+  if (!wasteModule) return [];
+
+  return [
+    {
+      ...wasteModule,
+      to: WASTE_WITHDRAWAL_ROUTE,
+      children: wasteModule.children?.filter((child) => child.to === WASTE_WITHDRAWAL_ROUTE) ?? [],
+    },
+  ];
+}
+
+function resolveSidebarItems(roles: Role[], isWasteWithdrawer: boolean): SidebarItem[] {
+  if (isWasteWithdrawer) return buildWasteWithdrawerItems();
+
   return mainItems.map((item) => {
     if (item.label !== 'SPR') return item;
 
@@ -558,7 +585,8 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const user = useSessionStore((state) => state.user);
   const userRoles = resolveSessionUserRoles(user);
-  const sidebarItems = resolveSidebarItems(userRoles);
+  const isWasteWithdrawer = useIsWasteWithdrawer();
+  const sidebarItems = resolveSidebarItems(userRoles, isWasteWithdrawer);
 
   /**
    * Sidebar contextual (nodo `3765:37580`): "Módulos" muestra únicamente el

@@ -26,6 +26,7 @@ import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
 import { RequireAdmin } from '../shared/components/RequireAdmin';
 import { RequireAuth } from '../shared/components/RequireAuth';
+import { HomeRoute } from './HomeRoute';
 
 export const router = createBrowserRouter([
   {
@@ -54,7 +55,7 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <HomeRoute /> },
       { path: 'inspections/dashboard', element: <DashboardPage /> },
       { path: 'inspections', element: <InspectionsPage /> },
       { path: 'inspections/history', element: <InspectionsHistoryPage /> },
