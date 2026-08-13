@@ -1,27 +1,16 @@
 import { useState } from 'react';
 import type { WasteDashboardKpisResponse } from '../../../shared/services/waste-dashboard.service';
 import { buildWasteDashboardKpis } from '../wasteDashboardKpis';
-import { WasteKpiCard, type WasteKpi } from './WasteKpiCard';
+import { WasteKpiRow, type WasteKpi } from './WasteKpiCard';
 
 /**
  * Fila de KPIs del Dashboard Residuos — nodo `3086:13811`.
  *
- *   contenedor  grid de 4 columnas de 249.5px · gap 14px · fila de 82.5px
+ *   contenedor  grid de 4 columnas de 249.5px · gap 14px → `WasteKpiRow`
  *   tarjetas    `3086:13812` / `13821` / `13828` / `13835` → ver `WasteKpiCard`
  *
- * Dos desvíos deliberados respecto del design context:
- *
- * 1. `grid-cols-[249.5px_249.5px_249.5px_249.5px]` se reemplaza por cuatro
- *    columnas de igual fracción: el brief prohíbe anchos fijos de layout. Los
- *    249.5px son el reparto de los 1044px del cuerpo menos los tres gaps de 14
- *    (1044 − 42 = 1002; 1002 / 4 = 250.5 ≈ 249.5 con el borde), así que cuatro
- *    columnas iguales lo reproducen y además siguen al viewport.
- * 2. `grid-rows-[82.5px]` tampoco se fija: los 82.5px son alto DERIVADO
- *    (17 + 13 + 6 + 29.5 + 17 = 82.5) y el contenido los produce solo. Fijarlo
- *    recortaría el rótulo el día que un KPI necesite dos líneas.
- *
- * Colapsa a dos columnas y a una en pantallas angostas, igual que la fila de
- * "Control de bodega".
+ * Lo propio de este archivo son los cuatro rótulos y el adaptador entre la
+ * respuesta del servidor y la fila, con sus estados de carga y de error.
  */
 
 interface WasteDashboardKpisProps {
@@ -29,13 +18,7 @@ interface WasteDashboardKpisProps {
 }
 
 export function WasteDashboardKpis({ kpis }: WasteDashboardKpisProps) {
-  return (
-    <div className="grid w-full grid-cols-1 gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
-      {kpis.map((kpi) => (
-        <WasteKpiCard key={kpi.label} kpi={kpi} />
-      ))}
-    </div>
-  );
+  return <WasteKpiRow kpis={kpis} />;
 }
 
 /**

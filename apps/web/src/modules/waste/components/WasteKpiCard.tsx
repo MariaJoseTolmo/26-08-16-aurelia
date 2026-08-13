@@ -3,10 +3,11 @@ import { WasteKpiTrendUpIcon } from '../icons/WasteDashboardIcons';
 /**
  * Tarjeta de KPI del módulo de residuos.
  *
- * El mismo bloque aparece con geometría IDÉNTICA en dos vistas:
+ * El mismo bloque aparece con geometría IDÉNTICA en tres vistas:
  *
- *   `3686:25708`  Control de bodega   (fila `3686:25707`, gap 16)
- *   `3086:13812`  Dashboard Residuos  (fila `3086:13811`, gap 14)
+ *   `3686:25708`  Control de bodega     (fila `3686:25707`, gap 16)
+ *   `3086:13812`  Dashboard Residuos    (fila `3086:13811`, gap 14)
+ *   `3430:2299`   Histórico de retiros  (fila `3430:2298`,  gap 14)
  *
  *   tarjeta   bg white · border #e3e3e3 · rounded-[10px]
  *             interior flex flex-col items-start px-[19px] py-[17px]
@@ -15,8 +16,8 @@ import { WasteKpiTrendUpIcon } from '../icons/WasteDashboardIcons';
  *   nota      Inter Semi Bold 11px
  *
  * Vive en su propio archivo —y no dentro de `WarehouseControlKpis`— desde que la
- * segunda vista la necesitó: lo único que cambia entre las dos filas es el gap de
- * la grilla, así que cada fila declara su grilla y las dos comparten ESTA tarjeta.
+ * segunda vista la necesitó: lo único que cambia entre las filas es el gap de la
+ * grilla, y eso lo resuelve `WasteKpiRow` con un parámetro.
  *
  * El número y la nota llevan colores INDEPENDIENTES, y no siempre coinciden:
  *
@@ -121,6 +122,51 @@ export function WasteKpiCard({ kpi }: { kpi: WasteKpi }) {
           </span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Clases literales y no `gap-[${n}px]`: Tailwind no puede generar una clase a
+ * partir de un valor de runtime. Las dos son las únicas que dibuja el diseño.
+ */
+const ROW_GAP_CLASS = {
+  14: 'gap-[14px]',
+  16: 'gap-[16px]',
+} as const;
+
+export type WasteKpiRowGap = keyof typeof ROW_GAP_CLASS;
+
+interface WasteKpiRowProps {
+  kpis: readonly WasteKpi[];
+  /** Separación de la grilla en el nodo: 16 en "Control de bodega", 14 en el resto. */
+  gap?: WasteKpiRowGap;
+}
+
+/**
+ * Fila de tarjetas de KPI — nodos `3686:25707` (Control de bodega, gap 16),
+ * `3086:13811` (Dashboard Residuos, gap 14) y `3430:2298` (Histórico de retiros,
+ * gap 14).
+ *
+ * Dos desvíos deliberados respecto del design context, comunes a las tres filas:
+ *
+ * 1. `grid-cols-[250.5px_250.5px_250.5px_250.5px]` se reemplaza por cuatro
+ *    columnas de igual fracción: el brief prohíbe anchos fijos de layout. Los
+ *    250.5px son el reparto de los 1044px del cuerpo menos los tres gaps
+ *    (1044 − 42 = 1002; 1002 / 4 = 250.5), así que cuatro columnas iguales lo
+ *    reproducen y además siguen al viewport.
+ * 2. `grid-rows-[82.5px]` tampoco se fija: los 82.5px son alto DERIVADO
+ *    (17 + 13 + 6 + 29.5 + 17 = 82.5) y el contenido los produce solo. Fijarlo
+ *    recortaría el rótulo el día que un KPI necesite dos líneas.
+ *
+ * Colapsa a dos columnas y a una en pantallas angostas.
+ */
+export function WasteKpiRow({ kpis, gap = 14 }: WasteKpiRowProps) {
+  return (
+    <div className={`grid w-full grid-cols-1 ${ROW_GAP_CLASS[gap]} sm:grid-cols-2 xl:grid-cols-4`}>
+      {kpis.map((kpi) => (
+        <WasteKpiCard key={kpi.label} kpi={kpi} />
+      ))}
     </div>
   );
 }

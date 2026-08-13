@@ -1,15 +1,14 @@
-import { WasteKpiCard, type WasteKpi } from './WasteKpiCard';
+import { WasteKpiRow, type WasteKpi } from './WasteKpiCard';
 
 /**
  * Fila de KPIs de "Control de bodega" — nodos `3686:25707` (contenedor) y
  * `3686:25708` / `25713` / `25720` / `25727` (tarjetas).
  *
- *   contenedor  flex gap-[16px] items-start w-full
- *   tarjeta     ver `WasteKpiCard`, que la comparte con el Dashboard Residuos
+ *   contenedor  flex gap-[16px] items-start w-full → `WasteKpiRow` con gap 16
+ *   tarjeta     ver `WasteKpiCard`
  *
- * Lo único propio de esta fila es la grilla: `gap-[16px]`. El Dashboard usa
- * `gap-[14px]` (nodo `3086:13811`), así que cada vista declara su grilla y las dos
- * comparten la tarjeta.
+ * Lo único propio de esta fila es el gap de 16px; el Dashboard y el Histórico
+ * usan 14. Lo demás queda acá: las cuatro tarjetas por defecto de la vista.
  */
 
 export const WAREHOUSE_KPI_DEFAULTS: WasteKpi[] = [
@@ -42,11 +41,5 @@ interface WarehouseControlKpisProps {
 }
 
 export function WarehouseControlKpis({ kpis = WAREHOUSE_KPI_DEFAULTS }: WarehouseControlKpisProps) {
-  return (
-    <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-4">
-      {kpis.map((kpi) => (
-        <WasteKpiCard key={kpi.label} kpi={kpi} />
-      ))}
-    </div>
-  );
+  return <WasteKpiRow kpis={kpis} gap={16} />;
 }
