@@ -29,3 +29,23 @@ export interface WasteWithdrawalTruckshopValues {
 export function createWasteWithdrawalTruckshopValues(): WasteWithdrawalTruckshopValues {
   return { wasteTypeId: null, categoryId: null, quantity: '', unitId: null };
 }
+
+/**
+ * `true` con los cuatro campos de la tarjeta completos.
+ *
+ * Es lo que habilita el CTA del aviso SIDREP: el nodo `4230:10232` lo dibuja
+ * ACTIVO sobre una tarjeta con los cuatro campos llenos, mientras que el
+ * `3765:39068` —el mismo aviso sin datos— lo dibuja deshabilitado.
+ *
+ * La cantidad se valida solo por "hay algo escrito" y no contra un saldo: acá el
+ * lote todavía no existe, así que no hay disponible contra el cual comparar. Es
+ * la diferencia con `isWasteWithdrawalFormComplete`, que sí parte de un lote.
+ */
+export function isWasteWithdrawalTruckshopComplete(values: WasteWithdrawalTruckshopValues): boolean {
+  return (
+    values.wasteTypeId !== null &&
+    values.categoryId !== null &&
+    values.unitId !== null &&
+    values.quantity.trim().length > 0
+  );
+}

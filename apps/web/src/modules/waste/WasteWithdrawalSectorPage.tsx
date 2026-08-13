@@ -12,12 +12,14 @@ import type { WarehouseFormCatalogState } from './components/WarehouseFormContro
 import { WasteWithdrawalFormActions } from './components/WasteWithdrawalFormActions';
 import { WasteWithdrawalFormIntro } from './components/WasteWithdrawalFormIntro';
 import { WasteWithdrawalSectorSection } from './components/WasteWithdrawalSectorSection';
+import { WasteWithdrawalSidrepNoticeSection } from './components/WasteWithdrawalSidrepNoticeSection';
 import { WasteWithdrawalTruckshopLotSection } from './components/WasteWithdrawalTruckshopLotSection';
 import { toCategoryOptions, toUnitOptions, toWasteTypeOptions } from './warehouseIntakeForm';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
 import { WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR } from './wasteWithdrawalSectors';
 import {
   createWasteWithdrawalTruckshopValues,
+  isWasteWithdrawalTruckshopComplete,
   type WasteWithdrawalTruckshopValues,
 } from './wasteWithdrawalTruckshopForm';
 
@@ -45,6 +47,34 @@ import {
  *
  * Con Bodega (Plataforma 18) el diseño no dibuja nada extra. La bifurcación es
  * por sector y no un "hay sector elegido": el nodo solo la muestra con Truckshop.
+ *
+ * Y CON UN RESIDUO PELIGROSO se suma una tercera, el nodo `4230:10019`:
+ *
+ *   `4230:10232`  aviso SIDREP             → `WasteWithdrawalSidrepNoticeSection`
+ *
+ * Ese aviso NO es un componente nuevo: `4230:10232` es el `3765:39060` que ya usa
+ * `WasteWithdrawalFormPage`, dibujado con el CTA activo en vez de deshabilitado.
+ * Se compararon los dos assets —la flecha es idéntica carácter por carácter y el
+ * icono es el glifo de la pastilla "Peligroso" escalado 1.35, el mismo que ya
+ * resuelve `WarehouseHazardousIcon`—.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A CONFIRMAR CON DISEÑO: EL CTA DEL AVISO SIDREP NO NAVEGA
+ *
+ * "Continuar a documentos SIDREP" se renderiza en su estado activo —es lo que
+ * dibuja el nodo— pero NO se le pasa `onContinue`, así que no lleva a ningún lado.
+ *
+ * NO ES UN OLVIDO. La ruta que sería su destino natural,
+ * `/waste/solicitud-retiro/nueva/sidrep`, arranca con
+ * `if (!draft?.lot) return <Navigate to="/waste/solicitud-retiro/nueva" />`: pide
+ * un lote en `waste-withdrawal-draft.store` y esta pantalla no crea ninguno —acá
+ * el lote se está describiendo, no eligiendo de los ya registrados—. Mandarlo ahí
+ * expulsaría al retirador a la pantalla del OTRO flujo, que es peor que no hacer
+ * nada. Fabricar un lote para poblar el store sería inventarle un id y un saldo
+ * que no existen.
+ *
+ * Falta el nodo que diga a dónde va este botón en este camino.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * El encabezado del cuerpo se reusa TAL CUAL, con sus dos textos por defecto: los
  * nodos `4217:7218` y `4217:7220` dicen exactamente lo mismo que `3765:38872` y
@@ -120,6 +150,24 @@ export function WasteWithdrawalSectorPage() {
   );
 
   /**
+   * Si el residuo elegido es peligroso, para el aviso del nodo `4230:10232`.
+   *
+   * Sale de `WasteType.isHazardous` y NO de `defaultHazardous` de la categoría,
+   * que es lo que usa `WarehouseIntakeFormPage`. No es una inconsistencia: allá
+   * el aviso cuelga de haber elegido CATEGORÍA, antes de que exista un residuo,
+   * así que el default es el único dato disponible. Acá el residuo ya está
+   * elegido, y el contrato es explícito —"la peligrosidad efectiva de un ingreso
+   * la manda `WasteType.isHazardous`, que es propiedad del residuo"—.
+   *
+   * Tampoco se compara el rótulo de la categoría contra "RESPEL", aunque sea lo
+   * que dice el copy de la tarjeta: eso es texto, la bandera es el dato.
+   */
+  const hazardousWaste = useMemo(
+    () => (wasteTypesQuery.data ?? []).some((type) => type.id === lot.wasteTypeId && type.isHazardous),
+    [wasteTypesQuery.data, lot.wasteTypeId],
+  );
+
+  /**
    * Cambiar de sector LIMPIA el lote.
    *
    * Es el mismo criterio que `handleLotConfirm` en `WasteWithdrawalFormPage`:
@@ -159,6 +207,16 @@ export function WasteWithdrawalSectorPage() {
                     categories={categories}
                     units={units}
                   />
+                ) : null}
+                {/*
+                  El aviso SIDREP cuelga del residuo PELIGROSO, y la condición está
+                  en su propio copy: "Al ser categoría RESPEL…". Es el mismo
+                  componente que ya usa `WasteWithdrawalFormPage` — el nodo
+                  `4230:10232` es el `3765:39060` dibujado con el CTA activo, se
+                  compararon los dos assets y son el mismo glifo.
+                */}
+                {isTruckshop && hazardousWaste ? (
+                  <WasteWithdrawalSidrepNoticeSection canContinue={isWasteWithdrawalTruckshopComplete(lot)} />
                 ) : null}
               </div>
             </div>
