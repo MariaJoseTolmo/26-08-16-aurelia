@@ -1,6 +1,6 @@
 import type { WarehouseControlExportRequest } from '@aurelia/contracts';
 import { formatAccumulationDeviation } from './wasteWarehouseThresholds';
-import type { WarehouseKpi } from './components/WarehouseControlKpis';
+import type { WasteKpi } from './components/WasteKpiCard';
 import type { WarehouseLotRow } from './wasteWarehouseLotRows';
 import type { WarehouseAccumulationBar } from './components/WarehouseMonthlyAccumulated';
 import type { WarehouseExpirationItem } from './components/WarehouseUpcomingExpirations';
@@ -20,7 +20,7 @@ export interface WarehouseControlView {
   monthProgressLabel: string;
   /** Posición de la barra de día del mes. Define el tono de cada barra. */
   monthElapsedPercentage: number;
-  kpis: WarehouseKpi[];
+  kpis: WasteKpi[];
   bars: WarehouseAccumulationBar[];
   expirations: WarehouseExpirationItem[];
   lots: WarehouseLotRow[];

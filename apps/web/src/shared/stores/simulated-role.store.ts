@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   resolveSimulatedRole,
+  WASTE_ENV_APPROVER_ROLE,
   WASTE_WITHDRAWER_ROLE,
   type SimulatedRole,
 } from '../auth/simulated-role';
@@ -22,4 +23,8 @@ export const useSimulatedRoleStore = create<SimulatedRoleState>((set) => ({
 
 export function useIsWasteWithdrawer(): boolean {
   return useSimulatedRoleStore((state) => state.role === WASTE_WITHDRAWER_ROLE);
+}
+
+export function useIsWasteEnvApprover(): boolean {
+  return useSimulatedRoleStore((state) => state.role === WASTE_ENV_APPROVER_ROLE);
 }

@@ -3,6 +3,7 @@ import {
   type WarehouseControlLotStatus,
   type WasteAccumulationTone,
 } from '@aurelia/contracts';
+import type { WasteAlertSeverity } from '../../shared/services/waste-dashboard.service';
 
 /**
  * Colores de la vista "Control de bodega".
@@ -69,6 +70,32 @@ export function formatAccumulationDeviation(percentage: number, monthElapsedPerc
   return `${ACCUMULATION_DEVIATION_WORDS[tone]} ${sign}${deltaPercentagePoints}pp`;
 }
 
+/**
+ * Los DOS pares superficie/tinta de aviso del archivo, en un solo lugar.
+ *
+ * El mismo par aparece en "Próximos vencimientos" (`3686:25797` / `3686:25788`) y
+ * en "Alertas activas" del dashboard (`3086:13901` / `3530:610`), y en la tabla de
+ * lotes como fondo de pastilla. Estaban repetidos como hex sueltos en cada mapa, y
+ * repetir un color es dejar que se separen: alcanza con que alguien retoque uno.
+ */
+const WARNING_SURFACE = { background: '#fff0e6', ink: '#e8720c' } as const;
+const CRITICAL_SURFACE = { background: '#ffd0db', ink: '#bd3b5b' } as const;
+
+/**
+ * Gravedad de alerta → color (nodo `3086:13898`).
+ *
+ * La gravedad la decide el SERVIDOR —el tipo vive en `waste-dashboard.service`—
+ * y acá solo se traduce a color: las dos primeras alertas del nodo van con la
+ * superficie ámbar y la tercera con la roja.
+ */
+export const WASTE_ALERT_SEVERITY_STYLES: Record<
+  WasteAlertSeverity,
+  { badgeBackground: string; iconColor: string }
+> = {
+  WARNING: { badgeBackground: WARNING_SURFACE.background, iconColor: WARNING_SURFACE.ink },
+  CRITICAL: { badgeBackground: CRITICAL_SURFACE.background, iconColor: CRITICAL_SURFACE.ink },
+};
+
 export type ExpirationKind = 'overdue' | 'due_soon';
 
 /**
@@ -87,8 +114,8 @@ interface ExpirationKindStyle {
 }
 
 export const EXPIRATION_KIND_STYLES: Record<ExpirationKind, ExpirationKindStyle> = {
-  overdue: { badgeBackground: '#ffd0db', iconColor: '#bd3b5b' },
-  due_soon: { badgeBackground: '#fff0e6', iconColor: '#e8720c' },
+  overdue: { badgeBackground: CRITICAL_SURFACE.background, iconColor: CRITICAL_SURFACE.ink },
+  due_soon: { badgeBackground: WARNING_SURFACE.background, iconColor: WARNING_SURFACE.ink },
 };
 
 /**

@@ -23,4 +23,12 @@ export const env = {
    * `POST /waste/withdrawals/weighing-ticket`.
    */
   wasteValidationMock: readFlagEnv(import.meta.env.VITE_WASTE_VALIDATION_MOCK),
+  /**
+   * Mock de las tres lecturas del Dashboard Residuos. Ver `vite-env.d.ts`.
+   *
+   * ES TEMPORAL: se borra junto con `waste-dashboard.mock.ts` cuando el backend
+   * exponga `GET /waste/dashboard/kpis`, `/waste/dashboard/rca-thresholds` y
+   * `/waste/dashboard/non-hazardous-withdrawals`.
+   */
+  wasteDashboardMock: readFlagEnv(import.meta.env.VITE_WASTE_DASHBOARD_MOCK),
 };

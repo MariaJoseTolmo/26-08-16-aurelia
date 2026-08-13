@@ -45,7 +45,14 @@
  */
 
 interface WasteViewIntroProps {
-  heading: string;
+  /**
+   * Opcional: el Dashboard Residuos (`3086:13809`) trae SOLO el Paragraph, con
+   * la misma geometría —`pt-[4px]`, Inter Regular 12.5px / 18.75px #646464,
+   * `w-full`— porque su título de página ya lo pone el `<h1>` del header
+   * (`3086:13788`). Sin `heading` el `<h2>` no se emite, en vez de quedar un
+   * encabezado vacío que el lector de pantalla anunciaría igual.
+   */
+  heading?: string;
   description: string;
   /**
    * Alineación vertical de la fila. Con un único hijo que ocupa todo el ancho
@@ -60,11 +67,13 @@ export function WasteViewIntro({ heading, description, align = 'start' }: WasteV
     <div className={`flex w-full justify-between ${align === 'end' ? 'items-end' : 'items-start'}`} data-name="Container">
       <div className="min-w-px flex-1" data-name="Container">
         <div className="flex w-full flex-col items-start">
-          <div className="w-full pt-[2px]" data-name="Heading 2">
-            <h2 className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[#131313]">
-              {heading}
-            </h2>
-          </div>
+          {heading ? (
+            <div className="w-full pt-[2px]" data-name="Heading 2">
+              <h2 className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[#131313]">
+                {heading}
+              </h2>
+            </div>
+          ) : null}
           <div className="w-full pt-[4px]" data-name="Paragraph">
             <p className="w-full font-['Inter:Regular',sans-serif] text-[12.5px] font-normal not-italic leading-[18.75px] text-[#646464]">
               {description}

@@ -13,7 +13,7 @@ import {
 import { useNotifications } from '../hooks/useNotifications';
 import { logout } from '../services/auth.service';
 import { useSessionStore } from '../stores/session.store';
-import { useIsWasteWithdrawer } from '../stores/simulated-role.store';
+import { useIsWasteEnvApprover, useIsWasteWithdrawer } from '../stores/simulated-role.store';
 import { formatPrimaryRoleLabel, formatUserInitials, roleLabel } from '../utils/roles';
 import { AppNotificationsPanel } from './AppNotificationsPanel';
 import { sidebarIconSvgs, type SidebarIconName } from './AppSidebarIcons';
@@ -44,6 +44,7 @@ type SidebarItem = {
 const SIDEBAR_EXPANDED_MODULES_STORAGE_KEY = 'aurelia.sidebar.expanded-modules';
 
 const WASTE_WITHDRAWAL_ROUTE = '/waste/solicitud-retiro';
+const WASTE_DASHBOARD_ROUTE = '/waste/dashboard';
 
 function readExpandedModules(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -561,8 +562,51 @@ function buildWasteWithdrawerItems(): SidebarItem[] {
   ];
 }
 
-function resolveSidebarItems(roles: Role[], isWasteWithdrawer: boolean): SidebarItem[] {
+/**
+ * Sidebar del rol simulado `WASTE_ENV_APPROVER` — nodo Figma `3830:62304`.
+ *
+ * "Módulos" queda con un único módulo, Residuos, y ese módulo con los cinco
+ * hijos del nodo: Dashboard, Folios SIDREP, Histórico, Reporte SINADER y
+ * Administración. Control de bodega, Ingresos a bodega y Solicitud de retiro no
+ * son de este rol, así que se recorta la lista COMPLETA —no sólo los hijos— por
+ * el mismo motivo que en `buildWasteWithdrawerItems`: cuando `findActiveModule`
+ * no encuentra módulo activo, el sidebar cae al listado entero y volverían a
+ * filtrarse.
+ *
+ * Sólo Dashboard tiene ruta. Los otros cuatro van `disabled` porque sus vistas no
+ * existen todavía; se les asigna `to` cuando se implementen.
+ *
+ * El icono de Dashboard es el `dashboard` que ya está en `AppSidebarIcons`: el
+ * asset del nodo `3830:62307` es el MISMO glifo de torta, sólo escalado a 14 × 10
+ * desde los 17 × 13 del módulo. No se agrega un SVG duplicado. Igual criterio con
+ * el engranaje de Administración (`3830:62327` → `admin`).
+ */
+function buildWasteEnvApproverItems(): SidebarItem[] {
+  const wasteModule = mainItems.find((item) => item.label === 'Residuos');
+  if (!wasteModule) return [];
+
+  return [
+    {
+      ...wasteModule,
+      to: WASTE_DASHBOARD_ROUTE,
+      children: [
+        { label: 'Dashboard', to: WASTE_DASHBOARD_ROUTE, end: true, icon: 'dashboard' },
+        { label: 'Folios SIDREP', icon: 'wasteWithdrawal', disabled: true },
+        { label: 'Histórico', icon: 'wasteWarehouse', disabled: true },
+        { label: 'Reporte SINADER', icon: 'wasteIntake', disabled: true },
+        { label: 'Administración', icon: 'admin', disabled: true },
+      ],
+    },
+  ];
+}
+
+function resolveSidebarItems(
+  roles: Role[],
+  isWasteWithdrawer: boolean,
+  isWasteEnvApprover: boolean,
+): SidebarItem[] {
   if (isWasteWithdrawer) return buildWasteWithdrawerItems();
+  if (isWasteEnvApprover) return buildWasteEnvApproverItems();
 
   return mainItems.map((item) => {
     if (item.label !== 'SPR') return item;
@@ -586,7 +630,8 @@ export function AppSidebar() {
   const user = useSessionStore((state) => state.user);
   const userRoles = resolveSessionUserRoles(user);
   const isWasteWithdrawer = useIsWasteWithdrawer();
-  const sidebarItems = resolveSidebarItems(userRoles, isWasteWithdrawer);
+  const isWasteEnvApprover = useIsWasteEnvApprover();
+  const sidebarItems = resolveSidebarItems(userRoles, isWasteWithdrawer, isWasteEnvApprover);
 
   /**
    * Sidebar contextual (nodo `3765:37580`): "Módulos" muestra únicamente el
