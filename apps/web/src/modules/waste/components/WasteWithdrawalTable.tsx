@@ -1,4 +1,3 @@
-import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
 import { formatQuantity } from '../wasteFilterPrimitives';
 import {
   formatIsoAsDdMmYy,
@@ -14,6 +13,12 @@ import {
 import { WarehouseMonthFilterField } from './WarehouseMonthFilterField';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
 import { WarehouseTextFilterField } from './WarehouseTextFilterField';
+import {
+  WasteDataTable,
+  WASTE_TABLE_CELL_CLASS,
+  WASTE_TABLE_CELL_COLOR,
+  WASTE_TABLE_FIRST_CELL_COLOR,
+} from './WasteDataTable';
 import { WasteTablePagination } from './WasteTablePagination';
 import { WasteWithdrawalPill, WasteWithdrawalStatusBadge } from './WasteWithdrawalStatusBadge';
 
@@ -21,36 +26,26 @@ import { WasteWithdrawalPill, WasteWithdrawalStatusBadge } from './WasteWithdraw
  * Tabla de "Solicitud de retiro" — nodo Figma `3817:55311` (columnas en
  * `3817:55312`, pie de paginación en `3817:55609`).
  *
- * Geometría del nodo, la misma que "Ingresos a bodega" salvo donde se indica:
+ * El armazón —contenedor, encabezado oscuro, fila de filtros, celda y estado
+ * vacío— es `WasteDataTable`, compartido con las otras tres tablas del módulo;
+ * ahí está anotada la geometría y por qué se transpone a filas. Acá queda lo
+ * propio de esta tabla: sus ocho columnas, su control de filtro y su fila.
  *
- *   contenedor  border #e3e3e3 · rounded-[8px] · overflow-clip
- *   encabezado  bg #001e39 · border-r #122e47 · flex gap-[3px] items-center
- *               px-[12px] py-[9.5px]
- *               texto Inter Semi Bold 11px · rgba(255,255,255,0.7)
- *               tracking-[0.44px] · uppercase · icono de orden 12.5 × 10
- *   filtros     bg #f0f4f8 · border-b #e3e3e3 · px-[12px] py-[5.5px]
- *               control bg white · border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px]
- *               texto Inter Regular 13px #131313 · placeholder #acacac
- *   celda       bg white · border-b #e3e3e3 · border-r #e3e3e3 · h-[46px]
- *               px-[12px] · texto Inter Regular 12px
- *   pie         `WasteTablePagination`, compartido con "Ingresos a bodega"
+ *   anchos  121.5 · 180.5 · 180.5 · 162.5 · 158 · 161 · 174 · 102 px, total 1240
+ *   filtros control bg white · border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px]
+ *           texto Inter Regular 13px #131313 · placeholder #acacac
+ *   pie     `WasteTablePagination`, compartido con "Ingresos a bodega"
  *
- * DESVÍOS ESTRUCTURALES, todos deliberados:
+ * Las 8 columnas suman 1240px contra los 1016px del contenedor, así que en Figma
+ * la tabla se recorta con `overflow-clip`. Acá el desplazamiento horizontal lo
+ * toma la propia tabla (`overflow="self"`), igual que en "Ingresos a bodega": el
+ * desborde es de ~224px y arrastrar toda la página dejaría la intro y la barra de
+ * acciones fuera de cuadro. El pie queda fuera del área que scrollea, como en el
+ * nodo, donde es hermano de las columnas y no hijo.
  *
- * 1. En Figma la tabla está armada por COLUMNAS: ocho frames verticales, cada uno
- *    con su encabezado, su filtro y sus diez celdas. No existe ningún nodo que
- *    represente una fila. Acá se transpone a `<table>` con `<thead>`/`<tbody>`
- *    porque es lo correcto en HTML semántico y accesible.
- * 2. Los anchos del nodo (121.5 · 180.5 · 180.5 · 162.5 · 158 · 161 · 174 · 102 px,
- *    total 1240) se expresan como porcentajes en un `<colgroup>`: preservan la
- *    proporción exacta sin fijar píxeles.
- * 3. Las 8 columnas suman 1240px contra los 1016px del contenedor, así que en
- *    Figma la tabla se recorta con `overflow-clip`. Acá el desplazamiento
- *    horizontal lo toma la propia tabla, igual que en "Ingresos a bodega": el
- *    desborde es de ~224px y arrastrar toda la página dejaría la intro y la barra
- *    de acciones fuera de cuadro. El pie queda fuera del área que scrollea, como
- *    en el nodo, donde es hermano de las columnas y no hijo.
- * 4. El placeholder del filtro de folio viene con DOS espacios en el nodo
+ * UN DESVÍO PROPIO:
+ *
+ * - El placeholder del filtro de folio viene con DOS espacios en el nodo
  *    (`3817:55540`: "Busca por  Nº de folio", con `whitespace-pre`). Se emite con
  *    uno solo: es un typo del archivo, y HTML colapsaría el segundo igual.
  *
@@ -103,16 +98,14 @@ const COLUMNS: WasteWithdrawalColumn[] = [
   { key: 'status', label: 'Estado', width: '8.2258%', filter: 'select', filterKey: 'status', filterLabel: 'Todos', centered: true },
 ];
 
-const CELL_CLASS =
-  "border-b border-r border-solid border-[#e3e3e3] bg-white px-[12px] py-[14px] align-middle font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] last:border-r-0";
-
 /**
  * La primera columna del nodo pinta su texto en #333 (`3817:55330`) y las demás
  * en #131313 (`--gray/900_txt`). Se respeta la diferencia tal como viene del
  * diseño, igual que en "Ingresos a bodega".
  */
-const FIRST_CELL_COLOR = 'text-[#333333]';
-const CELL_COLOR = 'text-[#131313]';
+const CELL_CLASS = WASTE_TABLE_CELL_CLASS;
+const FIRST_CELL_COLOR = WASTE_TABLE_FIRST_CELL_COLOR;
+const CELL_COLOR = WASTE_TABLE_CELL_COLOR;
 
 interface WasteWithdrawalTableProps {
   /** Filas ya filtradas: la tabla no filtra, solo dibuja lo que recibe. */
@@ -151,75 +144,33 @@ export function WasteWithdrawalTable({
   onPageChange,
 }: WasteWithdrawalTableProps) {
   return (
-    <div className="w-full overflow-hidden rounded-[8px] border border-solid border-[#e3e3e3]">
-      <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-[1240px] border-collapse text-left">
-          <caption className="sr-only">Histórico de retiros de residuos</caption>
-          <colgroup>
-            {COLUMNS.map((column) => (
-              <col key={column.key} style={{ width: column.width }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {COLUMNS.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-r border-solid border-[#122e47] bg-[#001e39] px-[12px] py-[9.5px] text-left last:border-r-0"
-                >
-                  <span className="flex items-center gap-[3px]">
-                    <span className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold not-italic uppercase leading-[normal] tracking-[0.44px] text-[rgba(255,255,255,0.7)]">
-                      {column.label}
-                    </span>
-                    <WarehouseTableSortIcon className="block h-[10.001px] w-[12.5px] shrink-0 text-[rgba(255,255,255,0.7)]" />
-                  </span>
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {COLUMNS.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-b border-r border-solid border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px] last:border-r-0"
-                >
-                  <WasteWithdrawalFilterControl
-                    column={column}
-                    filters={filters}
-                    options={options}
-                    onFilterChange={onFilterChange}
-                    today={today}
-                  />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <WasteWithdrawalTableRow key={row.id} row={row} />
-            ))}
-            {rows.length === 0 ? (
-              <tr className="h-[46px]">
-                <td
-                  colSpan={COLUMNS.length}
-                  className="border-b border-solid border-[#e3e3e3] bg-white px-[12px] py-[14px] text-center font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#646464]"
-                >
-                  No hay retiros para los filtros aplicados
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-      <WasteTablePagination
-        page={page}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        totalRows={totalRows ?? rows.length}
-        onPageChange={onPageChange}
-      />
-    </div>
+    <WasteDataTable
+      caption="Histórico de retiros de residuos"
+      columns={COLUMNS}
+      minWidth={1240}
+      rows={rows}
+      getRowKey={(row) => row.id}
+      renderRow={(row) => <WasteWithdrawalTableCells row={row} />}
+      renderFilter={(column) => (
+        <WasteWithdrawalFilterControl
+          column={column}
+          filters={filters}
+          options={options}
+          onFilterChange={onFilterChange}
+          today={today}
+        />
+      )}
+      emptyMessage="No hay retiros para los filtros aplicados"
+      footer={
+        <WasteTablePagination
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRows={totalRows ?? rows.length}
+          onPageChange={onPageChange}
+        />
+      }
+    />
   );
 }
 
@@ -271,9 +222,10 @@ function WasteWithdrawalFilterControl({
   );
 }
 
-function WasteWithdrawalTableRow({ row }: { row: WasteWithdrawalRow }) {
+/** Celdas de la fila; el `<tr>` de 46px lo aporta `WasteDataTable`. */
+function WasteWithdrawalTableCells({ row }: { row: WasteWithdrawalRow }) {
   return (
-    <tr className="h-[46px]">
+    <>
       <td className={`${CELL_CLASS} ${FIRST_CELL_COLOR}`}>{formatIsoAsDdMmYy(row.withdrawalDate)}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.category}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.wasteType}</td>
@@ -303,6 +255,6 @@ function WasteWithdrawalTableRow({ row }: { row: WasteWithdrawalRow }) {
       <td className={`${CELL_CLASS} ${CELL_COLOR} text-center`}>
         <WasteWithdrawalStatusBadge status={row.status} />
       </td>
-    </tr>
+    </>
   );
 }

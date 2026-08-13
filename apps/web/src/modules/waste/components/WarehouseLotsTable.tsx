@@ -1,4 +1,3 @@
-import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
 import type {
   WasteWarehouseFilterKey,
   WasteWarehouseFilterOptions,
@@ -13,40 +12,32 @@ import {
   type LotStorageStatus,
 } from '../wasteWarehouseThresholds';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
+import { WasteDataTable, WASTE_TABLE_CELL_CLASS_FLUSH, WASTE_TABLE_CELL_COLOR } from './WasteDataTable';
 import { WasteHazardBadge } from './WasteHazardBadge';
 
 /**
  * Tabla "Detalle de lotes en bodega" — nodo Figma `3765:42711`.
  *
- * Geometría del nodo:
+ * El armazón —contenedor, encabezado oscuro, fila de filtros, celda y estado
+ * vacío— es `WasteDataTable`, compartido con las otras tres tablas del módulo;
+ * ahí está anotada la geometría y por qué se transpone a filas. Acá queda lo
+ * propio de esta tabla: sus siete columnas, su control de filtro y su fila.
  *
- *   contenedor  border #e3e3e3 · rounded-[8px] · overflow-clip
- *   encabezado  bg #001e39 · border-r #122e47 · flex gap-[3px] items-center
- *               px-[12px] py-[9.5px]
- *               texto Inter Semi Bold 11px · rgba(255,255,255,0.7)
- *               tracking-[0.44px] · uppercase
- *               icono de orden 12.5 × 10
- *   filtros     bg #f0f4f8 · border-b #e3e3e3 · px-[12px] py-[5.5px]
- *               control bg white · border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px]
- *               texto Inter Regular 13px #131313 · placeholder #acacac
- *   celda       bg white · border-b #e3e3e3 · h-[46px] · px-[12px] py-[14px]
- *               texto Inter Regular 12px #131313
- *   pastillas   rounded-[20px] · gap-[5px] · px-[9px] py-[3px] · texto Bold 10px
+ *   anchos     125.5 · 180.5 · 180.5 · 172.5 · 152.5 · 155.5 · 117.46 px,
+ *              total 1084.46
+ *   filtros    control bg white · border #d1d1d1 · rounded-[8px] · px-[8px] py-[5px]
+ *              texto Inter Regular 13px #131313 · placeholder #acacac
+ *   pastillas  rounded-[20px] · gap-[5px] · px-[9px] py-[3px] · texto Bold 10px
  *
- * DOS DESVÍOS ESTRUCTURALES, ambos deliberados:
+ * Es la ÚNICA de las cuatro cuyas celdas no llevan separador vertical (de ahí
+ * `WASTE_TABLE_CELL_CLASS_FLUSH`) y la única sin pie de paginación: el nodo no
+ * los dibuja.
  *
- * 1. En Figma la tabla está armada por COLUMNAS: siete frames verticales, cada
- *    uno con su encabezado, su filtro y sus quince celdas. No existe ningún nodo
- *    que represente una fila. Acá se transpone a `<table>` con `<thead>`/`<tbody>`
- *    porque es lo correcto en HTML semántico y accesible; el árbol de Figma no
- *    sirve de guía para esta parte.
- * 2. Los anchos de columna del nodo (125.5 · 180.5 · 180.5 · 172.5 · 152.5 ·
- *    155.5 · 117.46 px, total 1084.46) se expresan como porcentajes en un
- *    `<colgroup>`: preservan la proporción exacta del diseño sin fijar píxeles.
- *    El nodo desborda su contenedor de 1060px y Figma lo recorta con
- *    `overflow-clip`. Acá la tabla NO scrollea por su cuenta: declara su ancho
- *    mínimo de 1084px y el desplazamiento lo resuelve el contenedor de la vista
- *    (`WarehouseControlPage`), para que todos los bloques se muevan juntos.
+ * El nodo desborda su contenedor de 1060px y Figma lo recorta con
+ * `overflow-clip`. Acá la tabla NO scrollea por su cuenta (`overflow="page"`):
+ * declara su ancho mínimo de 1084px y el desplazamiento lo resuelve el
+ * contenedor de la vista (`WarehouseControlPage`), para que todos los bloques se
+ * muevan juntos.
  */
 
 /**
@@ -78,8 +69,7 @@ const COLUMNS: WarehouseLotColumn[] = [
   { key: 'status', label: 'Estado', width: '10.831%', filter: 'select', filterKey: 'status', filterLabel: 'Todos' },
 ];
 
-const CELL_CLASS =
-  "border-b border-solid border-[#e3e3e3] bg-white px-[12px] py-[14px] align-middle font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#131313]";
+const CELL_CLASS = `${WASTE_TABLE_CELL_CLASS_FLUSH} ${WASTE_TABLE_CELL_COLOR}`;
 
 interface WarehouseLotsTableProps {
   rows?: WarehouseLotRow[];
@@ -96,55 +86,24 @@ export function WarehouseLotsTable({
   onFilterChange,
 }: WarehouseLotsTableProps) {
   return (
-    <div className="w-full overflow-hidden rounded-[8px] border border-solid border-[#e3e3e3]">
-      <table className="w-full min-w-[1084px] border-collapse text-left">
-        <caption className="sr-only">Detalle de lotes de residuos en bodega</caption>
-        <colgroup>
-          {COLUMNS.map((column) => (
-            <col key={column.key} style={{ width: column.width }} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr>
-            {COLUMNS.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className="border-r border-solid border-[#122e47] bg-[#001e39] px-[12px] py-[9.5px] text-left last:border-r-0"
-              >
-                <span className="flex items-center gap-[3px]">
-                  <span className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold not-italic uppercase leading-[normal] tracking-[0.44px] text-[rgba(255,255,255,0.7)]">
-                    {column.label}
-                  </span>
-                  <WarehouseTableSortIcon className="block h-[10.001px] w-[12.5px] shrink-0 text-[rgba(255,255,255,0.7)]" />
-                </span>
-              </th>
-            ))}
-          </tr>
-          <tr>
-            {COLUMNS.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className="border-b border-r border-solid border-b-[#e3e3e3] border-r-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px] last:border-r-0"
-              >
-                <WarehouseLotsFilterControl
-                  column={column}
-                  filters={filters}
-                  options={options}
-                  onFilterChange={onFilterChange}
-                />
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <WarehouseLotsTableRow key={row.id} row={row} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <WasteDataTable
+      caption="Detalle de lotes de residuos en bodega"
+      columns={COLUMNS}
+      minWidth={1084}
+      overflow="page"
+      rows={rows}
+      getRowKey={(row) => row.id}
+      renderRow={(row) => <WarehouseLotsTableCells row={row} />}
+      renderFilter={(column) => (
+        <WarehouseLotsFilterControl
+          column={column}
+          filters={filters}
+          options={options}
+          onFilterChange={onFilterChange}
+        />
+      )}
+      emptyMessage="No hay lotes para los filtros aplicados"
+    />
   );
 }
 
@@ -203,11 +162,12 @@ function WarehouseLotsFilterControl({
   );
 }
 
-function WarehouseLotsTableRow({ row }: { row: WarehouseLotRow }) {
+/** Celdas de la fila; el `<tr>` de 46px lo aporta `WasteDataTable`. */
+function WarehouseLotsTableCells({ row }: { row: WarehouseLotRow }) {
   const statusStyle = LOT_STORAGE_STATUS_STYLES[row.status];
 
   return (
-    <tr className="h-[46px]">
+    <>
       <td className={`${CELL_CLASS} text-center`}>
         <WasteHazardBadge isHazardous={row.isHazardous} />
       </td>
@@ -223,7 +183,7 @@ function WarehouseLotsTableRow({ row }: { row: WarehouseLotRow }) {
       <td className={`${CELL_CLASS} text-center`}>
         <WarehouseLotStatusBadge status={row.status} />
       </td>
-    </tr>
+    </>
   );
 }
 

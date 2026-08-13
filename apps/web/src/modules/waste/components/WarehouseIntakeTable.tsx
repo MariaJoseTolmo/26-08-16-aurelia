@@ -1,4 +1,3 @@
-import { WarehouseTableSortIcon } from '../icons/WarehouseTableIcons';
 import { formatQuantity } from '../wasteFilterPrimitives';
 import {
   formatIsoAsDdMmYyyy,
@@ -13,6 +12,12 @@ import { WasteHazardBadge } from './WasteHazardBadge';
 import { WarehouseDateFilterField } from './WarehouseDateFilterField';
 import { WarehouseSelectFilterField } from './WarehouseSelectFilterField';
 import { WarehouseTextFilterField } from './WarehouseTextFilterField';
+import {
+  WasteDataTable,
+  WASTE_TABLE_CELL_CLASS,
+  WASTE_TABLE_CELL_COLOR,
+  WASTE_TABLE_FIRST_CELL_COLOR,
+} from './WasteDataTable';
 import { WasteTablePagination } from './WasteTablePagination';
 
 /**
@@ -31,39 +36,26 @@ import { WasteTablePagination } from './WasteTablePagination';
  * reproduce: con `h-[46px]` y contenido centrado en vertical, el padding no
  * desplaza nada.
  *
- * Geometría del nodo:
+ * El armazón —contenedor, encabezado oscuro, fila de filtros, celda y estado
+ * vacío— es `WasteDataTable`, compartido con las otras tres tablas del módulo;
+ * ahí está anotada la geometría y por qué se transpone a filas. Acá queda lo
+ * propio de esta tabla: sus nueve columnas, su control de filtro y su fila.
  *
- *   contenedor  border #e3e3e3 · rounded-[8px] · overflow-clip
- *   encabezado  bg #001e39 · border-r #122e47 · flex gap-[3px] items-center
- *               px-[12px] py-[9.5px]
- *               texto Inter Semi Bold 11px · rgba(255,255,255,0.7)
- *               tracking-[0.44px] · uppercase
- *               icono de orden 12.5 × 10
- *   filtros     bg #f0f4f8 · border-b #e3e3e3 · px-[12px] py-[5.5px]
- *               control bg white · border #d1d1d1 · rounded-[8px] · px-[8px]
- *               py-[5px] (py-[4px] solo en la fecha, por el icono de 18px)
- *               texto Inter Regular 13px #131313 · placeholder #acacac
- *   celda       bg white · border-b #e3e3e3 · border-r #e3e3e3 · h-[46px]
- *               px-[12px] py-[14px] · texto Inter Regular 12px
- *   pastillas   rounded-[20px] · gap-[5px] · px-[9px] py-[3px] · texto Bold 10px
- *   pie         bg white · border-t #e3e3e3 · h-[53px] · px-[16px] pt-[11px] pb-[10px]
+ *   anchos     153.5 · 180.5 · 163.5 · 171.5 · 158 · 215.5 · 180.5 · 215 · 125.5 px,
+ *              total 1563.5
+ *   filtros    control bg white · border #d1d1d1 · rounded-[8px] · px-[8px]
+ *              py-[5px] (py-[4px] solo en la fecha, por el icono de 18px)
+ *              texto Inter Regular 13px #131313 · placeholder #acacac
+ *   pastillas  rounded-[20px] · gap-[5px] · px-[9px] py-[3px] · texto Bold 10px
  *
- * TRES DESVÍOS ESTRUCTURALES, los tres deliberados:
- *
- * 1. En Figma la tabla está armada por COLUMNAS: nueve frames verticales, cada
- *    uno con su encabezado, su filtro y sus seis celdas. No existe ningún nodo
- *    que represente una fila. Acá se transpone a `<table>` con `<thead>`/`<tbody>`
- *    porque es lo correcto en HTML semántico y accesible.
- * 2. Los anchos del nodo (153.5 · 180.5 · 163.5 · 171.5 · 158 · 215.5 · 180.5 ·
- *    215 · 125.5 px, total 1563.5) se expresan como porcentajes en un `<colgroup>`:
- *    preservan la proporción exacta sin fijar píxeles.
- * 3. Las 9 columnas suman 1563.5px contra los 1016px del contenedor, así que en
- *    Figma la tabla se recorta con `overflow-clip` y las últimas columnas no se
- *    ven. Acá el desplazamiento horizontal lo toma la propia tabla —a diferencia
- *    de `WarehouseLotsTable`, donde lo resuelve la vista— porque el desborde es
- *    de ~550px: arrastrar toda la página dejaría el intro y la barra de filtros
- *    fuera de cuadro. El pie de paginación queda fuera del área que scrollea,
- *    igual que en el nodo, donde es hijo del contenedor y no de las columnas.
+ * Las 9 columnas suman 1563.5px contra los 1016px del contenedor, así que en
+ * Figma la tabla se recorta con `overflow-clip` y las últimas columnas no se ven.
+ * Acá el desplazamiento horizontal lo toma la propia tabla (`overflow="self"`)
+ * —a diferencia de `WarehouseLotsTable`, donde lo resuelve la vista— porque el
+ * desborde es de ~550px: arrastrar toda la página dejaría el intro y la barra de
+ * filtros fuera de cuadro. El pie de paginación queda fuera del área que
+ * scrollea, igual que en el nodo, donde es hijo del contenedor y no de las
+ * columnas.
  *
  * De los nueve filtros, seis están cableados al estado de la vista: la fecha y
  * los cinco selectores de alternativas. "Cantidad ingresada", "Patente del
@@ -108,15 +100,13 @@ const COLUMNS: WarehouseIntakeColumn[] = [
   { key: 'hazard', label: 'Peligrosidad', width: '8.0269%', filter: 'select', filterKey: 'hazard', filterLabel: 'Todos', centered: true },
 ];
 
-const CELL_CLASS =
-  "border-b border-r border-solid border-[#e3e3e3] bg-white px-[12px] py-[14px] align-middle font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] last:border-r-0";
-
 /**
  * La primera columna del nodo pinta su texto en #333 y las demás en #131313
  * (`--gray/900_txt`). Se respeta la diferencia tal como viene del diseño.
  */
-const FIRST_CELL_COLOR = 'text-[#333333]';
-const CELL_COLOR = 'text-[#131313]';
+const CELL_CLASS = WASTE_TABLE_CELL_CLASS;
+const FIRST_CELL_COLOR = WASTE_TABLE_FIRST_CELL_COLOR;
+const CELL_COLOR = WASTE_TABLE_CELL_COLOR;
 
 interface WarehouseIntakeTableProps {
   /** Filas ya filtradas: la tabla no filtra, solo dibuja lo que recibe. */
@@ -148,69 +138,32 @@ export function WarehouseIntakeTable({
   onPageChange,
 }: WarehouseIntakeTableProps) {
   return (
-    <div className="w-full overflow-hidden rounded-[8px] border border-solid border-[#e3e3e3]">
-      <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-[1563.5px] border-collapse text-left">
-          <caption className="sr-only">Ingresos de residuos a la bodega de acopio</caption>
-          <colgroup>
-            {COLUMNS.map((column) => (
-              <col key={column.key} style={{ width: column.width }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {COLUMNS.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-r border-solid border-[#122e47] bg-[#001e39] px-[12px] py-[9.5px] text-left last:border-r-0"
-                >
-                  <span className="flex items-center gap-[3px]">
-                    <span className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[11px] font-semibold not-italic uppercase leading-[normal] tracking-[0.44px] text-[rgba(255,255,255,0.7)]">
-                      {column.label}
-                    </span>
-                    <WarehouseTableSortIcon className="block h-[10.001px] w-[12.5px] shrink-0 text-[rgba(255,255,255,0.7)]" />
-                  </span>
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {COLUMNS.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-b border-r border-solid border-[#e3e3e3] bg-[#f0f4f8] px-[12px] py-[5.5px] last:border-r-0"
-                >
-                  <WarehouseIntakeFilterControl column={column} filters={filters} options={options} onFilterChange={onFilterChange} />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <WarehouseIntakeTableRow key={row.id} row={row} />
-            ))}
-            {rows.length === 0 ? (
-              <tr className="h-[46px]">
-                <td
-                  colSpan={COLUMNS.length}
-                  className="border-b border-solid border-[#e3e3e3] bg-white px-[12px] py-[14px] text-center font-['Inter:Regular',sans-serif] text-[12px] font-normal not-italic leading-[normal] text-[#646464]"
-                >
-                  No hay ingresos para los filtros aplicados
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-      <WasteTablePagination
-        page={page}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        totalRows={rows.length}
-        onPageChange={onPageChange}
-      />
-    </div>
+    <WasteDataTable
+      caption="Ingresos de residuos a la bodega de acopio"
+      columns={COLUMNS}
+      minWidth={1563.5}
+      rows={rows}
+      getRowKey={(row) => row.id}
+      renderRow={(row) => <WarehouseIntakeTableCells row={row} />}
+      renderFilter={(column) => (
+        <WarehouseIntakeFilterControl
+          column={column}
+          filters={filters}
+          options={options}
+          onFilterChange={onFilterChange}
+        />
+      )}
+      emptyMessage="No hay ingresos para los filtros aplicados"
+      footer={
+        <WasteTablePagination
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRows={rows.length}
+          onPageChange={onPageChange}
+        />
+      }
+    />
   );
 }
 
@@ -267,9 +220,10 @@ function WarehouseIntakeFilterControl({
   );
 }
 
-function WarehouseIntakeTableRow({ row }: { row: WarehouseIntakeRow }) {
+/** Celdas de la fila; el `<tr>` de 46px lo aporta `WasteDataTable`. */
+function WarehouseIntakeTableCells({ row }: { row: WarehouseIntakeRow }) {
   return (
-    <tr className="h-[46px]">
+    <>
       <td className={`${CELL_CLASS} ${FIRST_CELL_COLOR}`}>{formatIsoAsDdMmYyyy(row.entryDate)}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.category}</td>
       <td className={`${CELL_CLASS} ${CELL_COLOR}`}>{row.wasteType}</td>
@@ -281,6 +235,6 @@ function WarehouseIntakeTableRow({ row }: { row: WarehouseIntakeRow }) {
       <td className={`${CELL_CLASS} ${CELL_COLOR} text-center`}>
         <WasteHazardBadge isHazardous={row.isHazardous} />
       </td>
-    </tr>
+    </>
   );
 }
