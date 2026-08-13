@@ -14,6 +14,8 @@ import type { WarehouseFormCatalogState } from './components/WarehouseFormContro
 import { WasteWithdrawalFormActions } from './components/WasteWithdrawalFormActions';
 import { WasteWithdrawalFormIntro } from './components/WasteWithdrawalFormIntro';
 import { WasteWithdrawalSectorSection } from './components/WasteWithdrawalSectorSection';
+import { WasteSidrepWeightSection } from './components/WasteSidrepWeightSection';
+import { WasteWithdrawalDirectRegistrationSection } from './components/WasteWithdrawalDirectRegistrationSection';
 import { WasteWithdrawalLotPickerModal } from './components/WasteWithdrawalLotPickerModal';
 import { WasteWithdrawalSelectedLotSection } from './components/WasteWithdrawalSelectedLotSection';
 import { WasteWithdrawalSidrepNoticeSection } from './components/WasteWithdrawalSidrepNoticeSection';
@@ -22,7 +24,15 @@ import { WasteWithdrawalWasteSection } from './components/WasteWithdrawalWasteSe
 import { buildWasteWithdrawableLots, type WasteWithdrawableLot } from './wasteWithdrawableLots';
 import { toCategoryOptions, toUnitOptions, toWasteTypeOptions } from './warehouseIntakeForm';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
+import { useWeighingTicketAnalysis } from '../../shared/hooks/useWasteWithdrawalValidation';
+import { resolveDisposalSiteLabel } from './wasteSidrepForm';
+import {
+  createWasteWithdrawalDirectValues,
+  isWasteWithdrawalDirectComplete,
+  type WasteWithdrawalDirectValues,
+} from './wasteWithdrawalDirectForm';
 import { isWithdrawalQuantityWithinAvailable } from './wasteWithdrawalForm';
+import { createWithdrawalRowFromLot } from './wasteWithdrawalRows';
 import {
   createWarehouseWithdrawalDraft,
   resolveWithdrawerCompany,
@@ -88,6 +98,21 @@ import {
  *
  *   `4230:10232`  aviso SIDREP             → `WasteWithdrawalSidrepNoticeSection`
  *
+ * CON UN RESIDUO NO PELIGROSO se suman OTRAS DOS, el nodo `4230:10740`:
+ *
+ *   `4355:41178`  "Peso del residuo"       → `WasteSidrepWeightSection`
+ *   `4230:10922`  "Este retiro no requiere aprobación"
+ *                                          → `WasteWithdrawalDirectRegistrationSection`
+ *
+ * Ninguna es nueva: la primera es la tarjeta de peso del paso 1 de SIDREP
+ * (`4230:10640`) y la segunda es la del cierre directo de la otra nueva solicitud
+ * (`3785:44731`), con sus mismos textos.
+ *
+ * Y SON EXCLUYENTES CON EL AVISO SIDREP, no acumulativas: los dos copys se
+ * contradicen a propósito —"Al ser categoría RESPEL…" contra "Al no ser…"—. La
+ * diferencia con el camino peligroso es que este TERMINA acá: registra el retiro y
+ * vuelve al histórico, sin pasar por las tres pantallas de documentos.
+ *
  * Ese aviso NO es un componente nuevo: `4230:10232` es el `3765:39060` que ya usa
  * `WasteWithdrawalFormPage`, dibujado con el CTA activo en vez de deshabilitado.
  * Se compararon los dos assets —la flecha es idéntica carácter por carácter y el
@@ -152,6 +177,25 @@ export function WasteWithdrawalSectorPage() {
   const [lot, setLot] = useState<WasteWithdrawalTruckshopValues>(createWasteWithdrawalTruckshopValues);
   const setDraft = useWasteWithdrawalDraftStore((state) => state.setDraft);
   const clearDraft = useWasteWithdrawalDraftStore((state) => state.clearDraft);
+  const registerWithdrawal = useWasteWithdrawalDraftStore((state) => state.registerWithdrawal);
+  /**
+   * Campos del retiro NO peligroso: patente y lugar de disposición final.
+   *
+   * Se reusa `WasteWithdrawalDirectValues` —el modelo del mismo camino en la otra
+   * nueva solicitud— porque el nodo `4230:10922` pide exactamente esos dos campos.
+   */
+  const [directValues, setDirectValues] = useState<WasteWithdrawalDirectValues>(
+    createWasteWithdrawalDirectValues,
+  );
+  /**
+   * Ticket de pesaje y su transcripción.
+   *
+   * Es la MISMA `useMutation` del paso 1 de SIDREP, con la misma tarjeta: el nodo
+   * `4355:41178` es el `4230:10640`. Vive en el componente y no en el store porque
+   * este camino no cruza ninguna ruta — se registra acá mismo.
+   */
+  const [weighingTicket, setWeighingTicket] = useState<File | null>(null);
+  const ticketMutation = useWeighingTicketAnalysis();
   const user = useSessionStore((state) => state.user);
 
   const isTruckshop = sector === WASTE_WITHDRAWAL_TRUCKSHOP_SECTOR;
@@ -184,6 +228,30 @@ export function WasteWithdrawalSectorPage() {
         carrier: null,
       })
     : false;
+
+  /**
+   * Habilita "Registrar retiro" del nodo `4230:10943`.
+   *
+   * Pide el lote descrito completo MÁS los dos campos de su tarjeta, que es la misma
+   * regla que usa el camino no peligroso de `WasteWithdrawalFormPage`: registrar sin
+   * cantidad ni unidad es una fila que no dice nada.
+   *
+   * ─────────────────────────────────────────────────────────────────────────────
+   * A CONFIRMAR CON DISEÑO: NO EXIGE EL TICKET DE PESAJE
+   *
+   * El nodo dibuja el botón deshabilitado con la tarjeta de peso vacía, pero también
+   * con la patente y el lugar de disposición vacíos, así que no permite distinguir si
+   * el ticket es requisito. Se deja fuera de la regla porque es lo que hace hoy este
+   * mismo CTA en el otro camino, y sumar un requisito que el diseño no enuncia
+   * bloquearía a un usuario sin motivo escrito.
+   *
+   * Tiene su contra: el retiro alimenta el consolidado SINADER, donde el peso importa.
+   * Si el ticket es obligatorio, se agrega `ticketMutation.data !== null` acá y no hay
+   * nada más que tocar.
+   * ─────────────────────────────────────────────────────────────────────────────
+   */
+  const canRegisterDirect =
+    isWasteWithdrawalTruckshopComplete(lot) && isWasteWithdrawalDirectComplete(directValues);
 
   /*
    * Los tres catálogos se piden SIEMPRE, no solo con Truckshop elegido: son
@@ -269,6 +337,58 @@ export function WasteWithdrawalSectorPage() {
     setLot(createWasteWithdrawalTruckshopValues());
     setWarehouseLot(null);
     setWarehouseQuantity('');
+    setDirectValues(createWasteWithdrawalDirectValues());
+    handleTicketChange(null);
+  }
+
+  /**
+   * Elegir archivo dispara el análisis; quitarlo descarta el resultado anterior.
+   *
+   * El `reset()` no es opcional: sin él, quitar el ticket dejaría los tres pesos en
+   * pantalla sobre un archivo que ya no está. Es literal el mismo handler del paso 1
+   * de SIDREP, porque es la misma tarjeta.
+   */
+  function handleTicketChange(file: File | null) {
+    setWeighingTicket(file);
+    ticketMutation.reset();
+    if (file) ticketMutation.mutate(file);
+  }
+
+  /**
+   * Cierra el retiro NO peligroso — nodo `4230:10922`.
+   *
+   * NO GUARDA BORRADOR, igual que su gemelo en `WasteWithdrawalFormPage`: este camino
+   * no cambia de ruta, registra y vuelve al histórico. Un `setDraft` acá dejaría un
+   * borrador huérfano que haría aparecer "Formulario inconcluso" de una solicitud ya
+   * registrada.
+   *
+   * El lote se arma con la misma traducción que usa el camino peligroso, así que los
+   * dos describen el residuo de la misma manera.
+   */
+  function handleRegisterDirect() {
+    if (!sector) return;
+
+    const { lot: syntheticLot } = createTruckshopWithdrawalDraft({
+      values: lot,
+      sectorLabel: resolveWasteWithdrawalSectorLabel(sector),
+      company: resolveWithdrawerCompany(user),
+      wasteTypes: wasteTypesQuery.data ?? [],
+      categories: categoriesQuery.data ?? [],
+      units: unitsQuery.data ?? [],
+    });
+    if (!syntheticLot) return;
+
+    registerWithdrawal(
+      createWithdrawalRowFromLot({
+        lot: syntheticLot,
+        quantity: lot.quantity,
+        recipient: resolveDisposalSiteLabel(directValues.disposalSite),
+        /* Registrado de una: informativo y sin folio, como manda la tabla. */
+        status: 'informational',
+        today,
+      }),
+    );
+    navigate('/waste/solicitud-retiro');
   }
 
   /**
@@ -402,6 +522,41 @@ export function WasteWithdrawalSectorPage() {
                     canContinue={isWasteWithdrawalTruckshopComplete(lot)}
                     onContinue={handleContinueToSidrep}
                   />
+                ) : null}
+                {/*
+                  RESIDUO NO PELIGROSO — nodo `4230:10740`. Las dos tarjetas son
+                  EXCLUYENTES con el aviso SIDREP de arriba: una dice "Al ser
+                  categoría RESPEL…" y la otra "Al no ser…". La condición está en el
+                  copy, igual que en `WasteWithdrawalFormPage`.
+
+                  Sin residuo elegido todavía no se muestra ninguna de las dos: un
+                  `!hazardousWaste` a secas las haría aparecer con la tarjeta en
+                  blanco, porque "no peligroso" y "sin elegir" se leen igual.
+                */}
+                {isTruckshop && lot.wasteTypeId !== null && !hazardousWaste ? (
+                  <>
+                    {/* El nodo `4355:41178` es el `4230:10640` del paso 1 de SIDREP. */}
+                    <WasteSidrepWeightSection
+                      ticket={weighingTicket}
+                      onTicketChange={handleTicketChange}
+                      weights={ticketMutation.data ?? null}
+                      isAnalyzing={ticketMutation.isPending}
+                      isError={ticketMutation.isError}
+                      onRetry={() => {
+                        if (weighingTicket) ticketMutation.mutate(weighingTicket);
+                      }}
+                    />
+                    <WasteWithdrawalDirectRegistrationSection
+                      plate={directValues.plate}
+                      onPlateChange={(value) => setDirectValues({ ...directValues, plate: value })}
+                      disposalSite={directValues.disposalSite}
+                      onDisposalSiteChange={(value) =>
+                        setDirectValues({ ...directValues, disposalSite: value })
+                      }
+                      canRegister={canRegisterDirect}
+                      onRegister={handleRegisterDirect}
+                    />
+                  </>
                 ) : null}
               </div>
             </div>
