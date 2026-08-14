@@ -34,7 +34,7 @@ import { WastePrimaryActionButton } from './WastePrimaryActionButton';
  */
 
 /** Sin PDF por ahora, igual que "Ingresos a bodega". El caret abre el menú igual. */
-const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx', label: 'Descargar Excel' }];
+const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }];
 
 interface WasteWithdrawalToolbarProps {
   /** Pastillas de filtro aplicadas, en el orden en que se muestran. */

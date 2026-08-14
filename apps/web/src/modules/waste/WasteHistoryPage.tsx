@@ -65,7 +65,7 @@ const TABS: WasteTab<WasteHistoryTabId>[] = [
 const TABS_BASE_ID = 'waste-history';
 
 /** Una sola alternativa: esta vista todavía no tiene versión PDF. */
-const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx', label: 'Descargar Excel' }];
+const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }];
 
 const PAGE_SIZE = 10;
 

@@ -25,10 +25,8 @@ interface WarehouseControlIntroProps {
   exportError?: string | null;
 }
 
-const FORMAT_OPTIONS: WarehouseExportOption[] = [
-  { format: 'pdf', label: 'Descargar PDF (A4)' },
-  { format: 'xlsx', label: 'Descargar Excel' },
-];
+/** Excel primero, como los ordena el menú del nodo `4304:31205`. */
+const FORMAT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }, { format: 'pdf' }];
 
 export function WarehouseControlIntro({
   description = WAREHOUSE_CONTROL_DESCRIPTION,

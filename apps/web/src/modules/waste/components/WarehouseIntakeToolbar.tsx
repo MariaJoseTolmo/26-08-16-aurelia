@@ -30,7 +30,7 @@ import { WastePrimaryActionButton } from './WastePrimaryActionButton';
  * Una sola alternativa: esta vista todavía no tiene versión PDF. El caret del
  * diseño igual abre el menú, y sumar el PDF será agregar una línea acá.
  */
-const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx', label: 'Descargar Excel' }];
+const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }];
 
 interface WarehouseIntakeToolbarProps {
   /** Pastillas de filtro aplicadas, en el orden en que se muestran. */
