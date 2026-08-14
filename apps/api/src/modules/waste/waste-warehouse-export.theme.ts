@@ -106,6 +106,50 @@ export function wasteIntakeExportBaseFilename(generatedAt: Date): string {
   return `residuos-ingresos-bodega-${generatedAt.toISOString().slice(0, 10)}`;
 }
 
+/**
+ * Columnas del consolidado SINADER (nodo `3830:65642`). `weight` es la proporción
+ * del nodo —437 · 86 · 157 · 242 · 122 px sobre 1044—, la misma que la web usa
+ * como porcentaje en su `<colgroup>`.
+ *
+ * Comparten archivo con las otras dos exportaciones del módulo por el motivo del
+ * encabezado: el PDF y el Excel de una misma vista tienen que decir lo mismo, y
+ * las tres vistas tienen que llamar igual a las mismas cosas.
+ */
+export const WASTE_SINADER_EXPORT_COLUMNS: WarehouseExportColumn[] = [
+  { header: 'Residuo (código SINADER)', weight: 41.858, excelWidth: 42, align: 'left' },
+  { header: 'Cantidad', weight: 8.238, excelWidth: 14, align: 'left' },
+  { header: 'Tipo de tratamiento', weight: 15.038, excelWidth: 22, align: 'left' },
+  { header: 'Destino', weight: 23.18, excelWidth: 30, align: 'left' },
+  { header: 'Transportista', weight: 11.686, excelWidth: 22, align: 'left' },
+];
+
+/**
+ * La categoría del residuo NO es una columna del nodo: en pantalla es una pastilla
+ * DENTRO de la primera celda, arriba del nombre. El PDF la dibuja igual —pastilla
+ * sobre el texto—, pero el Excel no puede apilar dos cosas en una celda sin perder
+ * la capacidad de filtrar por categoría, que es la razón de abrir el archivo en
+ * Excel. Ahí va como columna propia, adelante.
+ */
+export const WASTE_SINADER_EXPORT_CATEGORY_COLUMN = { header: 'Categoría', excelWidth: 24 } as const;
+
+/** Pastilla de categoría de la primera columna. Mismo azul que "No peligroso". */
+export const WASTE_SINADER_EXPORT_CATEGORY_BADGE = {
+  background: '#e6f3ff',
+  text: '#0d3862',
+} as const;
+
+export const WASTE_SINADER_EXPORT_SECTIONS = {
+  kpis: 'Resumen del período',
+  rows: 'Consolidado de movimientos no peligrosos',
+} as const;
+
+export const WASTE_SINADER_EXPORT_SUBJECT = 'Reporte SINADER de residuos';
+
+/** `residuos-reporte-sinader-2026-08-14`. */
+export function wasteSinaderExportBaseFilename(generatedAt: Date): string {
+  return `residuos-reporte-sinader-${generatedAt.toISOString().slice(0, 10)}`;
+}
+
 export const WAREHOUSE_EXPORT_SECTIONS = {
   kpis: 'Resumen de bodega',
   bars: 'Acumulado mensual vs. umbral RCA',

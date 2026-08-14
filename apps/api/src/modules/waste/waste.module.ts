@@ -15,6 +15,9 @@ import { WasteWithdrawalRequestEntity } from './entities/waste-withdrawal-reques
 import { ReportsModule } from '../reports/reports.module';
 import { WasteIntakeExportXlsxService } from './waste-intake-export-xlsx.service';
 import { WasteIntakeExportController } from './waste-intake-export.controller';
+import { WasteSinaderExportPdfService } from './waste-sinader-export-pdf.service';
+import { WasteSinaderExportXlsxService } from './waste-sinader-export-xlsx.service';
+import { WasteSinaderExportController } from './waste-sinader-export.controller';
 import { WasteWarehouseExportPdfService } from './waste-warehouse-export-pdf.service';
 import { WasteWarehouseExportXlsxService } from './waste-warehouse-export-xlsx.service';
 import { WasteWarehouseExportController } from './waste-warehouse-export.controller';
@@ -40,12 +43,19 @@ const WASTE_ENTITIES = [
   // `ReportsModule` aporta `ReportPdfService` (pdfkit) y `XlsxWorkbookService`,
   // ambos exportados por ese módulo. No hay ciclo: reports no conoce waste.
   imports: [TypeOrmModule.forFeature(WASTE_ENTITIES), ReportsModule],
-  controllers: [WasteController, WasteWarehouseExportController, WasteIntakeExportController],
+  controllers: [
+    WasteController,
+    WasteWarehouseExportController,
+    WasteIntakeExportController,
+    WasteSinaderExportController,
+  ],
   providers: [
     WasteService,
     WasteWarehouseExportPdfService,
     WasteWarehouseExportXlsxService,
     WasteIntakeExportXlsxService,
+    WasteSinaderExportPdfService,
+    WasteSinaderExportXlsxService,
   ],
   exports: [WasteService],
 })
