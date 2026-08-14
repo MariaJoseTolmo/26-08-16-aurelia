@@ -10,7 +10,9 @@
         "options": {
           "classValidatorShim": true,
           "introspectComments": true,
-          "dtoFileNameSuffix": [".dto.ts"]
+          "dtoFileNameSuffix": [
+            ".dto.ts"
+          ]
         }
       }
     ],
@@ -21,6 +23,10 @@
       },
       {
         "include": "modules/messaging/assets/**/*",
+        "watchAssets": true
+      },
+      {
+        "include": "modules/waste/assets/**/*",
         "watchAssets": true
       }
     ]

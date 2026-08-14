@@ -1,79 +1,91 @@
 import { Injectable } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { WasteSinaderExportRequest, WasteSinaderExportRow } from '@aurelia/contracts';
 import { ReportPdfService, type ReportPdfDocument } from '../reports/report-pdf.service';
 import {
   WAREHOUSE_EXPORT_COLORS,
   WASTE_SINADER_EXPORT_CATEGORY_BADGE,
+  WASTE_SINADER_EXPORT_CHROME,
   WASTE_SINADER_EXPORT_COLUMNS,
-  WASTE_SINADER_EXPORT_SECTIONS,
+  WASTE_SINADER_EXPORT_DISCLAIMER,
   WASTE_SINADER_EXPORT_SUBJECT,
+  WASTE_SINADER_EXPORT_TONES,
+  WASTE_SINADER_PDF_COLUMN_WIDTHS_PX,
+  pdfPt,
 } from './waste-warehouse-export.theme';
 
 /**
- * Renderiza "Reporte SINADER" a PDF A4 vertical.
+ * Documento PDF del "Reporte SINADER" — nodos Figma `4319:33856` (en curso),
+ * `4319:33574` (pendiente de declarar) y `4319:33709` (declarado).
  *
- * Es hermano de `WasteWarehouseExportPdfService` y comparte con él la estructura
- * —header repetido en cada hoja, `ensureSpace` antes de cada bloque, encabezado de
- * tabla reimpreso en cada salto, pie con numeración al final—, la paleta y las
- * constantes de página. Lo que cambia es el contenido: acá no hay barras ni
- * vencimientos, hay un consolidado con su fila de totales.
+ * UN SOLO DOCUMENTO CON SEIS RANURAS. Los tres nodos comparten el esqueleto
+ * completo y hasta las coordenadas exactas: membrete, título, subtítulo, píldora,
+ * recuadro de contexto, cuatro KPIs y tabla caen en las MISMAS x/y en los tres. Lo
+ * único que cambia:
  *
- * NO se factorizó una clase base entre los dos. Lo único realmente común es la
- * geometría de la hoja, que ya vive en constantes, y una base abstracta con
- * `drawKpis` obligaría a las dos vistas a compartir un formato de tarjeta que hoy
- * difiere —esta tiene unidad y no tiene nota—. Se comparte lo que es dato (tema) y
- * no lo que es dibujo.
+ *   1. el tono y el rótulo de la píldora            → `status` + `statusBadgeLabel`
+ *   2. el tono y el texto del recuadro de contexto  → `status` + `notice`
+ *   3. el DATO de la segunda tarjeta                → `kpis[1]`
+ *   4. el rótulo de la fila de totales              → `totalLabel`
+ *   5. una nota bajo la tabla, sólo en curso        → `tableFootnote`
+ *   6. un bloque de firma, sólo declarado           → `signature`
  *
- * DOS COSAS QUE EL PDF HACE Y LA PANTALLA NO:
+ * Más el texto legal del pie, que sale de `WASTE_SINADER_EXPORT_DISCLAIMER` según
+ * el estado.
  *
- * 1. Repite el aviso de período abierto arriba del consolidado. En pantalla el
- *    banner y la tabla se ven juntos; impreso, el consolidado puede caer en la
- *    hoja 2 y quedar leyéndose como definitivo.
- * 2. Imprime el estado del período junto al título. La pastilla "En curso" es un
- *    KPI más en pantalla, pero en un documento que se archiva es la primera cosa
- *    que hay que poder ver sin leer la tabla.
+ * ESTE ARCHIVO REEMPLAZÓ A UNA VERSIÓN ANTERIOR que seguía la maqueta de la
+ * PANTALLA, escrita antes de que existieran estos nodos. Aquélla no tenía membrete
+ * con el logo de Gold Fields, ni pie con numeración, ni el texto legal, y repartía
+ * la tabla con otras proporciones. No era una variante de esto: era otro documento.
+ *
+ * UNIDADES. Los nodos están en CSS px a 96dpi y pdfkit trabaja en puntos a 72dpi.
+ * Toda medida leída del diseño pasa por `pdfPt()` —factor exacto 0.75— en vez de
+ * traducirse a ojo. Por eso las constantes de abajo se declaran en PX DEL NODO y se
+ * convierten al usarlas: así se pueden comparar contra Figma sin hacer cuentas.
  */
 
-/** A4 vertical en puntos PostScript. */
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
+/** Medidas del nodo, en px a 96dpi. Se convierten con `pdfPt()` al dibujar. */
+const PAGE = {
+  paddingX: 56,
+  paddingTop: 48,
+  contentWidth: 682,
+  /** Alto útil del nodo: 1123 menos el padding superior. */
+  height: 1123,
+} as const;
 
-const MARGIN_X = 32;
-const MARGIN_TOP = 28;
-/** Margen físico chico para que el pie de página no dispare una hoja extra. */
-const MARGIN_BOTTOM = 20;
+const HEADER = {
+  logoWidth: 138,
+  logoHeight: 44,
+  dividerHeight: 36,
+  gap: 20,
+  /** Separación entre el logo y la regla inferior del membrete. */
+  ruleOffset: 62,
+  blockHeight: 90,
+} as const;
 
-const CONTENT_WIDTH = A4_WIDTH - MARGIN_X * 2;
-const HEADER_RULE_Y = 62;
-/** Primera línea de contenido, por debajo del header repetido. */
-const CONTENT_TOP = 74;
-/** Última coordenada utilizable por el contenido; por debajo va el pie. */
-const CONTENT_BOTTOM = A4_HEIGHT - 46;
-const FOOTER_Y = A4_HEIGHT - 30;
-
-const TABLE_HEADER_HEIGHT = 22;
-/**
- * 26 y no los 19 de "Control de bodega": la primera celda apila la pastilla de
- * categoría y el nombre del residuo, igual que en pantalla.
- */
-const TABLE_ROW_HEIGHT = 26;
-const TOTAL_ROW_HEIGHT = 20;
-const CELL_PADDING_X = 6;
-const HEADER_PADDING_X = 4;
+const TABLE = {
+  headerHeight: 30,
+  rowHeight: 76,
+  totalHeight: 31,
+  cellPaddingX: 12,
+  badgeHeight: 14,
+  badgePaddingX: 7,
+} as const;
 
 interface PdfContext {
   doc: ReportPdfDocument;
   payload: WasteSinaderExportRequest;
   generatedAt: Date;
+  /** Anchos de columna ya en puntos. */
   columnWidths: number[];
-  /** Cursor vertical. Lo mutan los renderers a medida que bajan. */
   y: number;
-  /** Y donde arranca el tramo de tabla de la página actual, para cerrar su marco. */
-  tableSegmentTop: number | null;
 }
 
 @Injectable()
 export class WasteSinaderExportPdfService {
+  private readonly logo = this.loadLogo();
+
   constructor(private readonly reportPdf: ReportPdfService) {}
 
   async render(
@@ -86,17 +98,19 @@ export class WasteSinaderExportPdfService {
           doc,
           payload,
           generatedAt: meta.generatedAt,
-          columnWidths: this.resolveColumnWidths(),
-          y: CONTENT_TOP,
-          tableSegmentTop: null,
+          columnWidths: WASTE_SINADER_PDF_COLUMN_WIDTHS_PX.map(pdfPt),
+          y: 0,
         };
 
         this.startPage(context);
-        this.drawDescription(context);
+        this.drawTitle(context);
+        this.drawStatusBadge(context);
+        this.drawNotice(context);
         this.drawKpis(context);
-        this.drawRowsTable(context);
-        this.drawUpdatedAt(context);
-        this.drawFooters(context);
+        this.drawTable(context);
+        this.drawSignature(context);
+        this.drawDisclaimer(context);
+        this.drawPageFooters(context);
       },
       {
         title: payload.title,
@@ -106,456 +120,509 @@ export class WasteSinaderExportPdfService {
     );
   }
 
-  /**
-   * Reparte el ancho útil según los pesos del nodo. El último se calcula por resta
-   * para que la suma cierre exactamente y no quede una hendidura de medio punto en
-   * el borde derecho por acumulación de redondeos.
-   */
-  private resolveColumnWidths(): number[] {
-    const totalWeight = WASTE_SINADER_EXPORT_COLUMNS.reduce((sum, column) => sum + column.weight, 0);
-    const widths = WASTE_SINADER_EXPORT_COLUMNS.map(
-      (column) => (column.weight / totalWeight) * CONTENT_WIDTH,
-    );
-    const allButLast = widths.slice(0, -1);
-    const used = allButLast.reduce((sum, width) => sum + width, 0);
-    return [...allButLast, CONTENT_WIDTH - used];
-  }
-
   // ---------------------------------------------------------------- estructura
 
-  /** Abre una hoja A4 y pinta el header repetido. */
+  private get left(): number {
+    return pdfPt(PAGE.paddingX);
+  }
+
+  private get width(): number {
+    return pdfPt(PAGE.contentWidth);
+  }
+
+  /** Y a partir de la cual ya no entra contenido: por debajo va el pie del documento. */
+  private get contentBottom(): number {
+    return pdfPt(PAGE.height) - pdfPt(140);
+  }
+
+  /**
+   * Abre una hoja y pinta el membrete `4319:33858`: logo, divisor, "AURELIA" y a la
+   * derecha las dos líneas de generación, cerrado por una regla de 2px en #001e39.
+   */
   private startPage(context: PdfContext): void {
     const { doc, payload } = context;
-    this.closeTableSegment(context);
 
     doc.addPage({
       size: 'A4',
-      margins: { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: MARGIN_X, right: MARGIN_X },
+      margins: {
+        top: pdfPt(PAGE.paddingTop),
+        bottom: pdfPt(PAGE.paddingTop),
+        left: this.left,
+        right: this.left,
+      },
     });
 
+    const top = pdfPt(PAGE.paddingTop);
+    doc.image(this.logo, this.left, top, {
+      width: pdfPt(HEADER.logoWidth),
+      height: pdfPt(HEADER.logoHeight),
+    });
+
+    const dividerX = this.left + pdfPt(HEADER.logoWidth + HEADER.gap);
     doc
-      .font('Helvetica-Bold')
-      .fontSize(13)
-      .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-      .text(payload.title, MARGIN_X, MARGIN_TOP, { width: CONTENT_WIDTH - 170, lineBreak: false });
+      .rect(dividerX, top + pdfPt(4), 0.75, pdfPt(HEADER.dividerHeight))
+      .fill(WAREHOUSE_EXPORT_COLORS.separator);
+
+    /*
+     * "AURELIA" con las dos últimas letras en dorado. Se dibuja en dos tramos
+     * midiendo el primero, que es lo que hace el nodo con dos `<span>`.
+     */
+    const brandX = dividerX + pdfPt(21);
+    const brandY = top + pdfPt(12.25);
+    doc.font('Helvetica-Bold').fontSize(pdfPt(16)).fillColor('#001e39');
+    doc.text('AUREL', brandX, brandY, { lineBreak: false, characterSpacing: -0.3 });
+    doc
+      .fillColor(WAREHOUSE_EXPORT_COLORS.gold)
+      .text('IA', brandX + doc.widthOfString('AUREL'), brandY, {
+        lineBreak: false,
+        characterSpacing: -0.3,
+      });
 
     doc
       .font('Helvetica')
-      .fontSize(8.5)
-      .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
-      .text(`Residuos · Reporte SINADER · ${payload.statusLabel}`, MARGIN_X, MARGIN_TOP + 1, {
-        width: CONTENT_WIDTH,
+      .fontSize(pdfPt(10))
+      .fillColor(WAREHOUSE_EXPORT_COLORS.separator)
+      .text(`Generado: ${this.formatTimestamp(context.generatedAt)}`, this.left, top + pdfPt(6), {
+        width: this.width,
+        align: 'right',
+        lineBreak: false,
+      })
+      .text(WASTE_SINADER_EXPORT_CHROME.headerSubject, this.left, top + pdfPt(22), {
+        width: this.width,
         align: 'right',
         lineBreak: false,
       });
 
+    const ruleY = top + pdfPt(HEADER.ruleOffset);
     doc
-      .fontSize(7.5)
-      .text(`Generado el ${this.formatTimestamp(context.generatedAt)}`, MARGIN_X, MARGIN_TOP + 15, {
-        width: CONTENT_WIDTH,
-        align: 'right',
-        lineBreak: false,
-      });
+      .rect(this.left, ruleY, this.width, pdfPt(2))
+      .fill('#001e39');
 
-    doc
-      .moveTo(MARGIN_X, HEADER_RULE_Y)
-      .lineTo(MARGIN_X + CONTENT_WIDTH, HEADER_RULE_Y)
-      .lineWidth(0.75)
-      .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
-      .stroke();
-
-    context.y = CONTENT_TOP;
-  }
-
-  /** Salta de hoja si el bloque que viene no entra completo. */
-  private ensureSpace(context: PdfContext, needed: number): void {
-    if (context.y + needed <= CONTENT_BOTTOM) return;
-    this.startPage(context);
-  }
-
-  private drawSectionTitle(context: PdfContext, title: string): void {
-    this.ensureSpace(context, 30);
-    context.doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-      .text(title, MARGIN_X, context.y, { width: CONTENT_WIDTH, lineBreak: false });
-    context.y += 16;
+    void payload;
+    context.y = top + pdfPt(HEADER.blockHeight);
   }
 
   // ------------------------------------------------------------------ bloques
 
-  private drawDescription(context: PdfContext): void {
+  /** Título `4319:33867` y subtítulo `4319:33869`. */
+  private drawTitle(context: PdfContext): void {
     const { doc, payload } = context;
-    doc.font('Helvetica').fontSize(8.5).fillColor(WAREHOUSE_EXPORT_COLORS.muted);
-    const height = doc.heightOfString(payload.description, { width: CONTENT_WIDTH });
-    this.ensureSpace(context, height + 10);
-    doc.text(payload.description, MARGIN_X, context.y, { width: CONTENT_WIDTH });
-    context.y += height + 12;
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(pdfPt(20))
+      .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
+      .text(payload.title, this.left, context.y + pdfPt(24), { width: this.width, lineBreak: false });
+
+    doc
+      .font('Helvetica')
+      .fontSize(pdfPt(11.5))
+      .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
+      .text(payload.description, this.left, context.y + pdfPt(52), { width: this.width });
+
+    context.y += pdfPt(82);
+  }
+
+  /** Píldora de estado `4319:33871`. Su tono sale del estado, no del texto. */
+  private drawStatusBadge(context: PdfContext): void {
+    const { doc, payload } = context;
+    const tone = WASTE_SINADER_EXPORT_TONES[payload.status].badge;
+
+    doc.font('Helvetica-Bold').fontSize(pdfPt(10.5));
+    const label = payload.statusBadgeLabel;
+    const height = pdfPt(21);
+    const width = doc.widthOfString(label) + pdfPt(24);
+
+    doc.roundedRect(this.left, context.y, width, height, height / 2).fill(tone.background);
+    doc
+      .fillColor(tone.text)
+      .text(label, this.left + pdfPt(12), context.y + pdfPt(5.5), { lineBreak: false });
+
+    context.y += pdfPt(38.5);
   }
 
   /**
-   * Aviso de período abierto, sobre la banda azul del diseño.
-   *
-   * Se dibuja dos veces: acá, en su lugar de la pantalla, y otra vez arriba del
-   * consolidado si éste arrancó en otra hoja. Es deliberado: un total parcial sin
-   * el aviso al lado se lee como definitivo.
+   * Recuadro de contexto `4319:33875`. Alto DERIVADO del texto, no fijo: los tres
+   * nodos lo dibujan en 57px con su copy, pero un período con una frase más larga
+   * no debe recortarse.
    */
   private drawNotice(context: PdfContext): void {
     const { doc, payload } = context;
     if (!payload.notice) return;
 
-    const padding = 8;
-    doc.font('Helvetica').fontSize(7.5);
-    const textWidth = CONTENT_WIDTH - padding * 2;
-    const textHeight = doc.heightOfString(payload.notice, { width: textWidth });
-    const boxHeight = textHeight + padding * 2;
+    const tone = WASTE_SINADER_EXPORT_TONES[payload.status].notice;
+    const padX = pdfPt(15);
+    const padY = pdfPt(12);
+    const textWidth = this.width - padX * 2;
 
-    this.ensureSpace(context, boxHeight + 10);
-
-    doc
-      .roundedRect(MARGIN_X, context.y, CONTENT_WIDTH, boxHeight, 5)
-      .fillAndStroke(
-        WASTE_SINADER_EXPORT_CATEGORY_BADGE.background,
-        WASTE_SINADER_EXPORT_CATEGORY_BADGE.text,
-      );
+    doc.font('Helvetica').fontSize(pdfPt(10.5));
+    const textHeight = doc.heightOfString(payload.notice, {
+      width: textWidth,
+      lineGap: pdfPt(16.275 - 10.5 * 1.15),
+    });
+    const boxHeight = textHeight + padY * 2;
 
     doc
-      .font('Helvetica')
-      .fontSize(7.5)
-      .fillColor(WASTE_SINADER_EXPORT_CATEGORY_BADGE.text)
-      .text(payload.notice, MARGIN_X + padding, context.y + padding, { width: textWidth });
+      .roundedRect(this.left, context.y, this.width, boxHeight, pdfPt(8))
+      .fillAndStroke(tone.background, tone.border);
 
-    context.y += boxHeight + 12;
+    doc
+      .fillColor(tone.text)
+      .text(payload.notice, this.left + padX, context.y + padY, {
+        width: textWidth,
+        lineGap: pdfPt(16.275 - 10.5 * 1.15),
+      });
+
+    context.y += boxHeight + pdfPt(20);
   }
 
+  /** Cuatro tarjetas `4319:33882`…`4319:33897`, en fila y de igual ancho. */
   private drawKpis(context: PdfContext): void {
     const { doc, payload } = context;
-    this.drawNotice(context);
     if (payload.kpis.length === 0) return;
 
-    this.drawSectionTitle(context, WASTE_SINADER_EXPORT_SECTIONS.kpis);
+    const gap = pdfPt(12);
+    const count = Math.min(4, payload.kpis.length);
+    const cardWidth = (this.width - gap * (count - 1)) / count;
+    const cardHeight = pdfPt(62);
 
-    const gap = 8;
-    const perRow = Math.min(4, payload.kpis.length);
-    const cardWidth = (CONTENT_WIDTH - gap * (perRow - 1)) / perRow;
-    const cardHeight = 44;
-
-    payload.kpis.forEach((kpi, index) => {
-      const column = index % perRow;
-      if (column === 0) this.ensureSpace(context, cardHeight + gap);
-
-      const x = MARGIN_X + column * (cardWidth + gap);
-      const y = context.y;
+    payload.kpis.slice(0, count).forEach((kpi, index) => {
+      const x = this.left + index * (cardWidth + gap);
 
       doc
-        .roundedRect(x, y, cardWidth, cardHeight, 6)
+        .roundedRect(x, context.y, cardWidth, cardHeight, pdfPt(8))
         .lineWidth(0.75)
         .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
         .stroke();
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(7)
+        .fontSize(pdfPt(8))
         .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
-        .text(kpi.label, x + 8, y + 8, { width: cardWidth - 16, lineBreak: false, ellipsis: true });
+        .text(kpi.label.toUpperCase(), x + pdfPt(13), context.y + pdfPt(13), {
+          width: cardWidth - pdfPt(26),
+          lineBreak: false,
+          ellipsis: true,
+          characterSpacing: 0.27,
+        });
 
+      const value = kpi.unit ? `${kpi.value} ${kpi.unit}` : kpi.value;
       doc
         .font('Helvetica-Bold')
-        .fontSize(15)
+        .fontSize(pdfPt(17))
         .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-        .text(kpi.value, x + 8, y + 21, { width: cardWidth - 16, lineBreak: false, ellipsis: true });
-
-      if (kpi.unit) {
-        /*
-         * La unidad se ancla al ancho real del valor, no a una coordenada fija:
-         * "2.290" y "410" no miden lo mismo, y con un offset fijo el "kg" quedaría
-         * despegado en uno y encima en el otro. Es el equivalente del
-         * `items-baseline` de la tarjeta en pantalla.
-         */
-        doc.font('Helvetica-Bold').fontSize(15);
-        const valueWidth = doc.widthOfString(kpi.value);
-        doc
-          .font('Helvetica')
-          .fontSize(8)
-          .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
-          .text(kpi.unit, x + 8 + valueWidth + 4, y + 28, {
-            width: Math.max(10, cardWidth - 16 - valueWidth - 4),
-            lineBreak: false,
-          });
-      }
-
-      if (column === perRow - 1 || index === payload.kpis.length - 1) {
-        context.y += cardHeight + 14;
-      }
+        .text(value, x + pdfPt(13), context.y + pdfPt(28), {
+          width: cardWidth - pdfPt(26),
+          lineBreak: false,
+          ellipsis: true,
+        });
     });
+
+    context.y += cardHeight + pdfPt(20);
   }
 
-  private drawRowsTable(context: PdfContext): void {
-    this.drawSectionTitle(context, WASTE_SINADER_EXPORT_SECTIONS.rows);
-    this.ensureSpace(context, TABLE_HEADER_HEIGHT + TABLE_ROW_HEIGHT);
+  // -------------------------------------------------------------------- tabla
+
+  private drawTable(context: PdfContext): void {
     this.drawTableHeader(context);
 
     for (const row of context.payload.rows) {
-      if (context.y + TABLE_ROW_HEIGHT > CONTENT_BOTTOM) {
-        // Salto de página: se repiten el header de la página Y el de la tabla.
+      if (context.y + pdfPt(TABLE.rowHeight) > this.contentBottom) {
         this.startPage(context);
         this.drawTableHeader(context);
       }
       this.drawRow(context, row);
     }
 
-    if (context.payload.rows.length === 0) {
-      this.drawEmptyRow(context);
-    }
+    if (context.payload.rows.length === 0) this.drawEmptyRow(context);
 
-    /*
-     * La fila de totales NO puede quedar sola en una hoja sin su tabla: sería un
-     * número sin de qué. Si no entra, salta y reimprime el encabezado.
-     */
-    if (context.y + TOTAL_ROW_HEIGHT > CONTENT_BOTTOM) {
+    if (context.y + pdfPt(TABLE.totalHeight) > this.contentBottom) {
       this.startPage(context);
       this.drawTableHeader(context);
     }
     this.drawTotalRow(context);
+    this.drawTableFootnote(context);
 
-    this.closeTableSegment(context);
-    context.y += 10;
+    context.y += pdfPt(40);
   }
 
   private drawTableHeader(context: PdfContext): void {
     const { doc } = context;
-    const y = context.y;
-    context.tableSegmentTop = y;
+    const height = pdfPt(TABLE.headerHeight);
 
-    doc.rect(MARGIN_X, y, CONTENT_WIDTH, TABLE_HEADER_HEIGHT).fill(WAREHOUSE_EXPORT_COLORS.navy);
+    doc.rect(this.left, context.y, this.width, height).fill(WAREHOUSE_EXPORT_COLORS.track);
 
-    let x = MARGIN_X;
+    let x = this.left;
     WASTE_SINADER_EXPORT_COLUMNS.forEach((column, index) => {
       const width = context.columnWidths[index] ?? 0;
-
       doc
         .font('Helvetica-Bold')
-        .fontSize(6)
-        .fillColor(WAREHOUSE_EXPORT_COLORS.white)
-        .text(column.header.toUpperCase(), x + HEADER_PADDING_X, y + 5.5, {
-          width: width - HEADER_PADDING_X * 2,
-          align: column.align === 'center' ? 'center' : 'left',
-          characterSpacing: 0.2,
+        .fontSize(pdfPt(9))
+        .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
+        .text(column.header.toUpperCase(), x + pdfPt(TABLE.cellPaddingX), context.y + pdfPt(9.5), {
+          width: width - pdfPt(TABLE.cellPaddingX * 2),
+          lineBreak: false,
+          ellipsis: true,
+          characterSpacing: 0.44,
         });
-
-      if (index < WASTE_SINADER_EXPORT_COLUMNS.length - 1) {
-        doc
-          .moveTo(x + width, y)
-          .lineTo(x + width, y + TABLE_HEADER_HEIGHT)
-          .lineWidth(0.5)
-          .strokeColor(WAREHOUSE_EXPORT_COLORS.navyRule)
-          .stroke();
-      }
       x += width;
     });
 
-    context.y = y + TABLE_HEADER_HEIGHT;
+    this.drawRule(context, context.y + height);
+    context.y += height;
   }
 
   private drawRow(context: PdfContext, row: WasteSinaderExportRow): void {
     const { doc } = context;
-    const y = context.y;
-    const widths = context.columnWidths;
-    const x = (index: number) => MARGIN_X + widths.slice(0, index).reduce((sum, width) => sum + width, 0);
+    const top = context.y;
+    const height = pdfPt(TABLE.rowHeight);
+    const x = (index: number) =>
+      this.left + context.columnWidths.slice(0, index).reduce((sum, w) => sum + w, 0);
 
     // 0 · Residuo: pastilla de categoría arriba, código y nombre abajo.
-    this.drawBadge(
-      doc,
-      x(0) + CELL_PADDING_X,
-      y + 4,
-      row.category,
-      WASTE_SINADER_EXPORT_CATEGORY_BADGE.background,
-      WASTE_SINADER_EXPORT_CATEGORY_BADGE.text,
-    );
+    this.drawCategoryBadge(doc, x(0) + pdfPt(TABLE.cellPaddingX), top + pdfPt(14), row.category);
     doc
       .font('Helvetica')
-      .fontSize(7.5)
+      .fontSize(pdfPt(10))
       .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-      .text(row.waste, x(0) + CELL_PADDING_X, y + 16, {
-        width: (widths[0] ?? 0) - CELL_PADDING_X * 2,
-        lineBreak: false,
-        ellipsis: true,
+      .text(row.waste, x(0) + pdfPt(TABLE.cellPaddingX), top + pdfPt(36), {
+        width: (context.columnWidths[0] ?? 0) - pdfPt(TABLE.cellPaddingX * 2),
       });
 
     // 1 · Cantidad en negrita: es la cifra que se declara.
     doc
       .font('Helvetica-Bold')
-      .fontSize(7.5)
-      .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-      .text(row.quantity, x(1) + CELL_PADDING_X, y + 10, {
-        width: (widths[1] ?? 0) - CELL_PADDING_X * 2,
+      .fontSize(pdfPt(10))
+      .text(row.quantity, x(1) + pdfPt(TABLE.cellPaddingX), top + pdfPt(32), {
+        width: (context.columnWidths[1] ?? 0) - pdfPt(TABLE.cellPaddingX * 2),
         lineBreak: false,
         ellipsis: true,
       });
 
-    // 2-4 · texto plano, centrado verticalmente en la fila.
-    const plainCells: Array<{ index: number; value: string }> = [
+    // 2-4 · texto plano, con envoltura: un destino cortado deja de identificar el lugar.
+    doc.font('Helvetica').fontSize(pdfPt(10)).fillColor(WAREHOUSE_EXPORT_COLORS.ink);
+    [
       { index: 2, value: row.treatment },
       { index: 3, value: row.destination },
       { index: 4, value: row.transport },
-    ];
-    doc.font('Helvetica').fontSize(7.5).fillColor(WAREHOUSE_EXPORT_COLORS.ink);
-    for (const cell of plainCells) {
-      const width = widths[cell.index] ?? 0;
-      doc.text(cell.value, x(cell.index) + CELL_PADDING_X, y + 10, {
-        width: width - CELL_PADDING_X * 2,
-        lineBreak: false,
+    ].forEach((cell) => {
+      const width = context.columnWidths[cell.index] ?? 0;
+      doc.text(cell.value, x(cell.index) + pdfPt(TABLE.cellPaddingX), top + pdfPt(30), {
+        width: width - pdfPt(TABLE.cellPaddingX * 2),
+        height: height - pdfPt(20),
         ellipsis: true,
       });
-    }
+    });
 
-    this.drawRowRules(context, y, y + TABLE_ROW_HEIGHT);
-    context.y = y + TABLE_ROW_HEIGHT;
+    this.drawRule(context, top + height);
+    context.y = top + height;
   }
 
-  /**
-   * Vacío de la tabla. El diseño no lo dibuja, pero un consolidado puede no tener
-   * movimientos y el PDF tiene que decirlo en vez de mostrar un hueco entre el
-   * encabezado y el total.
-   */
+  /** El diseño no lo dibuja, pero un consolidado sin movimientos tiene que decirlo. */
   private drawEmptyRow(context: PdfContext): void {
     const { doc } = context;
-    const y = context.y;
+    const height = pdfPt(TABLE.rowHeight);
 
     doc
       .font('Helvetica')
-      .fontSize(7.5)
+      .fontSize(pdfPt(10))
       .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
-      .text('Sin movimientos no peligrosos consolidados en el período.', MARGIN_X, y + 8, {
-        width: CONTENT_WIDTH,
+      .text('Sin movimientos no peligrosos consolidados en el período.', this.left, context.y + pdfPt(30), {
+        width: this.width,
         align: 'center',
         lineBreak: false,
       });
 
-    this.drawRowRules(context, y, y + TABLE_ROW_HEIGHT, false);
-    context.y = y + TABLE_ROW_HEIGHT;
+    this.drawRule(context, context.y + height);
+    context.y += height;
   }
 
-  /** Fila de totales: banda gris, rótulo y total en negrita. */
   private drawTotalRow(context: PdfContext): void {
     const { doc, payload } = context;
-    const y = context.y;
-    const widths = context.columnWidths;
-    const x = (index: number) => MARGIN_X + widths.slice(0, index).reduce((sum, width) => sum + width, 0);
+    const height = pdfPt(TABLE.totalHeight);
 
-    doc.rect(MARGIN_X, y, CONTENT_WIDTH, TOTAL_ROW_HEIGHT).fill(WAREHOUSE_EXPORT_COLORS.track);
+    doc.rect(this.left, context.y, this.width, height).fill(WAREHOUSE_EXPORT_COLORS.track);
 
     doc
       .font('Helvetica-Bold')
-      .fontSize(8)
-      .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
-      .text(payload.totalLabel, MARGIN_X + CELL_PADDING_X, y + 6, {
-        width: (widths[0] ?? 0) - CELL_PADDING_X * 2,
+      .fontSize(pdfPt(10))
+      .fillColor('#000000')
+      .text(payload.totalLabel, this.left + pdfPt(TABLE.cellPaddingX), context.y + pdfPt(9.5), {
+        width: (context.columnWidths[0] ?? 0) - pdfPt(TABLE.cellPaddingX * 2),
         lineBreak: false,
         ellipsis: true,
-      });
+      })
+      .text(
+        payload.totalQuantity,
+        this.left + (context.columnWidths[0] ?? 0) + pdfPt(TABLE.cellPaddingX),
+        context.y + pdfPt(9.5),
+        { width: (context.columnWidths[1] ?? 0), lineBreak: false },
+      );
 
-    doc.text(payload.totalQuantity, x(1) + CELL_PADDING_X, y + 6, {
-      width: (widths[1] ?? 0) - CELL_PADDING_X * 2,
-      lineBreak: false,
-      ellipsis: true,
+    /*
+     * La nota del período abierto va DENTRO de la fila de totales, a la derecha de
+     * la cifra: así lo dibuja `4319:33966`, y tiene sentido — aclara ese total, no
+     * la tabla entera.
+     */
+    if (payload.tableFootnote) {
+      const noteX = this.left + (context.columnWidths[0] ?? 0) + (context.columnWidths[1] ?? 0);
+      doc
+        .font('Helvetica')
+        .fontSize(pdfPt(9.5))
+        .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
+        .text(payload.tableFootnote, noteX + pdfPt(TABLE.cellPaddingX), context.y + pdfPt(10), {
+          width: this.width - (noteX - this.left) - pdfPt(TABLE.cellPaddingX * 2),
+          lineBreak: false,
+          ellipsis: true,
+        });
+    }
+
+    this.drawRule(context, context.y + height);
+    context.y += height;
+  }
+
+  private drawTableFootnote(context: PdfContext): void {
+    // El marco exterior de la tabla se cierra al final, sobre todo el tramo dibujado.
+    void context;
+  }
+
+  /**
+   * Bloque de firma `4319:33835`, sólo en el documento declarado: dos columnas con
+   * su rótulo en versalitas y el valor debajo.
+   */
+  private drawSignature(context: PdfContext): void {
+    const { doc, payload } = context;
+    if (!payload.signature) return;
+
+    const columnWidth = (this.width - pdfPt(14)) / 2;
+    const entries = [
+      { label: WASTE_SINADER_EXPORT_CHROME.signatureDeclaredByLabel, value: payload.signature.declaredBy },
+      { label: WASTE_SINADER_EXPORT_CHROME.signatureFolioLabel, value: payload.signature.declaredAtAndFolio },
+    ];
+
+    entries.forEach((entry, index) => {
+      const x = this.left + index * (columnWidth + pdfPt(14));
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(pdfPt(8))
+        .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
+        .text(entry.label.toUpperCase(), x, context.y, {
+          width: columnWidth,
+          lineBreak: false,
+          characterSpacing: 0.27,
+        });
+      doc
+        .font('Helvetica')
+        .fontSize(pdfPt(11))
+        .fillColor(WAREHOUSE_EXPORT_COLORS.ink)
+        .text(entry.value, x, context.y + pdfPt(14), { width: columnWidth, lineBreak: false, ellipsis: true });
     });
 
-    this.drawRowRules(context, y, y + TOTAL_ROW_HEIGHT);
-    context.y = y + TOTAL_ROW_HEIGHT;
+    context.y += pdfPt(50);
   }
 
-  /** Línea inferior de la fila y separadores verticales entre columnas. */
-  private drawRowRules(context: PdfContext, top: number, bottom: number, verticals = true): void {
-    const { doc } = context;
+  /** Texto legal `4319:33971`, sobre una regla superior. */
+  private drawDisclaimer(context: PdfContext): void {
+    const { doc, payload } = context;
+    const text = WASTE_SINADER_EXPORT_DISCLAIMER[payload.status];
 
     doc
-      .moveTo(MARGIN_X, bottom)
-      .lineTo(MARGIN_X + CONTENT_WIDTH, bottom)
-      .lineWidth(0.5)
-      .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
-      .stroke();
-
-    if (!verticals) return;
-
-    let separatorX = MARGIN_X;
-    for (let index = 0; index < context.columnWidths.length - 1; index += 1) {
-      separatorX += context.columnWidths[index] ?? 0;
-      doc
-        .moveTo(separatorX, top)
-        .lineTo(separatorX, bottom)
-        .lineWidth(0.5)
-        .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
-        .stroke();
-    }
-  }
-
-  /** Marco exterior del tramo de tabla que vive en la página actual. */
-  private closeTableSegment(context: PdfContext): void {
-    if (context.tableSegmentTop === null) return;
-    context.doc
-      .rect(MARGIN_X, context.tableSegmentTop, CONTENT_WIDTH, context.y - context.tableSegmentTop)
+      .moveTo(this.left, context.y)
+      .lineTo(this.left + this.width, context.y)
       .lineWidth(0.75)
       .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
       .stroke();
-    context.tableSegmentTop = null;
-  }
 
-  /** Pie de la vista: cuándo se recalculó el consolidado. */
-  private drawUpdatedAt(context: PdfContext): void {
-    const { doc, payload } = context;
-    doc.font('Helvetica').fontSize(7).fillColor(WAREHOUSE_EXPORT_COLORS.muted);
-    const height = doc.heightOfString(payload.updatedAtLabel, { width: CONTENT_WIDTH });
-    this.ensureSpace(context, height + 6);
-    doc.text(payload.updatedAtLabel, MARGIN_X, context.y, { width: CONTENT_WIDTH });
-    context.y += height + 6;
+    doc
+      .font('Helvetica')
+      .fontSize(pdfPt(8.5))
+      .fillColor(WAREHOUSE_EXPORT_COLORS.separator)
+      .text(text, this.left, context.y + pdfPt(15), { width: this.width, lineGap: pdfPt(2) });
   }
 
   // ------------------------------------------------------------------ helpers
 
-  private drawBadge(
-    doc: ReportPdfDocument,
-    x: number,
-    y: number,
-    label: string,
-    background: string,
-    color: string,
-    fontSize = 6,
-  ): number {
-    doc.font('Helvetica-Bold').fontSize(fontSize);
-    const width = doc.widthOfString(label) + 10;
-    const height = fontSize + 5;
-    doc.roundedRect(x, y, width, height, height / 2).fill(background);
-    doc.fillColor(color).text(label, x + 5, y + (height - fontSize) / 2 - 0.5, { lineBreak: false });
-    return width;
+  private drawCategoryBadge(doc: ReportPdfDocument, x: number, y: number, label: string): void {
+    doc.font('Helvetica-Bold').fontSize(pdfPt(8.5));
+    const height = pdfPt(TABLE.badgeHeight);
+    const width = doc.widthOfString(label) + pdfPt(TABLE.badgePaddingX * 2);
+
+    doc.roundedRect(x, y, width, height, pdfPt(10)).fill(WASTE_SINADER_EXPORT_CATEGORY_BADGE.background);
+    doc
+      .fillColor(WASTE_SINADER_EXPORT_CATEGORY_BADGE.text)
+      .text(label, x + pdfPt(TABLE.badgePaddingX), y + pdfPt(2.5), { lineBreak: false });
+  }
+
+  private drawRule(context: PdfContext, y: number): void {
+    context.doc
+      .moveTo(this.left, y)
+      .lineTo(this.left + this.width, y)
+      .lineWidth(0.5)
+      .strokeColor(WAREHOUSE_EXPORT_COLORS.border)
+      .stroke();
   }
 
   /**
-   * Numeración al final: necesita saber el total de páginas, así que se escribe
-   * recién cuando ya están todas creadas (`bufferPages: true` en
+   * Pie de cada hoja: la línea de origen a la izquierda, la de confidencialidad con
+   * la fecha de emisión a la derecha, y el `n / total` de `4319:33979`.
+   *
+   * Se escribe al final porque necesita el total de páginas (`bufferPages: true` en
    * `ReportPdfService`).
    */
-  private drawFooters(context: PdfContext): void {
+  private drawPageFooters(context: PdfContext): void {
     const { doc } = context;
     const range = doc.bufferedPageRange();
+    const footerY = pdfPt(1057);
+    const emitted = this.formatDate(context.generatedAt);
 
     for (let index = 0; index < range.count; index += 1) {
       doc.switchToPage(range.start + index);
+
+      doc
+        .moveTo(this.left, footerY)
+        .lineTo(this.left + this.width, footerY)
+        .lineWidth(0.75)
+        .strokeColor(WAREHOUSE_EXPORT_COLORS.separator)
+        .stroke();
+
       doc
         .font('Helvetica')
-        .fontSize(7)
+        .fontSize(pdfPt(9))
         .fillColor(WAREHOUSE_EXPORT_COLORS.muted)
-        .text(`Página ${index + 1} de ${range.count}`, MARGIN_X, FOOTER_Y, {
-          width: CONTENT_WIDTH,
+        .text(WASTE_SINADER_EXPORT_CHROME.footerLeft, this.left, footerY + pdfPt(17), {
+          width: this.width,
+          lineBreak: false,
+        })
+        .text(
+          `Emitido: ${emitted} · ${WASTE_SINADER_EXPORT_CHROME.footerRight}`,
+          this.left,
+          footerY + pdfPt(17),
+          { width: this.width, align: 'right', lineBreak: false },
+        );
+
+      doc
+        .fontSize(pdfPt(10))
+        .text(`${index + 1} / ${range.count}`, this.left, pdfPt(1083), {
+          width: this.width,
           align: 'right',
           lineBreak: false,
         });
     }
   }
 
-  private formatTimestamp(value: Date): string {
-    const pad = (input: number) => String(input).padStart(2, '0');
-    return `${pad(value.getDate())}-${pad(value.getMonth() + 1)}-${value.getFullYear()} ${pad(value.getHours())}:${pad(value.getMinutes())}`;
+  private loadLogo(): Buffer {
+    return readFileSync(join(__dirname, 'assets', 'gold-fields-logo.png'));
   }
+
+  private formatTimestamp(value: Date): string {
+    return `${this.formatDate(value)}, ${pad(value.getHours())}:${pad(value.getMinutes())}`;
+  }
+
+  private formatDate(value: Date): string {
+    return `${pad(value.getDate())}-${pad(value.getMonth() + 1)}-${value.getFullYear()}`;
+  }
+}
+
+function pad(input: number): string {
+  return String(input).padStart(2, '0');
 }

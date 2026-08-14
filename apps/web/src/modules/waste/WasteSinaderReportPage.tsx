@@ -133,7 +133,7 @@ function buildNotice(monthName: string, nextMonthName: string): string {
 const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }, { format: 'pdf' }];
 
 /** El detalle del fallo vive en la consola; acá va lo accionable. */
-const EXPORT_ERROR_MESSAGE = 'No se pudo generar el archivo. Volvé a intentarlo.';
+const EXPORT_ERROR_MESSAGE = 'No se pudo generar el archivo. Vuelve a intentarlo.';
 
 /**
  * Columnas del nodo `3830:65642`, con sus anchos como porcentaje de los 1044px del
@@ -649,7 +649,7 @@ function WasteSinaderReportContent() {
    */
   function handleDeclare(input: WasteSinaderDeclareSubmit) {
     setDeclareError(
-      `Todavía no se puede confirmar: falta el endpoint que registra la declaración. Folio ${input.folio}, fecha ${input.declaredOn}.`,
+      `Todavía no se puede confirmar: esta acción aún no está habilitada. Se registrarían el folio ${input.folio} y la fecha ${input.declaredOn}.`,
     );
   }
 

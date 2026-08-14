@@ -38,7 +38,50 @@ export interface WasteSinaderExportRow {
   transport: string;
 }
 
+/**
+ * Estado del período, en su forma SEMÁNTICA.
+ *
+ * Viaja aparte de `statusLabel` porque el renderer no elige colores a partir de un
+ * texto: de este valor salen el tono de la pastilla, el del recuadro de contexto y
+ * cuál de los dos textos legales va al pie. Es el mismo criterio que
+ * `WarehouseControlLotStatus`, que también manda el estado y deja el mapa de
+ * colores del lado que dibuja.
+ */
+export type WasteSinaderExportStatus = 'in_progress' | 'pending_declaration' | 'declared';
+
+/**
+ * Bloque de firma del documento declarado — nodo `4319:33833`.
+ *
+ * Sólo existe en esa variante: es la constancia de quién trasladó los totales a la
+ * Ventanilla Única y con qué folio quedaron. En los otros dos estados todavía no
+ * hay nada que firmar.
+ */
+export interface WasteSinaderExportSignature {
+  /** "[Nombre y apellido] — Especialista Medio Ambiente". */
+  declaredBy: string;
+  /** "05-08-2026, 10:15 · Folio 1227458". */
+  declaredAtAndFolio: string;
+}
+
 export interface WasteSinaderExportRequest {
+  /** Decide tonos y texto legal. Ver `WasteSinaderExportStatus`. */
+  status: WasteSinaderExportStatus;
+  /**
+   * Rótulo de la pastilla, en mayúsculas — "EN CURSO — DATOS PARCIALES".
+   *
+   * NO es `statusLabel`: aquél es el valor de la tarjeta de KPI ("En curso") y éste
+   * el de la píldora del encabezado, que en el documento dice más. Los nodos los
+   * escriben distinto, así que son dos campos.
+   */
+  statusBadgeLabel: string;
+  /**
+   * Aclaración bajo la tabla — "Pueden sumarse más movimientos antes de fin de mes".
+   *
+   * Sólo la trae el período en curso (`4319:33968`): es la advertencia de que ese
+   * total todavía se mueve. Un período cerrado no la necesita.
+   */
+  tableFootnote?: string;
+  signature?: WasteSinaderExportSignature;
   /** Encabezado de la vista, p. ej. "Reporte SINADER — Agosto 2026". */
   title: string;
   description: string;

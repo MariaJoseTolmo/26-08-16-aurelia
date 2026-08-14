@@ -1,4 +1,8 @@
-import type { WarehouseControlLotStatus, WasteAccumulationTone } from '@aurelia/contracts';
+import type {
+  WarehouseControlLotStatus,
+  WasteAccumulationTone,
+  WasteSinaderExportStatus,
+} from '@aurelia/contracts';
 
 /**
  * Paleta y etiquetas de la exportación de "Control de bodega".
@@ -137,6 +141,92 @@ export const WASTE_SINADER_EXPORT_CATEGORY_BADGE = {
   background: '#e6f3ff',
   text: '#0d3862',
 } as const;
+
+/**
+ * El PDF del Reporte SINADER está dibujado en CSS px a 96dpi —A4 es 794 × 1123—
+ * y pdfkit trabaja en PUNTOS a 72dpi, donde A4 es 595.28 × 841.89.
+ *
+ * La razón es exacta: 72/96 = 0.75, y 794 × 0.75 = 595.5 ≈ 595.28. Así que TODA
+ * medida leída del nodo se multiplica por este factor y no se traduce a ojo.
+ */
+export const PDF_PX_TO_PT = 0.75;
+
+/** Convierte una medida del nodo (px a 96dpi) a puntos de pdfkit. */
+export function pdfPt(px: number): number {
+  return px * PDF_PX_TO_PT;
+}
+
+/**
+ * Tonos del encabezado del documento, por estado del período.
+ *
+ * `badge` es la píldora bajo el subtítulo y `notice` el recuadro de contexto. En
+ * los períodos cerrados los dos comparten paleta, pero EN CURSO NO: su píldora es
+ * azul (`4319:33871`) y su recuadro es gris (`4319:33875`). Se respeta como está
+ * dibujado; conviene confirmarlo con diseño, porque parece que ese recuadro se
+ * dibujó antes que los otros dos.
+ */
+export const WASTE_SINADER_EXPORT_TONES: Record<
+  WasteSinaderExportStatus,
+  {
+    badge: { background: string; text: string };
+    notice: { background: string; border: string; text: string };
+  }
+> = {
+  in_progress: {
+    badge: { background: '#e6f3ff', text: '#0d3862' },
+    notice: { background: '#f7f7f7', border: '#e3e3e3', text: '#646464' },
+  },
+  pending_declaration: {
+    badge: { background: '#fff0e6', text: '#6b3a1f' },
+    notice: { background: '#e6f3ff', border: '#c5d8f0', text: '#0d3862' },
+  },
+  declared: {
+    badge: { background: '#e0ffd3', text: '#2a5c16' },
+    notice: { background: '#e0ffd3', border: '#a8dfa8', text: '#2a5c16' },
+  },
+};
+
+/**
+ * Texto legal del pie, por estado.
+ *
+ * Vive acá y no en el request porque es boilerplate del DOCUMENTO, no un dato de
+ * la vista: cambia con el estado, no con el período. Mismo criterio que
+ * `EMAIL_SHELL_FOOTER_LINES`.
+ *
+ * El período abierto y el pendiente comparten texto —los dos avisan que esto no es
+ * la declaración oficial y que el estado puede cambiar—; el declarado pierde esa
+ * última frase porque ya no cambia.
+ */
+const SINADER_DISCLAIMER_OPEN =
+  'Este documento fue generado automáticamente por AurelIA a partir de los registros de residuos no peligrosos ingresados hasta la fecha indicada. Documento de trabajo — no constituye la declaración oficial ante el Ministerio del Medio Ambiente. Estado sujeto a cambios hasta el cierre del período.';
+
+const SINADER_DISCLAIMER_DECLARED =
+  'Este documento fue generado automáticamente por AurelIA a partir de los registros de residuos no peligrosos del período. Respaldo interno — no constituye la declaración oficial ante el Ministerio del Medio Ambiente.';
+
+export const WASTE_SINADER_EXPORT_DISCLAIMER: Record<WasteSinaderExportStatus, string> = {
+  in_progress: SINADER_DISCLAIMER_OPEN,
+  pending_declaration: SINADER_DISCLAIMER_OPEN,
+  declared: SINADER_DISCLAIMER_DECLARED,
+};
+
+/** Rótulos fijos del membrete y del pie — nodos `4319:33865`, `4319:33975` y `4319:33977`. */
+export const WASTE_SINADER_EXPORT_CHROME = {
+  headerSubject: 'Módulo Residuos · Reporte SINADER',
+  footerLeft: 'Generado por AurelIA SGA · Gold Fields Salares Norte · aurelia.goldfields.cl',
+  footerRight: 'Confidencial · Uso Interno',
+  signatureDeclaredByLabel: 'Declarado por',
+  signatureFolioLabel: 'Fecha y N° Folio SINADER',
+} as const;
+
+/**
+ * Anchos de las columnas del PDF, en px del nodo: 183 · 75 · 135 · 184 · 105 = 682.
+ *
+ * NO coinciden con los de la pantalla (`WASTE_SINADER_EXPORT_COLUMNS`), y es
+ * deliberado del diseño: el documento reparte más ancho a "destino" y menos a
+ * "residuo" porque en A4 el nombre del residuo se envuelve en dos líneas sin
+ * problema, mientras que un destino cortado deja de identificar el lugar.
+ */
+export const WASTE_SINADER_PDF_COLUMN_WIDTHS_PX = [183, 75, 135, 184, 105] as const;
 
 export const WASTE_SINADER_EXPORT_SECTIONS = {
   kpis: 'Resumen del período',

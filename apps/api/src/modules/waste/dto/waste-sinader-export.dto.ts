@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -11,6 +12,8 @@ import type {
   WasteSinaderExportKpi,
   WasteSinaderExportRequest,
   WasteSinaderExportRow,
+  WasteSinaderExportSignature,
+  WasteSinaderExportStatus,
 } from '@aurelia/contracts';
 
 /**
@@ -28,6 +31,24 @@ const MAX_KPIS = 12;
 const MAX_TEXT = 500;
 /** El aviso de período abierto es un párrafo, no una celda. */
 const MAX_NOTICE = 1000;
+
+/** Los tres estados del contrato. `IsIn` los valida sin importar un enum de runtime. */
+const SINADER_EXPORT_STATUSES: WasteSinaderExportStatus[] = [
+  'in_progress',
+  'pending_declaration',
+  'declared',
+];
+
+export class WasteSinaderExportSignatureDto implements WasteSinaderExportSignature {
+  @IsString()
+  @MaxLength(MAX_TEXT)
+  declaredBy: string;
+
+  @IsString()
+  @MaxLength(MAX_TEXT)
+  declaredAtAndFolio: string;
+}
+
 
 export class WasteSinaderExportKpiDto implements WasteSinaderExportKpi {
   @IsString()
@@ -71,6 +92,23 @@ export class WasteSinaderExportRowDto implements WasteSinaderExportRow {
 }
 
 export class WasteSinaderExportDto implements WasteSinaderExportRequest {
+  @IsIn(SINADER_EXPORT_STATUSES)
+  status: WasteSinaderExportStatus;
+
+  @IsString()
+  @MaxLength(MAX_TEXT)
+  statusBadgeLabel: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_TEXT)
+  tableFootnote?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WasteSinaderExportSignatureDto)
+  signature?: WasteSinaderExportSignatureDto;
+
   @IsString()
   @MaxLength(MAX_TEXT)
   title: string;

@@ -388,6 +388,42 @@ export function buildWasteSinaderRows(period: WasteSinaderPeriodDetailResponse):
  * Por eso también es una función pura que NO toca la respuesta del servidor salvo
  * para el total: ese número no está en ninguna fila, es del período.
  */
+/**
+ * Rótulo de la píldora del PDF — nodos `4319:33874`, `4319:33592` y `4319:33727`.
+ *
+ * NO reutiliza `WASTE_SINADER_STATUS_LABELS`: la tarjeta de KPI dice "En curso" y
+ * la píldora del documento dice "EN CURSO — DATOS PARCIALES". El documento tiene
+ * más espacio y se lee fuera de contexto, así que dice más.
+ */
+export const WASTE_SINADER_EXPORT_BADGE_LABELS: Record<WasteSinaderPeriodStatus, string> = {
+  in_progress: 'EN CURSO — DATOS PARCIALES',
+  pending_declaration: 'PENDIENTE DE DECLARAR',
+  declared: 'DECLARADO',
+};
+
+/**
+ * Aclaración bajo el total del período abierto — nodo `4319:33968`.
+ *
+ * Sólo viaja en curso: es la advertencia de que ese total todavía se mueve.
+ */
+export const WASTE_SINADER_EXPORT_TABLE_FOOTNOTE =
+  'Pueden sumarse más movimientos antes de fin de mes';
+
+/**
+ * Subtítulo del DOCUMENTO exportado — nodos `4319:33869`, `4319:33587` y
+ * `4319:33722`.
+ *
+ * No es la descripción de la pantalla. Aquélla es un párrafo que explica el estado
+ * al aprobador que está mirando la vista; ésta es la línea que identifica el
+ * documento para quien lo abra suelto seis meses después, y por eso el declarado
+ * agrega "comprobante de declaración".
+ */
+export const WASTE_SINADER_EXPORT_SUBTITLES: Record<WasteSinaderPeriodStatus, string> = {
+  in_progress: 'Consolidado automático de residuos no peligrosos',
+  pending_declaration: 'Consolidado automático de residuos no peligrosos',
+  declared: 'Consolidado automático de residuos no peligrosos — comprobante de declaración',
+};
+
 export function buildWasteSinaderExportRequest(input: {
   period: WasteSinaderPeriodResponse;
   kpis: WasteKpi[];
@@ -400,9 +436,28 @@ export function buildWasteSinaderExportRequest(input: {
   totalLabel: string;
   updatedAtLabel: string;
 }): WasteSinaderExportRequest {
+  const status = input.period.status;
+
   return {
+    status,
+    statusBadgeLabel: WASTE_SINADER_EXPORT_BADGE_LABELS[status],
+    /*
+     * La nota y la firma son las dos ranuras opcionales del documento. Van atadas al
+     * estado y no a una prop de la vista: es el mismo hecho el que decide que el
+     * total todavía se mueve y que todavía no hay nada que firmar.
+     */
+    tableFootnote: status === 'in_progress' ? WASTE_SINADER_EXPORT_TABLE_FOOTNOTE : undefined,
+    signature:
+      status === 'declared' && input.period.declaredFolio
+        ? {
+            declaredBy: `${input.period.declaredByName?.trim() || 'Especialista Medio Ambiente'}`,
+            declaredAtAndFolio: input.period.declaredAt
+              ? `${formatWasteSinaderUpdatedAt(input.period.declaredAt)} · Folio ${input.period.declaredFolio}`
+              : `Folio ${input.period.declaredFolio}`,
+          }
+        : undefined,
     title: input.title,
-    description: input.description,
+    description: WASTE_SINADER_EXPORT_SUBTITLES[status],
     periodLabel: input.periodLabel,
     statusLabel: WASTE_SINADER_STATUS_LABELS[input.period.status],
     notice: input.notice,
