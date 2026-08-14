@@ -11,6 +11,95 @@
  * de `if` y basta que uno use `>=` en vez de `>` para que los bordes difieran.
  */
 
+/**
+ * Plazo de declaración del Reporte SINADER en la Ventanilla Única del RETC.
+ *
+ * El consolidado de un mes se declara entre el 1° y el 7 del mes SIGUIENTE. Ese
+ * plazo lo evalúan tres lugares y tienen que coincidir en el borde:
+ *
+ *   - la API decide qué correo sale cada día (`available` del 1 al 7, `overdue`
+ *     del 8 en adelante);
+ *   - la web decide si el botón "Marcar como declarado" ya está habilitado;
+ *   - la web decide si muestra el recuadro rojo de "SLA vencido".
+ *
+ * Vive acá por el mismo motivo que `resolveWasteAccumulationTone`, y no como una
+ * constante suelta: con sólo el número, cada consumidor escribe su propia
+ * comparación y basta que uno use `>=` donde otro usa `>` para que el día 7
+ * reciba a la vez el correo de "último día" y el cartel de plazo vencido.
+ */
+export const WasteSinaderConstraints = {
+  /** Primer día de la ventana: el 1°, apenas cierra el mes que se declara. */
+  declarationFirstDay: 1,
+  /** Último día de la ventana, y plazo que anuncia el correo. */
+  declarationDeadlineDay: 7,
+} as const;
+
+/** Mes calendario de un período SINADER. `periodMonth` es 1–12, no índice base 0. */
+export interface WasteSinaderPeriodMonth {
+  periodYear: number;
+  periodMonth: number;
+}
+
+/**
+ * Índice absoluto de mes, para comparar dos períodos con una resta y sin construir
+ * fechas intermedias.
+ */
+function wasteMonthIndex(year: number, monthNumber: number): number {
+  return year * 12 + (monthNumber - 1);
+}
+
+/**
+ * ¿El mes del período ya terminó?
+ *
+ * Queda cerrado el día 1° del mes siguiente a las 00:00 LOCALES. Se usa
+ * `getFullYear`/`getMonth` y no `toISOString()` porque en Chile el UTC adelanta el
+ * día y el 31 a la noche caería en el mes siguiente, dando por cerrado un período
+ * que todavía admite movimientos.
+ */
+export function hasWasteSinaderPeriodEnded(period: WasteSinaderPeriodMonth, today: Date): boolean {
+  return (
+    wasteMonthIndex(today.getFullYear(), today.getMonth() + 1) >
+    wasteMonthIndex(period.periodYear, period.periodMonth)
+  );
+}
+
+/**
+ * ¿El día del mes cae dentro de la ventana de declaración?
+ *
+ * Sólo mira el calendario. Si el período YA fue declarado no corresponde ningún
+ * recordatorio, pero eso lo sabe la base y no una función de fechas; quien
+ * programa los envíos encadena las dos condiciones.
+ */
+export function isWithinWasteSinaderDeclarationWindow(dayOfMonth: number): boolean {
+  return (
+    Number.isInteger(dayOfMonth) &&
+    dayOfMonth >= WasteSinaderConstraints.declarationFirstDay &&
+    dayOfMonth <= WasteSinaderConstraints.declarationDeadlineDay
+  );
+}
+
+/**
+ * ¿Venció el plazo para declarar este período?
+ *
+ * Verdadero cuando el mes ya terminó Y se pasó el día límite del mes siguiente. Si
+ * transcurrió más de un mes, el plazo venció con el mes y el día ya no importa.
+ *
+ * NO consulta el estado del período: un consolidado ya declarado no está atrasado,
+ * pero eso es un hecho de la base y lo evalúa quien llama.
+ */
+export function isWasteSinaderDeclarationOverdue(
+  period: WasteSinaderPeriodMonth,
+  today: Date,
+): boolean {
+  if (!hasWasteSinaderPeriodEnded(period, today)) return false;
+
+  const periodEndedAt = wasteMonthIndex(period.periodYear, period.periodMonth);
+  const currentMonth = wasteMonthIndex(today.getFullYear(), today.getMonth() + 1);
+
+  if (currentMonth > periodEndedAt + 1) return true;
+  return today.getDate() > WasteSinaderConstraints.declarationDeadlineDay;
+}
+
 /** Tono del acumulado mensual respecto del umbral RCA. */
 export type WasteAccumulationTone = 'safe' | 'warning' | 'critical';
 
