@@ -1,13 +1,15 @@
 import { WasteKpiTrendUpIcon } from '../icons/WasteDashboardIcons';
+import { WastePill, type WastePillTone } from './WastePill';
 
 /**
  * Tarjeta de KPI del módulo de residuos.
  *
- * El mismo bloque aparece con geometría IDÉNTICA en tres vistas:
+ * El mismo bloque aparece con geometría IDÉNTICA en cuatro vistas:
  *
  *   `3686:25708`  Control de bodega     (fila `3686:25707`, gap 16)
  *   `3086:13812`  Dashboard Residuos    (fila `3086:13811`, gap 14)
  *   `3430:2299`   Histórico de retiros  (fila `3430:2298`,  gap 14)
+ *   `3830:65742`  Reporte SINADER       (fila `3830:65741`, gap 14)
  *
  *   tarjeta   bg white · border #e3e3e3 · rounded-[10px]
  *             interior flex flex-col items-start px-[19px] py-[17px]
@@ -51,9 +53,28 @@ export type WasteKpiTrend = 'up' | 'down';
 
 export interface WasteKpi {
   label: string;
+  /**
+   * Cifra grande. Va vacío en las tarjetas cuyo valor es una pastilla —"Estado del
+   * período" de Reporte SINADER (`3830:65742`)—, donde el número lo reemplaza
+   * `badge`.
+   */
   value: string;
   /** Segundo valor, para la tarjeta "Ingresos vs. retiros (mes)": 9 / 7. */
   secondaryValue?: string;
+  /**
+   * Unidad detrás de la cifra — el "kg" de "Total acumulado (parcial)"
+   * (`3830:65755`).
+   *
+   * NO es `note`: el nodo la dibuja en Inter Regular 14px #646464, mientras que la
+   * nota es Semi Bold 11px y toma el color del KPI. Son dos textos distintos que
+   * pueden convivir, así que son dos campos.
+   *
+   * En Figma va con posición absoluta (`left-[78.01px] top-[10px]`). Acá la
+   * resuelve el `items-baseline` de la fila, que reproduce esa alineación sin
+   * anclar píxeles: el `top-[10px]` sobre un cuerpo de 24px es, justamente, dejar
+   * las dos líneas base juntas.
+   */
+  unit?: string;
   /** Texto secundario junto al valor. Ausente en la primera tarjeta de bodega. */
   note?: string;
   /** Flecha delante de la nota. Solo la usa "Retiros peligrosos (mes)". */
@@ -62,6 +83,18 @@ export interface WasteKpi {
   valueTone?: string;
   /** Color de la nota. Por defecto hereda el de los números. */
   noteTone?: string;
+  /**
+   * Pastilla EN LUGAR de la cifra — "En curso" en `3830:65747`.
+   *
+   * Reemplaza al número y no lo acompaña: la tarjeta "Estado del período" no tiene
+   * ninguna cifra que mostrar, su valor ES el estado. Usa `WastePill`, la misma
+   * caja que las pastillas de las tablas del módulo.
+   *
+   * Es un objeto plano y no un `ReactNode` por lo mismo que `trend`: `WasteKpi`
+   * viaja al body de las exportaciones a PDF/Excel, y un nodo de React ahí
+   * ensuciaría el payload.
+   */
+  badge?: { label: string; tone: WastePillTone };
 }
 
 export function WasteKpiCard({ kpi }: { kpi: WasteKpi }) {
@@ -74,12 +107,21 @@ export function WasteKpiCard({ kpi }: { kpi: WasteKpi }) {
         {kpi.label}
       </p>
       <div className="flex w-full flex-wrap items-baseline gap-[6px] pt-[6px]">
-        <span
-          className="font-['Inter:Bold',sans-serif] text-[24px] font-bold not-italic leading-[normal]"
-          style={{ color: valueColor }}
-        >
-          {kpi.value}
-        </span>
+        {kpi.badge ? (
+          <WastePill tone={kpi.badge.tone}>{kpi.badge.label}</WastePill>
+        ) : (
+          <span
+            className="font-['Inter:Bold',sans-serif] text-[24px] font-bold not-italic leading-[normal]"
+            style={{ color: valueColor }}
+          >
+            {kpi.value}
+          </span>
+        )}
+        {kpi.unit ? (
+          <span className="font-['Inter:Regular',sans-serif] text-[14px] font-normal not-italic leading-[normal] text-[#646464]">
+            {kpi.unit}
+          </span>
+        ) : null}
         {kpi.secondaryValue ? (
           <>
             <span

@@ -29,8 +29,14 @@ export const WASTE_MONTH_SHORT_LABELS = [
   'Dic',
 ] as const;
 
-/** Nombres largos para el encabezado del selector ("Mayo 2026"). */
-const WASTE_MONTH_LONG_LABELS = [
+/**
+ * Nombres largos para el encabezado del selector ("Mayo 2026").
+ *
+ * Se exporta desde que "Reporte SINADER" necesitó el mes SIN el año —"Julio aún no
+ * termina"—, que `formatIsoMonthLabel` no puede dar. Es la única lista de meses
+ * largos del módulo; copiarla en la vista sería el problema que este archivo evita.
+ */
+export const WASTE_MONTH_LONG_LABELS = [
   'Enero',
   'Febrero',
   'Marzo',

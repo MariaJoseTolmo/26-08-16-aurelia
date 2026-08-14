@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 /**
  * Encabezado del cuerpo de una vista del módulo de residuos: un `<h2>` y su
  * párrafo descriptivo.
@@ -42,6 +44,11 @@
  * El `justify-between` de la fila queda aunque hoy tenga un solo hijo: es lo que
  * declaran los nodos, y es lo que deja entrar un elemento a la derecha sin
  * remaquetar.
+ *
+ * Ese día llegó con "Reporte SINADER" (`3830:65602`), que monta el selector de
+ * período a la derecha del párrafo. El nodo declara ahí un `gap-[32px]` que las
+ * otras tres filas no tienen —no lo necesitaban, con un hijo único—, así que la
+ * separación entra sólo cuando hay algo a la derecha.
  */
 
 interface WasteViewIntroProps {
@@ -60,11 +67,25 @@ interface WasteViewIntroProps {
    * entre un control a la derecha la diferencia importa.
    */
   align?: 'start' | 'end';
+  /**
+   * Control a la derecha del bloque de texto — el selector de período de
+   * `3830:65608`. Se pasa ya dimensionado: el intro solo le garantiza que no se
+   * encoja (`shrink-0`) y la separación de 32px del nodo.
+   */
+  action?: ReactNode;
 }
 
-export function WasteViewIntro({ heading, description, align = 'start' }: WasteViewIntroProps) {
+export function WasteViewIntro({
+  heading,
+  description,
+  align = 'start',
+  action,
+}: WasteViewIntroProps) {
   return (
-    <div className={`flex w-full justify-between ${align === 'end' ? 'items-end' : 'items-start'}`} data-name="Container">
+    <div
+      className={`flex w-full justify-between ${action ? 'gap-[32px]' : ''} ${align === 'end' ? 'items-end' : 'items-start'}`}
+      data-name="Container"
+    >
       <div className="min-w-px flex-1" data-name="Container">
         <div className="flex w-full flex-col items-start">
           {heading ? (
@@ -81,6 +102,7 @@ export function WasteViewIntro({ heading, description, align = 'start' }: WasteV
           </div>
         </div>
       </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }

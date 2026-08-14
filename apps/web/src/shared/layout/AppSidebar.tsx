@@ -46,6 +46,7 @@ const SIDEBAR_EXPANDED_MODULES_STORAGE_KEY = 'aurelia.sidebar.expanded-modules';
 const WASTE_WITHDRAWAL_ROUTE = '/waste/solicitud-retiro';
 const WASTE_DASHBOARD_ROUTE = '/waste/dashboard';
 const WASTE_HISTORY_ROUTE = '/waste/historico';
+const WASTE_SINADER_ROUTE = '/waste/reporte-sinader';
 
 function readExpandedModules(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -574,18 +575,32 @@ function buildWasteWithdrawerItems(): SidebarItem[] {
  * no encuentra módulo activo, el sidebar cae al listado entero y volverían a
  * filtrarse.
  *
- * Dashboard e Histórico tienen ruta. Los otros tres van `disabled` porque sus
- * vistas no existen todavía; se les asigna `to` cuando se implementen.
+ * Dashboard, Histórico y Reporte SINADER tienen ruta. Los otros dos van `disabled`
+ * porque sus vistas no existen todavía; se les asigna `to` cuando se implementen.
  *
- * El icono de Dashboard es el `dashboard` que ya está en `AppSidebarIcons`: el
- * asset del nodo `3830:62307` es el MISMO glifo de torta, sólo escalado a 14 × 10
- * desde los 17 × 13 del módulo. No se agrega un SVG duplicado. Igual criterio con
- * el engranaje de Administración (`3830:62327` → `admin`).
+ * Dashboard y Administración reusan el `dashboard` y el `admin` que ya están en
+ * `AppSidebarIcons`. DECISIÓN TOMADA A SABIENDAS, y no porque sean el mismo
+ * archivo: los assets del nodo son 14 × 10 y 14 × 10.625, contra 17 × 13 y 12 × 10
+ * de los del set, o sea que ni siquiera comparten proporción y por lo tanto no son
+ * un reescalado —el comentario anterior decía que sí, y era falso—. Son el mismo
+ * GLIFO (torta y engranaje) dibujado distinto, así que se prefiere no duplicar
+ * SVGs por una diferencia de trazo que nadie ve a 14px. Si algún día el sistema de
+ * diseño unifica el set, se cambian los dos globales y esta nota se borra.
  *
  * `wasteHistory` SÍ es un asset nuevo (nodo `3087:15709`): es un reloj con flecha
  * de retroceso y no coincide con ningún glifo del set —se diffearon los paths
  * contra los 25 iconos del archivo—. Antes apuntaba a `wasteWarehouse`, que es la
  * torta de bodega y no lo que dibuja el diseño.
+ *
+ * `wasteSidrepFolios` y `wasteSinaderReport` son la MISMA corrección, hecha
+ * después contra el nodo `3830:65426`: apuntaban a `wasteWithdrawal` y
+ * `wasteIntake`, que son otros dibujos —un portapapeles con viñetas y un
+ * documento con un círculo de "+"— y el diseño pide un checklist y un documento
+ * con flecha de salida. Se comprobó path por path, exacto y normalizado por
+ * escala, contra los 26 iconos del set antes de versionarlos.
+ *
+ * `wasteHistory` es el ÚNICO de los cinco sub-ítems que ya estaba bien: su asset
+ * del nodo `3830:65480` es byte a byte el que está en `AppSidebarIcons`.
  */
 function buildWasteEnvApproverItems(): SidebarItem[] {
   const wasteModule = mainItems.find((item) => item.label === 'Residuos');
@@ -597,9 +612,9 @@ function buildWasteEnvApproverItems(): SidebarItem[] {
       to: WASTE_DASHBOARD_ROUTE,
       children: [
         { label: 'Dashboard', to: WASTE_DASHBOARD_ROUTE, end: true, icon: 'dashboard' },
-        { label: 'Folios SIDREP', icon: 'wasteWithdrawal', disabled: true },
+        { label: 'Folios SIDREP', icon: 'wasteSidrepFolios', disabled: true },
         { label: 'Histórico', to: WASTE_HISTORY_ROUTE, end: true, icon: 'wasteHistory' },
-        { label: 'Reporte SINADER', icon: 'wasteIntake', disabled: true },
+        { label: 'Reporte SINADER', to: WASTE_SINADER_ROUTE, end: true, icon: 'wasteSinaderReport' },
         { label: 'Administración', icon: 'admin', disabled: true },
       ],
     },

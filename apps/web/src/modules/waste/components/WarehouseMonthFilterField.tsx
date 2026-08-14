@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { WarehouseTableCaretIcon } from '../icons/WarehouseTableIcons';
-import { formatIsoMonthLabel } from '../wasteMonthFilter';
+import { formatIsoMonthLabel, toIsoMonth } from '../wasteMonthFilter';
 import { WarehouseMonthPicker } from './WarehouseMonthPicker';
 
 /**
@@ -16,6 +16,12 @@ import { WarehouseMonthPicker } from './WarehouseMonthPicker';
  * El popover se cierra por click afuera y por Escape, el mismo mecanismo que
  * `WarehouseExportButton`: no hay radix ni shadcn/ui en `apps/web`, así que ese
  * comportamiento va a mano.
+ *
+ * "Reporte SINADER" (`3830:65608`) monta el MISMO control fuera de una tabla, como
+ * selector de período de la vista: mismo borde, mismo radio, mismo caret —el asset
+ * del nodo es byte a byte `figma-650-141-tbl-caret.svg`— y mismo alto, porque sus
+ * `py-[5px]` sobre una línea de 16px dan los 26px de acá. Lo único que agrega es
+ * el sufijo "(Actual)" del rótulo, que es `markCurrentMonth`.
  */
 
 interface WarehouseMonthFilterFieldProps {
@@ -27,6 +33,29 @@ interface WarehouseMonthFilterFieldProps {
   label: string;
   /** Texto de la celda sin filtro aplicado. */
   placeholder?: string;
+  /**
+   * Anota el mes en curso con "(Actual)", como el nodo `3830:65610`.
+   *
+   * Sólo lo pide "Reporte SINADER", y por un motivo de negocio: ahí el mes elegido
+   * decide si el consolidado es definitivo o todavía se está sumando, así que la
+   * diferencia entre "julio" y "julio, el que está corriendo" es la que explica el
+   * banner y el botón deshabilitado. En una celda de filtro esa aclaración sería
+   * ruido.
+   */
+  markCurrentMonth?: boolean;
+  /**
+   * Contra qué borde del campo se alinea el selector.
+   *
+   * El selector mide 280px fijos (`4068:75846`) y el campo suele ser más angosto,
+   * así que el popover SIEMPRE sobra para algún lado. `left` sirve mientras quede
+   * página a la derecha, que es el caso de las celdas de filtro de las tablas.
+   *
+   * `right` lo necesita "Reporte SINADER": ahí el campo está pegado al margen
+   * derecho del cuerpo, y con `left-0` los 280px se salen de la página y los corta
+   * el `overflow` del contenedor —se veían nueve meses de doce, porque la cuarta
+   * columna quedaba afuera—.
+   */
+  align?: 'left' | 'right';
   className?: string;
 }
 
@@ -36,6 +65,8 @@ export function WarehouseMonthFilterField({
   today,
   label,
   placeholder = 'Todos',
+  markCurrentMonth = false,
+  align = 'left',
   className = '',
 }: WarehouseMonthFilterFieldProps) {
   const [open, setOpen] = useState(false);
@@ -59,7 +90,11 @@ export function WarehouseMonthFilterField({
     };
   }, [open]);
 
-  const appliedLabel = formatIsoMonthLabel(value);
+  const monthLabel = formatIsoMonthLabel(value);
+  const appliedLabel =
+    monthLabel && markCurrentMonth && value === toIsoMonth(today)
+      ? `${monthLabel} (Actual)`
+      : monthLabel;
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -88,7 +123,11 @@ export function WarehouseMonthFilterField({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-[30px] z-[20]">
+        /*
+         * Clases literales y no `${align}-0`: Tailwind no puede generar una clase
+         * a partir de un valor de runtime.
+         */
+        <div className={`absolute top-[30px] z-[20] ${align === 'right' ? 'right-0' : 'left-0'}`}>
           <WarehouseMonthPicker
             value={value}
             today={today}

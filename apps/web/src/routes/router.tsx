@@ -25,6 +25,7 @@ import { WasteSidrepDocumentsPage } from '../modules/waste/WasteSidrepDocumentsP
 import { WasteSidrepSupportDocsPage } from '../modules/waste/WasteSidrepSupportDocsPage';
 import { WasteSidrepReviewPage } from '../modules/waste/WasteSidrepReviewPage';
 import { WasteHistoryPage } from '../modules/waste/WasteHistoryPage';
+import { WasteSinaderReportPage } from '../modules/waste/WasteSinaderReportPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
       { path: 'waste/dashboard', element: <WasteDashboardPage /> },
       { path: 'waste/historico', element: <WasteHistoryPage /> },
+      { path: 'waste/reporte-sinader', element: <WasteSinaderReportPage /> },
       { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
       { path: 'waste/ingresos-bodega', element: <WarehouseIntakePage /> },
       { path: 'waste/ingresos-bodega/nuevo', element: <WarehouseIntakeFormPage /> },
