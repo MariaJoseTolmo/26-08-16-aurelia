@@ -4,6 +4,7 @@ import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseExportButton, type WarehouseExportOption } from './components/WarehouseExportButton';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WasteActiveFilterChip, WasteActiveFiltersPanel } from './components/WasteActiveFiltersPanel';
+import { WasteCompanyPerformanceCard } from './components/WasteCompanyPerformanceCard';
 import { WasteHistoryTable } from './components/WasteHistoryTable';
 import { WasteKpiRow, type WasteKpi } from './components/WasteKpiCard';
 import { WasteTabs, wasteTabId, wasteTabPanelId, type WasteTab } from './components/WasteTabs';
@@ -16,6 +17,7 @@ import {
   type WasteHistoryFilterKey,
   type WasteHistoryFilters,
 } from './wasteHistoryFilters';
+import { WASTE_COMPANY_PERFORMANCE_DEFAULTS } from './wasteCompanyPerformance';
 import { buildWasteHistoryRows } from './wasteHistoryRows';
 import { toIsoMonth } from './wasteMonthFilter';
 
@@ -177,20 +179,45 @@ function WasteHistoryBody() {
         </div>
       ) : (
         /*
-         * "Desempeño por empresa" NO está dibujado en este nodo: la pestaña
-         * existe pero su contenido todavía no se diseñó. Se declara el panel con
-         * un mensaje explícito en vez de inventar una vista o dejar el hueco en
-         * blanco, que es lo que pide la guía de UX para un estado sin datos.
+         * "Desempeño por empresa" — nodo `3830:63513`, panel `3830:63738`.
+         *
+         * El `pt-[14px]` es del nodo `3830:63739`: esta pestaña separa un poco
+         * más que la de detalle, donde los KPIs arrancan pegados a las pestañas.
+         *
+         * TIRA CON DESPLAZAMIENTO, no grilla. El nodo dibuja cuatro empresas,
+         * pero la vista recibe TODAS las que tengan retiros, así que la cantidad
+         * es abierta. Las tarjetas conservan el ancho del diseño y la fila
+         * desborda hacia la derecha en vez de repartirse el espacio: con veinte
+         * empresas, cuatro columnas elásticas darían tarjetas ilegibles, y
+         * apilarlas en varias filas convertiría una comparación lado a lado en un
+         * mosaico donde ya no se comparan.
+         *
+         * El desplazamiento lo toma la tira y no la página, igual que la tabla de
+         * la otra pestaña: así el intro, las pestañas y la barra de filtros
+         * quedan quietos mientras se recorren las empresas.
+         *
+         * `items-stretch` —el default del flex— es lo que deja los gráficos a la
+         * misma altura aunque las notas midan distinto; la tarjeta lo aprovecha
+         * con su `justify-between`.
          */
         <div
           role="tabpanel"
           id={wasteTabPanelId(TABS_BASE_ID, 'performance')}
           aria-labelledby={wasteTabId(TABS_BASE_ID, 'performance')}
-          className="flex w-full items-center justify-center rounded-[8px] border border-solid border-[#e3e3e3] bg-white px-[28px] py-[64px]"
+          className="w-full overflow-x-auto pt-[14px]"
         >
-          <p className="text-center font-['Inter:Regular',sans-serif] text-[12.5px] font-normal not-italic leading-[18.75px] text-[#646464]">
-            El desempeño por empresa se habilita en una próxima entrega.
-          </p>
+          <div className="flex w-max items-stretch gap-[14px]">
+            {WASTE_COMPANY_PERFORMANCE_DEFAULTS.map((company) => (
+              /*
+               * 248.688px es el ancho de las tarjetas del nodo `3830:63741`. La
+               * segunda mide 251.92 en Figma; no se reproduce esa diferencia de
+               * 3px, que es ruido del canvas y no una tarjeta más ancha.
+               */
+              <div key={company.id} className="flex w-[248.688px] shrink-0">
+                <WasteCompanyPerformanceCard company={company} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
