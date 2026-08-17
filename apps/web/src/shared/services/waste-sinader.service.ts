@@ -1,5 +1,11 @@
-import type { ID, ISODateString, WasteType, WasteUnit } from '@aurelia/contracts';
-import { httpGet } from './http-client';
+import type {
+  DeclareWasteSinaderPeriodRequest,
+  ID,
+  ISODateString,
+  WasteType,
+  WasteUnit,
+} from '@aurelia/contracts';
+import { httpGet, httpPost } from './http-client';
 
 /**
  * Lecturas del "Reporte SINADER" (nodo Figma `3830:65385`).
@@ -168,4 +174,17 @@ export const getWasteSinaderPeriods = (filters: WasteSinaderPeriodFilters = {}) 
 export const getWasteSinaderPeriod = (periodId: ID) =>
   httpGet<WasteSinaderPeriodDetailResponse>(
     `/waste/sinader/periods/${encodeURIComponent(periodId)}`,
+  );
+
+/**
+ * Cierra el período dejando constancia del folio y la fecha.
+ *
+ * `POST .../declare` y no un `PATCH` del período: no es editar un campo, es una
+ * TRANSICIÓN de estado con efectos —el período deja de admitir movimientos—, y el
+ * verbo tiene que decirlo. Devuelve el período ya declarado con sus líneas.
+ */
+export const declareWasteSinaderPeriod = (periodId: ID, input: DeclareWasteSinaderPeriodRequest) =>
+  httpPost<DeclareWasteSinaderPeriodRequest, WasteSinaderPeriodDetailResponse>(
+    `/waste/sinader/periods/${encodeURIComponent(periodId)}/declare`,
+    input,
   );

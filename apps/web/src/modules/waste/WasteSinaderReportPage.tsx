@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  useDeclareWasteSinaderPeriod,
   useWasteSinaderExport,
   useWasteSinaderPeriod,
   useWasteSinaderPeriods,
@@ -134,6 +135,16 @@ const EXPORT_OPTIONS: WarehouseExportOption[] = [{ format: 'xlsx' }, { format: '
 
 /** El detalle del fallo vive en la consola; acá va lo accionable. */
 const EXPORT_ERROR_MESSAGE = 'No se pudo generar el archivo. Vuelve a intentarlo.';
+
+/**
+ * Mensaje de una declaración rechazada.
+ *
+ * Menciona el folio porque es el único dato que el aprobador puede corregir: la
+ * otra causa posible —que el período ya esté declarado— la resuelve el repintado
+ * de la vista, no un reintento.
+ */
+const DECLARE_ERROR_MESSAGE =
+  'No se pudo registrar la declaración. Revisa el N° de folio y vuelve a intentarlo.';
 
 /**
  * Columnas del nodo `3830:65642`, con sus anchos como porcentaje de los 1044px del
@@ -623,6 +634,7 @@ function WasteSinaderReportContent() {
   }, [period, detail, isoMonth, today]);
 
   const exportMutation = useWasteSinaderExport();
+  const declareMutation = useDeclareWasteSinaderPeriod();
   /*
    * Abierto/cerrado del modal `4319:34781`. Es estado de UI puro y no viaja a
    * TanStack Query ni a la URL: el modal es un paso de una acción, no un lugar al
@@ -637,19 +649,25 @@ function WasteSinaderReportContent() {
   }
 
   /*
-   * Confirmar la declaración TODAVÍA NO HACE NADA, y el modal lo dice en vez de
-   * simularlo.
+   * Confirmar cierra el período en el acto: NO HAY PASO DE VALIDACIÓN de un
+   * tercero. Quien declara deja constancia del folio y la fecha, y el período pasa
+   * a `declared`.
    *
-   * `waste.controller.ts` sólo expone las dos lecturas de SINADER: no hay ningún
-   * endpoint que grabe el folio, la fecha ni el cambio a `declared`. Cerrar el
-   * modal como si hubiera funcionado dejaría al aprobador creyendo que declaró un
-   * período que sigue abierto en la base, que es el peor final posible para este
-   * flujo. Cuando exista la mutación, esto pasa a un `useMutation` y el mensaje se
-   * borra junto con esta rama.
+   * El modal se cierra recién con el `onSuccess`, no al hacer click: si el servidor
+   * rechaza —folio inválido, período ya declarado— el aprobador tiene que ver el
+   * motivo con sus datos todavía escritos. La vista se repinta sola porque la
+   * mutación invalida las dos lecturas.
    */
   function handleDeclare(input: WasteSinaderDeclareSubmit) {
-    setDeclareError(
-      `Todavía no se puede confirmar: esta acción aún no está habilitada. Se registrarían el folio ${input.folio} y la fecha ${input.declaredOn}.`,
+    if (!period) return;
+
+    setDeclareError(null);
+    declareMutation.mutate(
+      { periodId: period.id, input: { folio: input.folio, declaredOn: input.declaredOn } },
+      {
+        onSuccess: () => setDeclareOpen(false),
+        onError: () => setDeclareError(DECLARE_ERROR_MESSAGE),
+      },
     );
   }
 
@@ -717,6 +735,7 @@ function WasteSinaderReportContent() {
             setDeclareError(null);
           }}
           onConfirm={handleDeclare}
+          isSubmitting={declareMutation.isPending}
           errorMessage={declareError}
         />
       ) : null}

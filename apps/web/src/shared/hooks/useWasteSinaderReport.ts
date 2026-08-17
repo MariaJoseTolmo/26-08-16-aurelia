@@ -1,10 +1,11 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import type { WasteSinaderExportRequest } from '@aurelia/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DeclareWasteSinaderPeriodRequest, WasteSinaderExportRequest } from '@aurelia/contracts';
 import {
   downloadWasteSinaderExport,
   type WasteExportFormat,
 } from '../services/waste-warehouse-export.service';
 import {
+  declareWasteSinaderPeriod,
   getWasteSinaderPeriod,
   getWasteSinaderPeriods,
   type WasteSinaderPeriodFilters,
@@ -75,5 +76,25 @@ export function useWasteSinaderExport() {
   return useMutation({
     mutationFn: ({ format, payload }: WasteSinaderExportInput) =>
       downloadWasteSinaderExport(format, payload),
+  });
+}
+
+/**
+ * Marca el período como declarado.
+ *
+ * Invalida las DOS lecturas y no sólo el detalle: el listado trae el `status` que
+ * decide el estado de toda la vista —descripción, banner, KPIs, botón—, así que si
+ * quedara cacheado la pantalla seguiría mostrándose pendiente con el período ya
+ * cerrado en la base.
+ */
+export function useDeclareWasteSinaderPeriod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ periodId, input }: { periodId: string; input: DeclareWasteSinaderPeriodRequest }) =>
+      declareWasteSinaderPeriod(periodId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['waste', 'sinader'] });
+    },
   });
 }

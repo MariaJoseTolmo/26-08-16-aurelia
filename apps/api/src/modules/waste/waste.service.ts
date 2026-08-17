@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { WasteSinaderPeriodStatus } from './waste.enums';
 import { WasteInventoryMovementEntity } from './entities/waste-inventory-movement.entity';
 import { WasteLotEntity } from './entities/waste-lot.entity';
 import { WasteOperationalCategoryEntity } from './entities/waste-operational-category.entity';
@@ -248,6 +249,38 @@ export class WasteService {
     });
 
     return { ...period, lines };
+  }
+
+  /**
+   * Cierra un período SINADER dejando constancia del folio y la fecha.
+   *
+   * NO HAY VALIDACIÓN DE UN TERCERO: quien tiene `waste:close` declara y el
+   * período queda cerrado en el acto. Lo único que se comprueba es que el período
+   * exista y que no esté YA declarado — declarar dos veces pisaría el folio del
+   * primero y dejaría el registro mintiendo sobre cuándo se hizo.
+   *
+   * `declaredOn` llega como `yyyy-mm-dd` y se persiste en la columna `timestamptz`
+   * a las 00:00 de la zona del servidor: la declaración se hace un día, no a una
+   * hora, y guardar la hora en que alguien apretó el botón sería inventar precisión.
+   */
+  async declareSinaderPeriod(
+    id: string,
+    input: { folio: string; declaredOn: string },
+    userId: string | null,
+  ) {
+    const period = await this.sinaderPeriodsRepository.findOne({ where: { id } });
+    if (!period) throw new NotFoundException('SINADER period not found');
+    if (period.status === WasteSinaderPeriodStatus.DECLARED) {
+      throw new ConflictException('SINADER period is already declared');
+    }
+
+    period.status = WasteSinaderPeriodStatus.DECLARED;
+    period.declaredFolio = input.folio.trim();
+    period.declaredAt = new Date(`${input.declaredOn}T00:00:00`);
+    period.declaredByUserId = userId;
+    await this.sinaderPeriodsRepository.save(period);
+
+    return this.findSinaderPeriod(id);
   }
 
   private parseBoolean(value: string | undefined, defaultValue = false): boolean {
