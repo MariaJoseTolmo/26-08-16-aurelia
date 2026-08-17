@@ -19,7 +19,6 @@ import { downloadWasteFolioSupportExport } from '../../shared/services/waste-war
 import {
   folioDetailSubtitle,
   folioFacts,
-  folioHasSupport,
   folioListRow,
   folioSupportExportRequest,
   folioSupportFacts,
@@ -111,12 +110,21 @@ interface WasteSidrepFoliosBodyProps {
 
 function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
   /*
-   * El nodo entra con el TERCER folio abierto —el que tiene diferencia de peso— y
-   * no con la lista sin selección. Es coherente con lo que la pantalla es: una
-   * bandeja donde lo que pide atención se muestra primero.
+   * El nodo entra con el folio QUE PIDE ATENCIÓN abierto —el que tiene diferencia de
+   * peso fuera de tolerancia— y no con la lista sin selección. Es coherente con lo que
+   * la pantalla es: una bandeja donde lo que pide atención se muestra primero.
+   *
+   * SE BUSCA POR LA CONDICIÓN Y NO POR POSICIÓN. Antes era "el último de la lista", que
+   * coincidía con el del recuadro sólo porque la maqueta tenía tres folios en ese orden:
+   * al sumar un cuarto, la vista entraba en un folio sin novedad. La intención era el
+   * folio fuera de tolerancia, así que eso es lo que se pregunta.
    */
   const [selectedId, setSelectedId] = useState<string | null>(
-    WASTE_SIDREP_CLOSED_FOLIOS[WASTE_SIDREP_CLOSED_FOLIOS.length - 1]?.folio ?? null,
+    () =>
+      (
+        WASTE_SIDREP_CLOSED_FOLIOS.find((folio) => folio.gap?.exceedsTolerance) ??
+        WASTE_SIDREP_CLOSED_FOLIOS[0]
+      )?.folio ?? null,
   );
   /*
    * El respaldo se abre para el folio que está en el panel, así que basta un booleano:
@@ -130,15 +138,6 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
     () => WASTE_SIDREP_CLOSED_FOLIOS.find((folio) => folio.folio === selectedId) ?? null,
     [selectedId],
   );
-
-  /*
-   * El respaldo de traslado existe SÓLO para residuo peligroso — ver `folioHasSupport`.
-   * De este único booleano cuelgan las dos cosas que tienen que coincidir: que el pie
-   * del panel dibuje el botón, y que el modal esté abierto. Así un folio sin respaldo no
-   * puede quedar con el modal en pantalla ni por un cambio de selección ni por un estado
-   * que sobrevivió.
-   */
-  const hasSupport = selected !== null && folioHasSupport(selected);
 
   function handleSelect(id: string) {
     setSelectedId(id);
@@ -160,6 +159,31 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
     mutationFn: (folio: WasteSidrepFolio) =>
       downloadWasteFolioSupportExport(folioSupportExportRequest(folio)),
   });
+
+  /*
+   * Lo que las DOS variantes del respaldo comparten, que es todo menos el título y el
+   * paquete. Se arma una sola vez acá para que las dos ramas del JSX no puedan divergir:
+   * agregar una prop al modal y olvidarla en una rama era el error que este helper hace
+   * imposible.
+   */
+  function supportModalProps(folio: WasteSidrepFolio) {
+    return {
+      open: isSupportOpen,
+      subtitle: folioSupportSubtitle(folio),
+      status: WASTE_SIDREP_FOLIO_CLOSED_STATUS,
+      facts: folioSupportFacts(folio),
+      dispatched: `${folio.dispatchedKg} kg`,
+      received: `${folio.receivedKg} kg`,
+      difference: folio.gap ? `${folio.gap.kg} kg` : '0 kg',
+      differenceQualifier: folio.gap?.qualifier ?? null,
+      onClose: () => setIsSupportOpen(false),
+      onDownload: () => supportExport.mutate(folio),
+      isDownloading: supportExport.isPending,
+      downloadError: supportExport.isError
+        ? 'No se pudo generar el PDF del respaldo. Intentá de nuevo.'
+        : null,
+    };
+  }
 
   return (
     <div className="flex w-full min-w-[1100px] flex-col items-start px-[28px] pb-[40px] pt-[20px]">
@@ -224,17 +248,16 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
                     status={<WastePill tone="amber">{WASTE_SIDREP_FOLIO_CLOSED_STATUS}</WastePill>}
                     footer={
                       /*
-                       * Sin respaldo no hay pie: `WasteFolioDetailPanel` con `footer`
-                       * vacío no dibuja la franja ni su línea, en vez de dejar un botón
-                       * apagado que promete un documento que no existe.
+                       * TODO FOLIO CERRADO TIENE RESPALDO, peligroso o no — ver
+                       * `folioSupportVariant`. La peligrosidad decide CUÁL de los dos
+                       * modales se abre, no si el botón existe, así que el pie es
+                       * incondicional dentro de esta pestaña.
                        */
-                      hasSupport ? (
-                        <WasteTertiaryActionButton
-                          fullWidth
-                          label={WASTE_SIDREP_FOLIOS_SUPPORT_ACTION}
-                          onClick={() => setIsSupportOpen(true)}
-                        />
-                      ) : undefined
+                      <WasteTertiaryActionButton
+                        fullWidth
+                        label={WASTE_SIDREP_FOLIOS_SUPPORT_ACTION}
+                        onClick={() => setIsSupportOpen(true)}
+                      />
                     }
                   >
                     <WasteDefinitionGrid items={folioFacts(selected)} />
@@ -259,31 +282,29 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
               </div>
 
               {/*
-                Modal `3085:13254`, emplazado en `3085:12902`. Va montado ACÁ y no en
-                el pie del panel porque se dibuja con `createPortal` sobre
-                `document.body`: donde se declare no cambia dónde aparece, y al lado de
-                su folio se lee que muestra el que está seleccionado.
+                Modal de respaldo — `3085:13254` (peligroso, emplazado en `3085:12902`) o
+                `4327:35730` (no peligroso, en `4327:35379`). Va montado ACÁ y no en el
+                pie del panel porque se dibuja con `createPortal` sobre `document.body`:
+                donde se declare no cambia dónde aparece, y al lado de su folio se lee que
+                muestra el que está seleccionado.
+
+                LAS DOS RAMAS SON EL PRECIO DE QUE EL COMPILADOR COMPRUEBE LA REGLA. Las
+                props del modal son una unión discriminada por `variant`, así que el
+                paquete sólo se puede pasar en la rama peligrosa —y `selected.packageDocs`
+                sólo existe ahí, porque el folio también es una unión—. Con una sola rama
+                y `variant` calculado, TypeScript no podía relacionar las dos cosas y
+                había que forzarlo con un cast.
               */}
-              {selected && hasSupport ? (
-                <WasteFolioSupportModal
-                  open={isSupportOpen}
-                  subtitle={folioSupportSubtitle(selected)}
-                  status={WASTE_SIDREP_FOLIO_CLOSED_STATUS}
-                  facts={folioSupportFacts(selected)}
-                  dispatched={`${selected.dispatchedKg} kg`}
-                  received={`${selected.receivedKg} kg`}
-                  difference={selected.gap ? `${selected.gap.kg} kg` : '0 kg'}
-                  differenceQualifier={selected.gap?.qualifier ?? null}
-                  packageDocs={selected.packageDocs}
-                  onClose={() => setIsSupportOpen(false)}
-                  onDownload={() => supportExport.mutate(selected)}
-                  isDownloading={supportExport.isPending}
-                  downloadError={
-                    supportExport.isError
-                      ? 'No se pudo generar el PDF del respaldo. Intentá de nuevo.'
-                      : null
-                  }
-                />
+              {selected ? (
+                selected.isHazardous ? (
+                  <WasteFolioSupportModal
+                    variant="hazardous"
+                    packageDocs={selected.packageDocs}
+                    {...supportModalProps(selected)}
+                  />
+                ) : (
+                  <WasteFolioSupportModal variant="nonHazardous" {...supportModalProps(selected)} />
+                )
               ) : null}
             </div>
           )}

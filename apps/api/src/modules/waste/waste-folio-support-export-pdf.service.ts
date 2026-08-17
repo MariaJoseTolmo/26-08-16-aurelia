@@ -120,8 +120,18 @@ export class WasteFolioSupportExportPdfService {
         this.drawSectionTitle(context, WASTE_FOLIO_SUPPORT_EXPORT_SECTIONS.transfer, pdfPt(26));
         this.drawFields(context);
         this.drawWeights(context);
-        this.drawSectionTitle(context, WASTE_FOLIO_SUPPORT_EXPORT_SECTIONS.documents, pdfPt(26));
-        this.drawDocuments(context);
+        /*
+         * SIN PAQUETE NO HAY SECCIÓN, ni su rótulo. Es el respaldo de un traslado NO
+         * PELIGROSO (nodo `4327:35730`): no genera guía RESPEL, HDS ni fotografías del
+         * vehículo, así que `documents` llega vacío y el documento pasa de la banda de
+         * pesos directo a la nota legal. Dibujar el rótulo igual dejaba un
+         * "Documentos incluidos en este paquete" con nada debajo, que en una
+         * fiscalización se lee como un paquete que falta y no como uno que no existe.
+         */
+        if (payload.documents.length > 0) {
+          this.drawSectionTitle(context, WASTE_FOLIO_SUPPORT_EXPORT_SECTIONS.documents, pdfPt(26));
+          this.drawDocuments(context);
+        }
         this.drawDisclaimer(context);
       },
       {

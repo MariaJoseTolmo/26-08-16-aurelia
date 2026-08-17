@@ -1,11 +1,15 @@
 import type { WasteFolioSupportExportRequest } from '@aurelia/contracts';
 import type { WasteDefinitionItem } from './components/WasteDefinitionGrid';
 import type { WasteFolioListRow } from './components/WasteFolioListCard';
-import { WASTE_FOLIO_SUPPORT_TITLE } from './components/WasteFolioSupportModal';
+import {
+  WASTE_FOLIO_SUPPORT_TITLES,
+  type WasteFolioSupportVariant,
+} from './components/WasteFolioSupportModal';
 
 /**
- * Folios SIDREP de la vista `3083:10562`, pestaña "Cerrados", y de su modal de
- * respaldo `3085:13254`.
+ * Folios SIDREP de la vista `3083:10562`, pestaña "Cerrados", y de sus DOS modales de
+ * respaldo: `3085:13254` (residuo peligroso) y `4327:35730` (no peligroso). Ver
+ * `folioSupportVariant`, que es la derivación que elige entre los dos.
  *
  * UN SOLO MODELO POR FOLIO, y de él salen las TRES proyecciones que la pantalla
  * necesita: la fila de la lista maestra (`folioListRow`), la grilla del panel de
@@ -103,29 +107,10 @@ export interface WasteSidrepFolioPdfDoc {
   filename: string;
 }
 
-export interface WasteSidrepFolio {
+interface WasteSidrepFolioBase {
   /** Número de folio SIDREP: "2026-SD-04812". */
   folio: string;
   wasteType: string;
-  /**
-   * Si el residuo del folio es peligroso (RESPEL).
-   *
-   * HOY ES `true` EN LOS TRES, y no por casualidad: SIDREP es el registro de residuos
-   * PELIGROSOS, así que un folio SIDREP implica un residuo peligroso. El propio módulo
-   * lo dice en el intro del Histórico —"peligrosos (con folio SIDREP y aprobación) y no
-   * peligrosos (informativo, gestionado por Resiter/Servicios Generales)"— y
-   * `wasteHistoryRows.ts` lo modela igual: sus filas con `isHazardous: false` llevan
-   * `sidrepFolio: null`.
-   *
-   * El campo existe de todas formas porque es lo que habilita el respaldo de traslado
-   * (`WasteFolioSupportModal`), que se titula "Respaldo de Traslado de Residuo
-   * Peligroso". Dejar esa condición implícita en "está en esta lista, entonces es
-   * peligroso" la volvía invisible el día que la bandeja muestre otra cosa; con el
-   * campo, la regla se lee en el código y el compilador obliga a decidirla folio a
-   * folio. Es el mismo criterio con el que el Histórico deriva su `supportUrl`, que
-   * existe sólo para el cruce peligroso + cerrado.
-   */
-  isHazardous: boolean;
   /** Empresa transportista: "Resiter S.A.". */
   carrier: string;
   /** Peso neto despachado en kg, ya formateado con separador de miles: "1.020". */
@@ -146,17 +131,16 @@ export interface WasteSidrepFolio {
   docs: string[];
 
   /*
-   * DE ACÁ ABAJO, LOS DATOS QUE SÓLO PIDE EL MODAL DE RESPALDO (`3085:13254`). El
-   * panel de detalle no los muestra, y por eso no estaban en la primera iteración.
+   * DE ACÁ ABAJO, LOS DATOS QUE SÓLO PIDE EL MODAL DE RESPALDO (`3085:13254` /
+   * `4327:35730`). El panel de detalle no los muestra, y por eso no estaban en la
+   * primera iteración.
    */
 
-  /** Patente del vehículo: "RLVZ-57". Nodo `3085:13288`. */
+  /** Patente del vehículo: "RLVZ-57". Nodos `3085:13288` y `4327:35764`. */
   plate: string;
-  /** Nombre del conductor. Nodo `3085:13293`. */
+  /** Nombre del conductor. Nodos `3085:13293` y `4327:35769`. */
   driver: string;
-  /** Resolución sanitaria verificada: "Res. Exenta N°10171/2022". Nodo `3085:13310`. */
-  sanitaryResolution: string;
-  /** Cantidad de contenedores del traslado. Nodo `3085:13315`. */
+  /** Cantidad de contenedores del traslado. Nodos `3085:13315` y `4327:35791`. */
   containerCount: number;
   /**
    * Las MISMAS dos fechas de arriba con año: "05 jul 2026, 08:40" (`3085:13299`) y
@@ -170,11 +154,53 @@ export interface WasteSidrepFolio {
    */
   generatedAtLong: string;
   closedAtLong: string;
+}
+
+/**
+ * Folio de residuo PELIGROSO (RESPEL) — el caso que dibuja el nodo `3085:13254`.
+ *
+ * Los tres campos propios existen porque el traslado de un RESPEL los exige: la
+ * resolución sanitaria del destinatario, y el paquete de respaldos (guía RESPEL, HDS,
+ * fotografías del vehículo, declaración SIDREP) en sus dos recortes.
+ */
+export interface WasteSidrepHazardousFolio extends WasteSidrepFolioBase {
+  isHazardous: true;
+  /** Resolución sanitaria verificada: "Res. Exenta N°10171/2022". Nodo `3085:13310`. */
+  sanitaryResolution: string;
   /** Los ocho respaldos del paquete, como los lista el MODAL. Nodo `3085:13341`. */
   packageDocs: WasteSidrepFolioPackageDoc[];
   /** El mismo paquete como lo lista el PDF. Ver `WasteSidrepFolioPdfDoc`. */
   pdfDocs: WasteSidrepFolioPdfDoc[];
 }
+
+/**
+ * Folio de residuo NO PELIGROSO — el caso que dibuja el nodo `4327:35730`.
+ *
+ * NO LLEVA NINGUNO de los tres campos del peligroso, y eso es la mitad del diseño: su
+ * respaldo tiene siete datos en vez de ocho —sin resolución sanitaria— y no tiene
+ * sección de paquete, porque un traslado no peligroso no genera esos documentos.
+ */
+export interface WasteSidrepNonHazardousFolio extends WasteSidrepFolioBase {
+  isHazardous: false;
+}
+
+/**
+ * Un folio de la bandeja, PELIGROSO O NO.
+ *
+ * ES UNA UNIÓN DISCRIMINADA POR `isHazardous` y no una interfaz con tres campos
+ * opcionales: la peligrosidad no es un adorno del folio, es lo que decide qué respaldo
+ * existe. Con campos opcionales, `folio.packageDocs` compilaba en cualquier rama y el
+ * error aparecía en pantalla —un respaldo "No Peligroso" listando una guía RESPEL—; con
+ * la unión, leerlos obliga a estrechar antes, así que la regla la comprueba el
+ * compilador y no una revisión.
+ *
+ * SIDREP ES EL REGISTRO DE RESIDUOS PELIGROSOS, y por eso la lista es casi toda
+ * peligrosa: el intro del Histórico separa "peligrosos (con folio SIDREP y aprobación)"
+ * de "no peligrosos (informativo, gestionado por Resiter/Servicios Generales)". El nodo
+ * `4327:35730` muestra que un traslado no peligroso TAMBIÉN llega a esta bandeja con su
+ * respaldo, así que el caso es real y no una precaución. Ver `folioSupportVariant`.
+ */
+export type WasteSidrepFolio = WasteSidrepHazardousFolio | WasteSidrepNonHazardousFolio;
 
 /** Rótulo de estado. Los tres folios de la pestaña "Cerrados" comparten el mismo. */
 export const WASTE_SIDREP_FOLIO_CLOSED_STATUS = 'Cerrado';
@@ -333,6 +359,49 @@ export const WASTE_SIDREP_CLOSED_FOLIOS: WasteSidrepFolio[] = [
       { label: 'Declaración SIDREP', filename: 'declaracion2161211_71844.pdf' },
     ],
   },
+  {
+    /*
+     * EL FOLIO NO PELIGROSO, el que hace alcanzable el respaldo `4327:35730`.
+     *
+     * NINGÚN DATO DE ACÁ SALE DEL DISEÑO, y hay que decirlo con precisión: el nodo
+     * `4327:35730` se titula "No Peligroso" pero está relleno con el contenido del
+     * PRIMER folio de esta lista —folio 2026-SD-04690, aceite lubricante usado, RLVZ-57,
+     * Juan Pérez Soto, 1.020 → 1.005—, que es un RESPEL. Es una copia de la maqueta
+     * peligrosa en Figma, no un folio distinto, así que tomar esos valores habría dejado
+     * el mismo folio en la lista dos veces con peligrosidades contrarias.
+     *
+     * Lo que sí se toma del nodo es la FORMA: siete datos en vez de ocho, sin resolución
+     * sanitaria, con "Cantidad de contenedores" a fila completa y sin paquete. El
+     * contenido es de maqueta y se va con el endpoint, igual que el de los otros tres.
+     */
+    folio: '2026-SD-04788',
+    wasteType: 'Chatarra metálica',
+    isHazardous: false,
+    carrier: 'Resiter S.A.',
+    dispatchedKg: '3.480',
+    receivedKg: '3.455',
+    gap: {
+      kg: '25',
+      percentage: '0,7%',
+      tolerance:
+        'Tolerancia esperada para Chatarra metálica: ±2% (~70 kg) · histórico general por tipo de residuo.',
+      qualifier: 'normal',
+      exceedsTolerance: false,
+    },
+    destination: 'KDM Tratamiento',
+    generatedAt: '09 jul, 09:20',
+    closedAt: '11 jul, 15:05',
+    closedDate: '11 jul',
+    docs: [
+      'Ticket de recepción — ticket_recepcion_04788.pdf',
+      'Guía de despacho — guia_2312.pdf',
+    ],
+    plate: 'PSVB-38',
+    driver: 'Claudia Fuentes Aravena',
+    containerCount: 2,
+    generatedAtLong: '09 jul 2026, 09:20',
+    closedAtLong: '11 jul 2026, 15:05',
+  },
 ];
 
 /**
@@ -353,24 +422,27 @@ export function folioListRow(folio: WasteSidrepFolio): WasteFolioListRow {
 }
 
 /**
- * Si el folio tiene respaldo de traslado que mostrar.
+ * Cuál de los dos respaldos de traslado le corresponde al folio.
  *
- * ES LA CONDICIÓN DEL MODAL `3085:13254`, que se titula "Respaldo de Traslado de
- * Residuo Peligroso": el paquete consolidado —guía RESPEL, HDS, fotografías del
- * vehículo, declaración SIDREP— existe porque el traslado de un residuo peligroso lo
- * exige. Un retiro no peligroso no genera ninguno de esos documentos.
+ * TODO FOLIO CERRADO TIENE RESPALDO, y esto es un cambio de regla respecto de la
+ * iteración anterior, que sólo se lo daba al peligroso. Lo obliga el nodo `4327:35730`:
+ * dibuja el respaldo de un traslado NO peligroso, con su descarga en PDF. O sea que la
+ * peligrosidad no decide SI hay respaldo, decide CUÁL:
  *
- * Vive acá y no dentro del componente para que la MISMA regla decida las dos cosas que
- * tienen que coincidir: si el pie del panel dibuja el botón, y si el modal se abre. Con
- * la condición escrita en línea en cada lugar, alcanzaba con tocar uno para dejar un
- * botón que no abre nada, o un modal alcanzable por otro camino.
+ *   peligroso     `3085:13254`  ocho datos, con resolución sanitaria, con paquete
+ *   no peligroso  `4327:35730`  siete datos, sin resolución sanitaria, sin paquete
  *
- * Es el mismo cruce con el que el Histórico deriva su `supportUrl` (`wasteHistoryRows.ts`):
- * peligroso Y cerrado. El "cerrado" acá lo garantiza la pestaña —esta lista es la de
- * folios cerrados— así que lo que queda por comprobar es la peligrosidad.
+ * Vive acá y no dentro del componente para que la MISMA derivación alimente los tres
+ * lugares que tienen que coincidir: el título del modal, el recorte de `folioSupportFacts`
+ * y el título del PDF. Con la condición escrita en línea en cada lugar, alcanzaba con
+ * tocar uno para que el documento y la pantalla dijeran cosas distintas.
+ *
+ * NO ES LO MISMO que el `supportUrl` del Histórico (`wasteHistoryRows.ts`), que sigue
+ * siendo el cruce peligroso + cerrado: aquél apunta al paquete de respaldos de un RESPEL,
+ * que es justo lo que este respaldo no peligroso no tiene.
  */
-export function folioHasSupport(folio: WasteSidrepFolio): boolean {
-  return folio.isHazardous;
+export function folioSupportVariant(folio: WasteSidrepFolio): WasteFolioSupportVariant {
+  return folio.isHazardous ? 'hazardous' : 'nonHazardous';
 }
 
 /** Subtítulo del panel de detalle. Texto del nodo `3440:3378`. */
@@ -414,14 +486,19 @@ export function folioFacts(folio: WasteSidrepFolio): WasteDefinitionItem[] {
  * salgan del mismo folio en el mismo archivo. Las cifras viajan ya formateadas, con el
  * mismo `${kg} kg` que usa la pantalla.
  *
- * `folioSupportFacts` se reusa tal cual: los ocho pares del modal (`3085:13271`) y los del
- * documento (`3084:11074`) son los mismos ocho, en el mismo orden. Lo único propio del PDF
+ * `folioSupportFacts` se reusa tal cual: los pares del modal (`3085:13271` / `4327:35747`) y
+ * los del documento (`3084:11074`) son los mismos, en el mismo orden. Lo único propio del PDF
  * es el paquete, que agrupa distinto — ver `WasteSidrepFolioPdfDoc`.
+ *
+ * EL TÍTULO Y EL PAQUETE SALEN DE LA MISMA VARIANTE QUE EL MODAL: un folio no peligroso
+ * baja un documento titulado "…No Peligroso" y con `documents` vacío, que es lo que hace
+ * que el PDF omita la sección de paquete. Si el título viniera de un lado y el paquete de
+ * otro, el documento podía titularse "No Peligroso" y listar una guía RESPEL.
  */
 export function folioSupportExportRequest(folio: WasteSidrepFolio): WasteFolioSupportExportRequest {
   return {
     folio: folio.folio,
-    title: WASTE_FOLIO_SUPPORT_TITLE,
+    title: WASTE_FOLIO_SUPPORT_TITLES[folioSupportVariant(folio)],
     subtitle: folioSupportSubtitle(folio),
     statusLabel: WASTE_SIDREP_FOLIO_CLOSED_STATUS,
     fields: folioSupportFacts(folio).map((field) => ({ label: field.label, value: field.value })),
@@ -431,26 +508,47 @@ export function folioSupportExportRequest(folio: WasteSidrepFolio): WasteFolioSu
       difference: folio.gap ? `${folio.gap.kg} kg` : '0 kg',
       differenceLabel: folio.gap ? `Diferencia (${folio.gap.qualifier})` : 'Diferencia',
     },
-    documents: folio.pdfDocs.map((doc) => ({ label: doc.label, filename: doc.filename })),
+    documents: folio.isHazardous
+      ? folio.pdfDocs.map((doc) => ({ label: doc.label, filename: doc.filename }))
+      : [],
   };
 }
 
 /**
- * Los ocho datos de "Datos del traslado", en el orden de los nodos `3085:13271` (modal) y
- * `3084:11074` (PDF), que los dibujan iguales.
+ * Los datos de "Datos del traslado", en el orden de los nodos `3085:13271` (modal
+ * peligroso), `4327:35747` (modal no peligroso) y `3084:11074` (PDF).
+ *
+ * SEIS SON COMUNES Y LOS DOS ÚLTIMOS DEPENDEN DE LA PELIGROSIDAD:
+ *
+ *   peligroso     `3085:13310` "Resolución sanitaria verificada" + contenedores, los dos
+ *                 a media fila, ocho pares en cuatro filas de dos
+ *   no peligroso  sin resolución sanitaria —un traslado no peligroso no la exige— y
+ *                 "Cantidad de contenedores" a FILA COMPLETA (`4327:35781`), porque queda
+ *                 sola y el nodo le da el ancho entero en vez de media columna vacía
  *
  * NO SE SOLAPA con `folioFacts` más que en las fechas: el panel resume los pesos y esto
  * describe el TRASLADO —quién lo llevó, en qué vehículo, con qué resolución—, porque los
  * pesos acá van en su propia banda y no en la grilla.
  */
 export function folioSupportFacts(folio: WasteSidrepFolio): WasteDefinitionItem[] {
-  return [
+  const transfer: WasteDefinitionItem[] = [
     { label: 'Empresa transportista', value: folio.carrier },
     { label: 'Empresa destinataria', value: folio.destination },
     { label: 'Patente vehículo', value: folio.plate },
     { label: 'Conductor', value: folio.driver },
     { label: 'Fecha de generación', value: folio.generatedAtLong },
     { label: 'Fecha de cierre', value: folio.closedAtLong },
+  ];
+
+  if (!folio.isHazardous) {
+    return [
+      ...transfer,
+      { label: 'Cantidad de contenedores', value: String(folio.containerCount), span: 'full' },
+    ];
+  }
+
+  return [
+    ...transfer,
     { label: 'Resolución sanitaria verificada', value: folio.sanitaryResolution },
     { label: 'Cantidad de contenedores', value: String(folio.containerCount) },
   ];

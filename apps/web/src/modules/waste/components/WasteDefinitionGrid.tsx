@@ -58,6 +58,19 @@ const GRID_VARIANT: Record<WasteDefinitionGridVariant, { grid: string; item: str
   modal: { grid: 'gap-x-[28px] gap-y-[14px]', item: 'gap-[3px]', value: 'text-[13px]' },
 };
 
+/**
+ * Cuánto de la fila ocupa un par.
+ *
+ * `full` sale del nodo `4327:35781`, la última fila de "Datos del traslado" en el
+ * respaldo NO PELIGROSO: ahí "Cantidad de contenedores" queda sola y el nodo le da la
+ * fila entera en vez de dejar media columna vacía a su derecha.
+ *
+ * ES UNA PROPIEDAD DEL PAR Y NO DE LA GRILLA porque quien decide el ancho es el dato:
+ * la grilla no sabe cuántos pares va a recibir ni cuál queda impar. Con la variante en
+ * la grilla, agregar un campo obligaba a recontar y ajustar a mano.
+ */
+export type WasteDefinitionItemSpan = 'half' | 'full';
+
 export interface WasteDefinitionItem {
   /** Rótulo del dato, en su capitalización natural. La mayúscula la pone el CSS. */
   label: string;
@@ -67,6 +80,8 @@ export interface WasteDefinitionItem {
    * `#131313`, que es lo que muestran cinco de los seis nodos.
    */
   valueTone?: string;
+  /** Ver `WasteDefinitionItemSpan`. Por defecto media fila, como todos los demás pares. */
+  span?: WasteDefinitionItemSpan;
 }
 
 interface WasteDefinitionGridProps {
@@ -81,7 +96,17 @@ export function WasteDefinitionGrid({ items, variant = 'panel' }: WasteDefinitio
   return (
     <dl className={`grid w-full grid-cols-1 sm:grid-cols-2 ${geometry.grid}`} data-name="Container">
       {items.map((item) => (
-        <div key={item.label} className={`flex flex-col items-start ${geometry.item}`}>
+        <div
+          key={item.label}
+          className={`flex flex-col items-start ${geometry.item} ${
+            /*
+             * `sm:col-span-2` y no `col-span-2`: debajo de `sm` la grilla ya es de una
+             * sola columna, así que ahí todo par ocupa la fila entera y forzar dos
+             * columnas de span apuntaría a una que no existe.
+             */
+            item.span === 'full' ? 'sm:col-span-2' : ''
+          }`}
+        >
           <dt>
             <WasteFieldLabel>{item.label}</WasteFieldLabel>
           </dt>

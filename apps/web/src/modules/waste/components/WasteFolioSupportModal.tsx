@@ -14,20 +14,32 @@ import { WasteDefinitionGrid, type WasteDefinitionItem } from './WasteDefinition
 import type { WasteSidrepFolioPackageDoc } from '../wasteSidrepFolios';
 
 /**
- * Modal "Respaldo de Traslado de Residuo Peligroso" — nodo Figma `3085:13254`,
- * emplazado en `3085:12902`. Lo abre "Ver respaldo completo" (`3083:11032`), el pie
- * del panel de detalle de un folio SIDREP cerrado.
+ * Modal "Respaldo de Traslado de Residuo" — DOS NODOS, una sola maqueta:
+ *
+ *   `3085:13254`  peligroso     emplazado en `3085:12902`
+ *   `4327:35730`  no peligroso  emplazado en `4327:35379`
+ *
+ * Lo abre "Ver respaldo completo" (`3083:11032`), el pie del panel de detalle de un
+ * folio SIDREP cerrado.
  *
  * Es el respaldo consolidado que se lleva a una fiscalización: el traslado completo
- * —quién lo llevó, en qué vehículo, con qué resolución—, la conciliación de pesos y el
- * paquete de documentos, con su descarga en PDF.
+ * —quién lo llevó, en qué vehículo, con qué resolución—, la conciliación de pesos y,
+ * cuando corresponde, el paquete de documentos, con su descarga en PDF.
  *
- * SÓLO APLICA A RESIDUO PELIGROSO, y no es una restricción que este componente
- * compruebe: lo dice su propio título y lo decide `folioHasSupport`, la regla que la
- * vista usa para las dos cosas que tienen que coincidir —dibujar el botón que lo abre y
- * montar el modal—. El paquete que lista (guía RESPEL, HDS, fotografías del vehículo,
- * declaración SIDREP) existe porque el traslado de un RESPEL lo exige; un retiro no
- * peligroso no genera ninguno de esos documentos, así que no hay respaldo que mostrar.
+ * LAS DOS VARIANTES SE DIFERENCIAN EN DOS COSAS Y NADA MÁS. Cabecera, pastilla teal,
+ * banda de pesos, nota legal y pie son idénticos nodo a nodo; lo que cambia es:
+ *
+ *   1. EL TÍTULO — "…de Residuo Peligroso" contra "…de Residuo No Peligroso".
+ *   2. EL PAQUETE — el nodo peligroso lista "Documentos incluidos en este paquete"
+ *      (guía RESPEL, HDS, fotografías del vehículo, declaración SIDREP) y el no
+ *      peligroso NO TIENE esa sección: un traslado no peligroso no genera ninguno de
+ *      esos documentos, así que después de la banda de pesos viene directo la nota.
+ *
+ * Las dos las decide UNA SOLA prop, `variant`, y el tipo de las props es una unión
+ * discriminada por ella: con `variant="nonHazardous"` el compilador PROHÍBE pasar
+ * `packageDocs`. Con dos props independientes —una para el título y otra para el
+ * paquete— alcanzaba con tocar una para armar un respaldo que se titula "No Peligroso"
+ * y lista una guía RESPEL, que es exactamente el documento que no puede existir.
  *
  * ES UN PANEL A LA DERECHA, no una tarjeta centrada, y eso sale del emplazamiento: el
  * nodo mide 538 × 985 en x=766, y=16 dentro de un frame de 1320 de ancho, o sea a 16px
@@ -35,16 +47,34 @@ import type { WasteSidrepFolioPackageDoc } from '../wasteSidrepFolios';
  * sidebar. Por eso el velo es `justify-end items-start` con `p-[16px]` en vez del
  * `items-center justify-center` de los otros modales del módulo.
  *
- * LOS 985px DE ALTO NO CABEN EN EL VIEWPORT de 720 que dibuja el fondo, y no es un
- * error del diseño: Figma estiró el frame contenedor a 1031 para mostrar el modal
- * entero. En la app el panel se acota a `max-h-full` y el cuerpo toma el
- * desplazamiento, con la cabecera y el pie quietos. Esa división es la razón por la
- * que la cabecera y el cuerpo NO comparten el contenedor `3085:13255` del nodo: ahí
- * son un grupo de Figma, acá tienen que ser hermanos para que sólo uno scrollee.
+ * EL PANEL TOMA TODO EL ALTO DISPONIBLE, y no el de su contenido. Lo dice el nodo raíz
+ * `4327:35730`, que es `justify-between` sobre `size-full`: mide 538 × 687 dentro de un
+ * frame de 720, o sea el alto entero menos los 16px de arriba y abajo, y el hueco que
+ * Figma marca "Automático" entre la nota legal y el pie es el espacio elástico que empuja
+ * "Descargar PDF" contra el borde inferior.
+ *
+ * ESO IMPORTA JUSTO EN LA VARIANTE NO PELIGROSA. Sin el paquete de documentos, el
+ * contenido no llega a llenar la pantalla, y con el panel acotado a `max-h-full` —como
+ * estaba— se encogía hasta su contenido y el botón quedaba pegado a la nota en vez del
+ * fondo. Por eso va `h-full`: el pie es una franja anclada abajo, no lo que sigue al
+ * último párrafo.
+ *
+ * El hueco elástico NO se maqueta como un `justify-between` ni como un separador: lo
+ * absorbe el `flex-1` del cuerpo, que es el único de los tres hijos que crece. En una
+ * columna de tres donde el del medio se estira, el resultado es el mismo y el cuerpo
+ * conserva su superficie blanca hasta el pie, como en el nodo.
+ *
+ * LOS 985px DE ALTO DEL NODO PELIGROSO NO CABEN EN EL VIEWPORT de 720 que dibuja el
+ * fondo, y no es un error del diseño: Figma estiró el frame contenedor a 1031 para
+ * mostrar el modal entero. Con `h-full` ese caso funciona igual —el cuerpo toma el
+ * desplazamiento y la cabecera y el pie quedan quietos—; la diferencia es sólo si el
+ * cuerpo scrollea o le sobra espacio. Esa división es la razón por la que la cabecera y
+ * el cuerpo NO comparten el contenedor `3085:13255` del nodo: ahí son un grupo de Figma,
+ * acá tienen que ser hermanos para que sólo uno scrollee.
  *
  * Geometría del design context:
  *
- *   panel     bg white · rounded-[16px] · w-[538px]
+ *   panel     bg white · rounded-[16px] · w-[538px] · h-full (`size-full` del nodo)
  *   cabecera  px-[14px] py-[12px] · fila gap-[12px] items-center
  *             bloque izq flex-1 gap-[8px]; textos gap-[4px]
  *             título    Inter Bold 16px · leading-[22px] · tracking-[0.32px] · #2a2a2a
@@ -78,8 +108,17 @@ import type { WasteSidrepFolioPackageDoc } from '../wasteSidrepFolios';
  * layout, y es el mismo criterio de `WasteSinaderDeclareModal` con sus 480.
  */
 
-/** Texto del nodo `3085:13260`. */
-export const WASTE_FOLIO_SUPPORT_TITLE = 'Respaldo de Traslado de Residuo Peligroso';
+/**
+ * Qué respaldo se está dibujando. Ver la nota del encabezado: de esto cuelgan el título
+ * y la existencia del paquete de documentos.
+ */
+export type WasteFolioSupportVariant = 'hazardous' | 'nonHazardous';
+
+/** Textos de los nodos `3085:13260` y `4327:35736`. */
+export const WASTE_FOLIO_SUPPORT_TITLES: Record<WasteFolioSupportVariant, string> = {
+  hazardous: 'Respaldo de Traslado de Residuo Peligroso',
+  nonHazardous: 'Respaldo de Traslado de Residuo No Peligroso',
+};
 
 /** Rótulos de los nodos `3085:13270` y `3085:13339`. */
 export const WASTE_FOLIO_SUPPORT_TRANSFER_SECTION = 'Datos del traslado';
@@ -139,13 +178,17 @@ function WeightFigure({ value, label }: { value: string; label: string }) {
   );
 }
 
-interface WasteFolioSupportModalProps {
+interface WasteFolioSupportModalBaseProps {
   open: boolean;
   /** Folio, residuo y transportista: "Folio SIDREP 2026-SD-04690 · …". Nodo `3085:13261`. */
   subtitle: string;
   /** Rótulo del estado, sin el "Estado: " que el modal antepone. */
   status: string;
-  /** Los ocho datos del traslado — `folioSupportFacts`. */
+  /**
+   * Los datos del traslado — `folioSupportFacts`. Ocho en el nodo peligroso
+   * (`3085:13271`) y siete en el no peligroso (`4327:35747`), el último a fila completa.
+   * El recorte lo decide la proyección del folio, no este componente.
+   */
   facts: WasteDefinitionItem[];
   /** Peso despachado ya formateado con unidad: "1.020 kg". */
   dispatched: string;
@@ -158,7 +201,6 @@ interface WasteFolioSupportModalProps {
    * arma acá como "Diferencia (normal)"; sin calificación queda sólo "Diferencia".
    */
   differenceQualifier?: string | null;
-  packageDocs: WasteSidrepFolioPackageDoc[];
   onClose: () => void;
   /**
    * Genera y baja el PDF del respaldo — nodo `3084:11044`, que renderiza la API. Sin esto
@@ -178,8 +220,24 @@ interface WasteFolioSupportModalProps {
   downloadError?: string | null;
 }
 
+/**
+ * El paquete VIAJA CON LA VARIANTE, no como prop aparte: ver la nota del encabezado.
+ * `hazardous` lo exige y `nonHazardous` lo prohíbe, y las dos cosas las comprueba el
+ * compilador en el punto de uso.
+ */
+type WasteFolioSupportModalProps = WasteFolioSupportModalBaseProps &
+  (
+    | {
+        variant: 'hazardous';
+        /** Los respaldos que componen el paquete — nodo `3085:13342` y hermanos. */
+        packageDocs: WasteSidrepFolioPackageDoc[];
+      }
+    | { variant: 'nonHazardous'; packageDocs?: never }
+  );
+
 export function WasteFolioSupportModal({
   open,
+  variant,
   subtitle,
   status,
   facts,
@@ -244,8 +302,8 @@ export function WasteFolioSupportModal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="flex max-h-full w-[538px] max-w-full flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.35)] outline-none"
-        data-node-id="3085:13254"
+        className="flex h-full w-[538px] max-w-full flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.35)] outline-none"
+        data-node-id={variant === 'hazardous' ? '3085:13254' : '4327:35730'}
       >
         <div
           className="flex w-full shrink-0 flex-col items-center bg-white px-[14px] py-[12px]"
@@ -258,7 +316,7 @@ export function WasteFolioSupportModal({
                   id={titleId}
                   className="w-full font-['Inter:Bold',sans-serif] text-[16px] font-bold not-italic leading-[22px] tracking-[0.32px] text-[#2a2a2a]"
                 >
-                  {WASTE_FOLIO_SUPPORT_TITLE}
+                  {WASTE_FOLIO_SUPPORT_TITLES[variant]}
                 </h2>
                 {/*
                   El subtítulo hereda el `font-bold` del bloque `3085:13259` en el nodo:
@@ -332,31 +390,41 @@ export function WasteFolioSupportModal({
             </div>
           </div>
 
-          <div className="w-full pt-[26px]" data-name="Container:margin">
-            <SupportSectionTitle>{WASTE_FOLIO_SUPPORT_PACKAGE_SECTION}</SupportSectionTitle>
-          </div>
+          {/*
+            El paquete `3085:13341` es LO ÚNICO que el nodo no peligroso no dibuja. Ahí
+            la nota va pegada al pie de la banda de pesos: el `Container:margin`
+            `4327:35882` no aporta separación —la línea arranca en y=289, exactamente
+            donde termina la banda— y el `pt-[17px]` de adentro es el mismo.
+          */}
+          {packageDocs ? (
+            <>
+              <div className="w-full pt-[26px]" data-name="Container:margin">
+                <SupportSectionTitle>{WASTE_FOLIO_SUPPORT_PACKAGE_SECTION}</SupportSectionTitle>
+              </div>
 
-          <div className="w-full py-[12px]" data-name="Container:margin">
-            <ul className="flex w-full flex-col items-start gap-[6px]" data-name="Container">
-              {packageDocs.map((doc) => (
-                <li
-                  key={doc.label}
-                  className="flex w-full items-center gap-[7px] rounded-[6px] bg-[#f9fafb] px-[8px] py-[6px]"
-                  data-name="Container"
-                >
-                  <span className="flex size-[24px] shrink-0 items-center justify-center rounded-[5px] bg-[#e6f3ff]">
-                    <WasteFolioSupportDocIcon className="block h-[11px] w-[13.75px] shrink-0 text-[#24588b]" />
-                  </span>
-                  <span className="min-w-px flex-1 truncate font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold not-italic leading-[normal] text-[#131313]">
-                    {doc.label}
-                  </span>
-                  <span className="shrink-0 whitespace-nowrap font-['Inter:Regular',sans-serif] text-[9px] font-normal not-italic leading-[normal] text-[#acacac]">
-                    {doc.size}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+              <div className="w-full py-[12px]" data-name="Container:margin">
+                <ul className="flex w-full flex-col items-start gap-[6px]" data-name="Container">
+                  {packageDocs.map((doc) => (
+                    <li
+                      key={doc.label}
+                      className="flex w-full items-center gap-[7px] rounded-[6px] bg-[#f9fafb] px-[8px] py-[6px]"
+                      data-name="Container"
+                    >
+                      <span className="flex size-[24px] shrink-0 items-center justify-center rounded-[5px] bg-[#e6f3ff]">
+                        <WasteFolioSupportDocIcon className="block h-[11px] w-[13.75px] shrink-0 text-[#24588b]" />
+                      </span>
+                      <span className="min-w-px flex-1 truncate font-['Inter:Semi_Bold',sans-serif] text-[10px] font-semibold not-italic leading-[normal] text-[#131313]">
+                        {doc.label}
+                      </span>
+                      <span className="shrink-0 whitespace-nowrap font-['Inter:Regular',sans-serif] text-[9px] font-normal not-italic leading-[normal] text-[#acacac]">
+                        {doc.size}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          ) : null}
 
           <div className="w-full border-t border-solid border-[#e3e3e3] pt-[17px]" data-name="Container">
             <p className="w-full font-['Inter:Regular',sans-serif] text-[9.5px] font-normal not-italic leading-[15.2px] text-[#acacac]">
