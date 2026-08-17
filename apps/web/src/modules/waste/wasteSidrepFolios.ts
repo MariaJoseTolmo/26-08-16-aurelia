@@ -415,9 +415,18 @@ export function folioListRow(folio: WasteSidrepFolio): WasteFolioListRow {
     id: folio.folio,
     title: `${folio.wasteType} — ${folio.dispatchedKg} kg`,
     subtitle: `${folio.carrier} · Folio ${folio.folio}`,
-    status: WASTE_SIDREP_FOLIO_CLOSED_STATUS,
-    date: folio.closedDate,
+    /*
+     * En esta pestaña el dato destacado es el ESTADO y la leyenda la fecha de cierre.
+     * En "Abiertos" las mismas dos ranuras llevan el tiempo abierto y su plazo — ver
+     * `openFolioListRow` en `wasteSidrepOpenFolios.ts`.
+     */
+    highlight: WASTE_SIDREP_FOLIO_CLOSED_STATUS,
+    caption: folio.closedDate,
     tone: folio.gap?.exceedsTolerance ? 'weightGap' : 'closed',
+    /*
+     * Sin `highlightTone`: el nodo pinta el estado en teal en las TRES filas, también
+     * en la que cerró fuera de tolerancia. Es el valor por defecto del componente.
+     */
   };
 }
 

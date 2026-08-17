@@ -2,10 +2,17 @@ import type { ReactNode } from 'react';
 import { WasteAlertWeightIcon } from '../icons/WasteDashboardIcons';
 import { WarehouseFormAttachedCheckIcon } from '../icons/WarehouseIntakeFormIcons';
 import { WarehousePageNextIcon } from '../icons/WarehouseIntakeIcons';
+import { WasteFolioInTransitIcon } from '../icons/WasteSidrepOpenFolioIcons';
 
 /**
- * Lista de folios SIDREP de la vista "Folios SIDREP" — nodo `3083:10909`, la
- * columna izquierda de la pestaña "Cerrados".
+ * Lista de folios SIDREP de la vista "Folios SIDREP" — nodo `3083:10909` (pestaña
+ * "Cerrados") y `3081:7871` (pestaña "Abiertos"), la columna izquierda de las dos.
+ *
+ * LAS DOS PESTAÑAS DIBUJAN LA MISMA FILA y por eso hay un solo componente: casilla
+ * de 36px, título, subtítulo, un dato destacado con su leyenda y el chevron. Lo que
+ * cambia entre ellas es QUÉ dice cada ranura —"Cerrado / 08 jul" contra "4 días /
+ * sobre 3 días"— y el tono del glifo y del dato. Ninguna de las dos cosas es
+ * geometría, así que van como props y no como un segundo archivo.
  *
  * Es la lista maestra de un maestro-detalle: cada fila abre su folio en
  * `WasteFolioDetailPanel`, a la derecha. Por eso las filas son BOTONES dentro de
@@ -44,22 +51,29 @@ import { WarehousePageNextIcon } from '../icons/WarehouseIntakeIcons';
  */
 
 /**
- * Cómo cerró el folio. Los dos tonos salen de nodos concretos, no de una escala
+ * En qué está el folio. Los tres tonos salen de nodos concretos, no de una escala
  * inventada, y cambian LA CASILLA Y EL GLIFO a la vez:
  *
  *   `closed`     `3083:10911`  bg var(--teal/100, #c5fff6) · check #006153
  *   `weightGap`  `3083:10943`  bg #fff0e6 · balanza #570b1d
+ *   `inTransit`  `3081:7873`   bg #fff0e6 · camión #e8720c
  *
  * El check dice "cerró limpio"; la balanza, "cerró con diferencia de peso" —el
  * folio `2026-SD-04812`, el único de los tres que trae el recuadro de alerta en su
- * panel—. Por eso el tono se nombra por el ESTADO y no por el color: el color es
+ * panel—; el camión, "el traslado sigue en curso", que es lo que un folio ABIERTO
+ * es. Por eso el tono se nombra por el ESTADO y no por el color: el color es
  * consecuencia, y el glifo cambia con él.
  *
+ * `inTransit` comparte la casilla ámbar con `weightGap` y NO son el mismo tono: el
+ * nodo de "Abiertos" les da el mismo `#fff0e6` de fondo pero glifos distintos —y el
+ * camión va en `#e8720c`, no en el `#570b1d` de la balanza—. Distinguirlos por el
+ * fondo habría perdido justamente lo que los diferencia.
+ *
  * `#fff0e6` con `#6b3a1f` es el mismo par ámbar que ya usa `WastePill` para
- * "Pendiente" y que este panel repite en su pastilla y en su recuadro de peso; no
- * es un color nuevo del sistema.
+ * "Pendiente" y que el panel repite en su pastilla y en su recuadro de peso; no es
+ * un color nuevo del sistema.
  */
-export type WasteFolioListRowTone = 'closed' | 'weightGap';
+export type WasteFolioListRowTone = 'closed' | 'weightGap' | 'inTransit';
 
 const ROW_TONE: Record<WasteFolioListRowTone, { tile: string; icon: ReactNode }> = {
   closed: {
@@ -79,6 +93,30 @@ const ROW_TONE: Record<WasteFolioListRowTone, { tile: string; icon: ReactNode }>
      */
     icon: <WasteAlertWeightIcon className="block h-[14px] w-[17.5px] shrink-0 text-[#570b1d]" />,
   },
+  inTransit: {
+    tile: 'bg-[#fff0e6]',
+    icon: <WasteFolioInTransitIcon className="block h-[14px] w-[17.5px] shrink-0 text-[#e8720c]" />,
+  },
+};
+
+/**
+ * Con qué peso se lee el dato destacado de la fila. Los dos hexes salen de los
+ * nodos y significan cosas distintas:
+ *
+ *   `calm`  `3083:11037` / `3081:7899`  var(--teal/900_txt, #006153)
+ *   `late`  `3081:7883`                var(--red/500_cta, #bd3b5b)
+ *
+ * `late` lo lleva SÓLO el folio que se pasó de su plazo —el de "4 días" sobre 3—.
+ * En "Cerrados" ninguna fila lo usa: el nodo pinta las tres en teal, también la que
+ * cerró con diferencia de peso, porque ahí lo ámbar es la casilla y no el estado.
+ * Por eso el tono es una propiedad de la FILA y no del componente, y por eso su
+ * valor por defecto es `calm`.
+ */
+export type WasteFolioListRowHighlightTone = 'calm' | 'late';
+
+const HIGHLIGHT_TONE: Record<WasteFolioListRowHighlightTone, string> = {
+  calm: 'text-[#006153]',
+  late: 'text-[#bd3b5b]',
 };
 
 export interface WasteFolioListRow {
@@ -88,11 +126,21 @@ export interface WasteFolioListRow {
   title: string;
   /** Transportista y folio: "Resiter S.A. · Folio 2026-SD-04690". */
   subtitle: string;
-  /** Rótulo del estado del folio. En esta pestaña, siempre "Cerrado". */
-  status: string;
-  /** Fecha corta del nodo: "05 jul". La mayúscula la pone el CSS. */
-  date: string;
+  /**
+   * Dato destacado de la derecha, ya formateado. Es lo que cada pestaña considera
+   * la novedad del folio: el estado en "Cerrados" ("Cerrado") y el tiempo abierto
+   * en "Abiertos" ("4 días", "Recién generado").
+   */
+  highlight: string;
+  /**
+   * Leyenda debajo del dato destacado: la fecha de cierre en "Cerrados" ("05 jul")
+   * y el plazo o la antigüedad en "Abiertos" ("sobre 3 días", "hace 3 horas"). La
+   * mayúscula la pone el CSS.
+   */
+  caption: string;
   tone: WasteFolioListRowTone;
+  /** Ver `WasteFolioListRowHighlightTone`. Por defecto `calm`. */
+  highlightTone?: WasteFolioListRowHighlightTone;
 }
 
 interface WasteFolioListCardProps {
@@ -158,15 +206,24 @@ export function WasteFolioListCard({ label, rows, selectedId, onSelect }: WasteF
               </span>
 
               {/*
-                El estado va en teal en las TRES filas, también en la seleccionada
-                (`3083:11037`): lo ámbar de este folio es su casilla, no su estado.
+                En "Cerrados" el estado va en teal en las TRES filas, también en la
+                seleccionada (`3083:11037`): lo ámbar de ese folio es su casilla, no
+                su estado. En "Abiertos" el nodo sí lo colorea, y sólo en el folio
+                fuera de plazo — ver `WasteFolioListRowHighlightTone`.
+
+                La LEYENDA no cambia de color en ninguna de las dos pestañas: los
+                seis nodos la dejan en #acacac.
               */}
               <span className="flex shrink-0 flex-col items-end">
-                <span className="whitespace-nowrap text-right font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] text-[#006153]">
-                  {row.status}
+                <span
+                  className={`whitespace-nowrap text-right font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] ${
+                    HIGHLIGHT_TONE[row.highlightTone ?? 'calm']
+                  }`}
+                >
+                  {row.highlight}
                 </span>
                 <span className="whitespace-nowrap text-right font-['Inter:Regular',sans-serif] text-[9.5px] font-normal uppercase not-italic leading-[normal] tracking-[0.19px] text-[#acacac]">
-                  {row.date}
+                  {row.caption}
                 </span>
               </span>
 
