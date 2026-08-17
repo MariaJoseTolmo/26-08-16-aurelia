@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WasteSinaderNoticeInfoIcon } from './icons/WasteSinaderReportIcons';
@@ -8,17 +9,24 @@ import { WasteDefinitionGrid } from './components/WasteDefinitionGrid';
 import { WasteFolioClosureDocsSection } from './components/WasteFolioClosureDocsSection';
 import { WasteFolioDetailDivider, WasteFolioDetailPanel } from './components/WasteFolioDetailPanel';
 import { WasteFolioListCard } from './components/WasteFolioListCard';
+import { WasteFolioSupportModal } from './components/WasteFolioSupportModal';
 import { WasteNoticeBanner } from './components/WasteNoticeBanner';
 import { WasteTabs, wasteTabId, wasteTabPanelId, type WasteTab } from './components/WasteTabs';
 import { WasteTertiaryActionButton } from './components/WasteTertiaryActionButton';
 import { WasteViewIntro } from './components/WasteViewIntro';
 import { WasteWeightDifferenceNotice } from './components/WasteWeightDifferenceNotice';
+import { downloadWasteFolioSupportExport } from '../../shared/services/waste-warehouse-export.service';
 import {
   folioDetailSubtitle,
   folioFacts,
+  folioHasSupport,
   folioListRow,
+  folioSupportExportRequest,
+  folioSupportFacts,
+  folioSupportSubtitle,
   WASTE_SIDREP_CLOSED_FOLIOS,
   WASTE_SIDREP_FOLIO_CLOSED_STATUS,
+  type WasteSidrepFolio,
 } from './wasteSidrepFolios';
 
 /**
@@ -110,12 +118,48 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     WASTE_SIDREP_CLOSED_FOLIOS[WASTE_SIDREP_CLOSED_FOLIOS.length - 1]?.folio ?? null,
   );
+  /*
+   * El respaldo se abre para el folio que está en el panel, así que basta un booleano:
+   * guardar OTRO id abriría la puerta a que el modal muestre un folio distinto del que
+   * la vista tiene abierto. Al cambiar de folio se cierra —ver `handleSelect`—.
+   */
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
 
   const rows = useMemo(() => WASTE_SIDREP_CLOSED_FOLIOS.map(folioListRow), []);
   const selected = useMemo(
     () => WASTE_SIDREP_CLOSED_FOLIOS.find((folio) => folio.folio === selectedId) ?? null,
     [selectedId],
   );
+
+  /*
+   * El respaldo de traslado existe SÓLO para residuo peligroso — ver `folioHasSupport`.
+   * De este único booleano cuelgan las dos cosas que tienen que coincidir: que el pie
+   * del panel dibuje el botón, y que el modal esté abierto. Así un folio sin respaldo no
+   * puede quedar con el modal en pantalla ni por un cambio de selección ni por un estado
+   * que sobrevivió.
+   */
+  const hasSupport = selected !== null && folioHasSupport(selected);
+
+  function handleSelect(id: string) {
+    setSelectedId(id);
+    // Elegir otro folio invalida el respaldo abierto: es el de otro traslado.
+    setIsSupportOpen(false);
+  }
+
+  /*
+   * El PDF lo renderiza la API (`POST /waste/sidrep/folios/export/pdf`) y no el navegador,
+   * igual que las otras tres exportaciones del módulo: el documento lleva el membrete de
+   * Gold Fields y se archiva como respaldo de fiscalización, así que su composición vive en
+   * un solo lugar y no depende de qué navegador lo bajó.
+   *
+   * ES UNA MUTACIÓN DE TANSTACK QUERY y no un `fetch` suelto porque el botón necesita los
+   * tres estados: deshabilitado mientras renderiza, y un mensaje si el servidor falla. Un
+   * respaldo que "no pasó nada" al hacer clic es peor que uno que dice por qué no salió.
+   */
+  const supportExport = useMutation({
+    mutationFn: (folio: WasteSidrepFolio) =>
+      downloadWasteFolioSupportExport(folioSupportExportRequest(folio)),
+  });
 
   return (
     <div className="flex w-full min-w-[1100px] flex-col items-start px-[28px] pb-[40px] pt-[20px]">
@@ -148,7 +192,7 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
                 label={LIST_LABEL}
                 rows={rows}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={handleSelect}
               />
 
               {/*
@@ -160,8 +204,13 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
                 {selected ? (
                   <WasteFolioDetailPanel
                     notice={
-                      /* Sólo el folio con brecha lo lleva. Nodo `3437:3362`. */
-                      selected.gap ? (
+                      /*
+                       * Sólo el folio cuya brecha SE PASÓ de la tolerancia lo lleva
+                       * (nodo `3437:3362`). Una diferencia dentro de tolerancia se ve
+                       * en la grilla y no necesita alerta: es lo que separa al
+                       * `2026-SD-04812` de los otros dos, que también tienen brecha.
+                       */
+                      selected.gap?.exceedsTolerance ? (
                         <WasteWeightDifferenceNotice
                           difference={`${selected.gap.kg}kg`}
                           percentage={selected.gap.percentage}
@@ -174,7 +223,18 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
                     subtitle={folioDetailSubtitle(selected)}
                     status={<WastePill tone="amber">{WASTE_SIDREP_FOLIO_CLOSED_STATUS}</WastePill>}
                     footer={
-                      <WasteTertiaryActionButton fullWidth label={WASTE_SIDREP_FOLIOS_SUPPORT_ACTION} />
+                      /*
+                       * Sin respaldo no hay pie: `WasteFolioDetailPanel` con `footer`
+                       * vacío no dibuja la franja ni su línea, en vez de dejar un botón
+                       * apagado que promete un documento que no existe.
+                       */
+                      hasSupport ? (
+                        <WasteTertiaryActionButton
+                          fullWidth
+                          label={WASTE_SIDREP_FOLIOS_SUPPORT_ACTION}
+                          onClick={() => setIsSupportOpen(true)}
+                        />
+                      ) : undefined
                     }
                   >
                     <WasteDefinitionGrid items={folioFacts(selected)} />
@@ -197,6 +257,34 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
                   </WasteNoticeBanner>
                 )}
               </div>
+
+              {/*
+                Modal `3085:13254`, emplazado en `3085:12902`. Va montado ACÁ y no en
+                el pie del panel porque se dibuja con `createPortal` sobre
+                `document.body`: donde se declare no cambia dónde aparece, y al lado de
+                su folio se lee que muestra el que está seleccionado.
+              */}
+              {selected && hasSupport ? (
+                <WasteFolioSupportModal
+                  open={isSupportOpen}
+                  subtitle={folioSupportSubtitle(selected)}
+                  status={WASTE_SIDREP_FOLIO_CLOSED_STATUS}
+                  facts={folioSupportFacts(selected)}
+                  dispatched={`${selected.dispatchedKg} kg`}
+                  received={`${selected.receivedKg} kg`}
+                  difference={selected.gap ? `${selected.gap.kg} kg` : '0 kg'}
+                  differenceQualifier={selected.gap?.qualifier ?? null}
+                  packageDocs={selected.packageDocs}
+                  onClose={() => setIsSupportOpen(false)}
+                  onDownload={() => supportExport.mutate(selected)}
+                  isDownloading={supportExport.isPending}
+                  downloadError={
+                    supportExport.isError
+                      ? 'No se pudo generar el PDF del respaldo. Intentá de nuevo.'
+                      : null
+                  }
+                />
+              ) : null}
             </div>
           )}
         </div>

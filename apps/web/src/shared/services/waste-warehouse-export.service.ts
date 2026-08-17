@@ -1,6 +1,7 @@
 import type {
   WarehouseControlExportRequest,
   WarehouseIntakeExportRequest,
+  WasteFolioSupportExportRequest,
   WasteSinaderExportRequest,
 } from '@aurelia/contracts';
 import { httpDownloadPost } from './http-client';
@@ -9,8 +10,9 @@ import { httpDownloadPost } from './http-client';
  * Exportación de las vistas del módulo de residuos a PDF y Excel.
  *
  * El renderizado ocurre en la API —`POST /waste/warehouse-control/export/pdf`,
- * `.../export/xlsx`, `POST /waste/warehouse-intake/export/xlsx` y
- * `POST /waste/sinader/export/{pdf,xlsx}`—, igual que los informes de
+ * `.../export/xlsx`, `POST /waste/warehouse-intake/export/xlsx`,
+ * `POST /waste/sinader/export/{pdf,xlsx}` y
+ * `POST /waste/sidrep/folios/export/pdf`—, igual que los informes de
  * inspecciones: acá solo se envía lo que está en pantalla y se dispara la
  * descarga del blob.
  */
@@ -44,6 +46,9 @@ const SINADER_FALLBACK_FILENAMES: Record<WasteExportFormat, string> = {
   xlsx: 'residuos-reporte-sinader.xlsx',
 };
 
+const FOLIO_SUPPORT_PDF_ENDPOINT = '/waste/sidrep/folios/export/pdf';
+const FOLIO_SUPPORT_PDF_FALLBACK_FILENAME = 'residuos-respaldo-sidrep.pdf';
+
 export async function downloadWarehouseControlExport(
   format: WarehouseControlExportFormat,
   payload: WarehouseControlExportRequest,
@@ -72,6 +77,24 @@ export async function downloadWasteSinaderExport(
   payload: WasteSinaderExportRequest,
 ): Promise<void> {
   await downloadExport(SINADER_ENDPOINTS[format], payload, SINADER_FALLBACK_FILENAMES[format]);
+}
+
+/**
+ * Descarga el "Respaldo de Traslado de Residuo Peligroso" de un folio SIDREP — nodo
+ * `3084:11044`. Lo dispara el botón "Descargar PDF" del modal `3085:13254`.
+ *
+ * SÓLO PDF, al revés del consolidado SINADER: esto no es una tabla que alguien vaya a
+ * filtrar y sumar, es un documento de respaldo que se archiva y se presenta. Un Excel del
+ * mismo contenido no tendría a quién servirle.
+ *
+ * El nombre del archivo lo decide el SERVIDOR y lleva el folio
+ * (`residuos-respaldo-2026-SD-04690.pdf`); el fallback de acá sólo cubre el caso de que la
+ * respuesta llegue sin `Content-Disposition`.
+ */
+export async function downloadWasteFolioSupportExport(
+  payload: WasteFolioSupportExportRequest,
+): Promise<void> {
+  await downloadExport(FOLIO_SUPPORT_PDF_ENDPOINT, payload, FOLIO_SUPPORT_PDF_FALLBACK_FILENAME);
 }
 
 async function downloadExport(endpoint: string, payload: unknown, fallbackFilename: string): Promise<void> {
