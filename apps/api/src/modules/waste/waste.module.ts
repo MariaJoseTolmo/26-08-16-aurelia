@@ -15,6 +15,8 @@ import { WasteWithdrawalRequestEntity } from './entities/waste-withdrawal-reques
 import { ReportsModule } from '../reports/reports.module';
 import { WasteIntakeExportXlsxService } from './waste-intake-export-xlsx.service';
 import { WasteIntakeExportController } from './waste-intake-export.controller';
+import { WasteFolioSupportExportPdfService } from './waste-folio-support-export-pdf.service';
+import { WasteSidrepExportController } from './waste-sidrep-export.controller';
 import { WasteSinaderExportPdfService } from './waste-sinader-export-pdf.service';
 import { WasteSinaderExportXlsxService } from './waste-sinader-export-xlsx.service';
 import { WasteSinaderExportController } from './waste-sinader-export.controller';
@@ -48,6 +50,7 @@ const WASTE_ENTITIES = [
     WasteWarehouseExportController,
     WasteIntakeExportController,
     WasteSinaderExportController,
+    WasteSidrepExportController,
   ],
   providers: [
     WasteService,
@@ -55,6 +58,7 @@ const WASTE_ENTITIES = [
     WasteWarehouseExportXlsxService,
     WasteIntakeExportXlsxService,
     WasteSinaderExportPdfService,
+    WasteFolioSupportExportPdfService,
     WasteSinaderExportXlsxService,
   ],
   exports: [WasteService],

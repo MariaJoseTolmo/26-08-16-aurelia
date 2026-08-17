@@ -240,6 +240,46 @@ export function wasteSinaderExportBaseFilename(generatedAt: Date): string {
   return `residuos-reporte-sinader-${generatedAt.toISOString().slice(0, 10)}`;
 }
 
+/**
+ * Rótulos y paleta del "Respaldo de Traslado de Residuo Peligroso" — nodo
+ * `3084:11044`.
+ *
+ * Comparte archivo con las otras exportaciones del módulo por el mismo motivo del
+ * encabezado: las cuatro tienen que llamar igual a las mismas cosas. La pastilla usa el
+ * par teal que ya está en `WAREHOUSE_EXPORT_TONES.safe` (#c5fff6 / #006153) —el de
+ * "Cerrado" en toda la vista de folios—, así que no se declara un color nuevo.
+ */
+export const WASTE_FOLIO_SUPPORT_EXPORT_SECTIONS = {
+  transfer: 'Datos del traslado',
+  documents: 'Documentos incluidos en este paquete',
+} as const;
+
+/**
+ * Texto legal del pie — nodo `3084:11228`.
+ *
+ * Es el MISMO que el modal muestra en pantalla (`WASTE_FOLIO_SUPPORT_DISCLAIMER` en la
+ * web), y está duplicado a propósito: la web no puede importar de la API, y el
+ * documento no puede depender de que el cliente le mande su propio texto legal. El nodo
+ * lo cierra con un espacio sobrante que no se reproduce.
+ */
+export const WASTE_FOLIO_SUPPORT_EXPORT_DISCLAIMER =
+  'Este documento fue generado automáticamente por AurelIA como respaldo consolidado para procesos de fiscalización ambiental. La información contenida corresponde a los registros ingresados por Medio Ambiente y por la Empresa Colaboradora durante la gestión del presente folio. Para verificar el estado oficial de la declaración, consulte la Ventanilla Única del RETC (SIDREP).';
+
+export const WASTE_FOLIO_SUPPORT_EXPORT_SUBJECT = 'Respaldo de traslado de residuo peligroso';
+
+/**
+ * `residuos-respaldo-2026-SD-04690`.
+ *
+ * LLEVA EL FOLIO Y NO LA FECHA, al revés de las otras tres exportaciones del módulo.
+ * Aquéllas son reportes de un período —dos descargas del mismo día son la misma cosa— y
+ * ésta es el respaldo de UN traslado concreto: quien archiva diez respaldos necesita
+ * distinguirlos por folio, no por el día en que los bajó.
+ */
+export function wasteFolioSupportExportBaseFilename(folio: string): string {
+  const slug = folio.replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+  return `residuos-respaldo-${slug || 'sidrep'}`;
+}
+
 export const WAREHOUSE_EXPORT_SECTIONS = {
   kpis: 'Resumen de bodega',
   bars: 'Acumulado mensual vs. umbral RCA',
