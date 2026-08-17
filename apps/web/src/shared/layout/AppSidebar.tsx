@@ -45,6 +45,7 @@ const SIDEBAR_EXPANDED_MODULES_STORAGE_KEY = 'aurelia.sidebar.expanded-modules';
 
 const WASTE_WITHDRAWAL_ROUTE = '/waste/solicitud-retiro';
 const WASTE_DASHBOARD_ROUTE = '/waste/dashboard';
+const WASTE_SIDREP_FOLIOS_ROUTE = '/waste/folios-sidrep';
 const WASTE_HISTORY_ROUTE = '/waste/historico';
 const WASTE_SINADER_ROUTE = '/waste/reporte-sinader';
 
@@ -575,8 +576,9 @@ function buildWasteWithdrawerItems(): SidebarItem[] {
  * no encuentra módulo activo, el sidebar cae al listado entero y volverían a
  * filtrarse.
  *
- * Dashboard, Histórico y Reporte SINADER tienen ruta. Los otros dos van `disabled`
- * porque sus vistas no existen todavía; se les asigna `to` cuando se implementen.
+ * Dashboard, Folios SIDREP, Histórico y Reporte SINADER tienen ruta. Sólo
+ * Administración queda `disabled` porque su vista no existe todavía; se le asigna
+ * `to` cuando se implemente.
  *
  * Dashboard y Administración reusan el `dashboard` y el `admin` que ya están en
  * `AppSidebarIcons`. DECISIÓN TOMADA A SABIENDAS, y no porque sean el mismo
@@ -612,7 +614,7 @@ function buildWasteEnvApproverItems(): SidebarItem[] {
       to: WASTE_DASHBOARD_ROUTE,
       children: [
         { label: 'Dashboard', to: WASTE_DASHBOARD_ROUTE, end: true, icon: 'dashboard' },
-        { label: 'Folios SIDREP', icon: 'wasteSidrepFolios', disabled: true },
+        { label: 'Folios SIDREP', to: WASTE_SIDREP_FOLIOS_ROUTE, end: true, icon: 'wasteSidrepFolios' },
         { label: 'Histórico', to: WASTE_HISTORY_ROUTE, end: true, icon: 'wasteHistory' },
         { label: 'Reporte SINADER', to: WASTE_SINADER_ROUTE, end: true, icon: 'wasteSinaderReport' },
         { label: 'Administración', icon: 'admin', disabled: true },

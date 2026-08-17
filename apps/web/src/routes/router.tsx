@@ -26,6 +26,7 @@ import { WasteSidrepSupportDocsPage } from '../modules/waste/WasteSidrepSupportD
 import { WasteSidrepReviewPage } from '../modules/waste/WasteSidrepReviewPage';
 import { WasteHistoryPage } from '../modules/waste/WasteHistoryPage';
 import { WasteSinaderReportPage } from '../modules/waste/WasteSinaderReportPage';
+import { WasteSidrepFoliosPage } from '../modules/waste/WasteSidrepFoliosPage';
 import { ReportsPage } from '../modules/reports/ReportsPage';
 import { AdminPage } from '../modules/admin/AdminPage';
 import { MigrationsOperationsPage } from '../modules/migrations/MigrationsOperationsPage';
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
       { path: 'spr/monitoreo-kpis', element: <SprKpiMonitoringPage /> },
       { path: 'spr/reporte/area/:areaSlug', element: <SprReportAreaPage /> },
       { path: 'waste/dashboard', element: <WasteDashboardPage /> },
+      { path: 'waste/folios-sidrep', element: <WasteSidrepFoliosPage /> },
       { path: 'waste/historico', element: <WasteHistoryPage /> },
       { path: 'waste/reporte-sinader', element: <WasteSinaderReportPage /> },
       { path: 'waste/control-bodega', element: <WarehouseControlPage /> },
