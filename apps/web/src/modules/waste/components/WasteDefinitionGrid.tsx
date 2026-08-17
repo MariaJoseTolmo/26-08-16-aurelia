@@ -38,6 +38,26 @@ import { WasteFieldLabel } from './WasteFieldLabel';
  * `text-[...]` desde una variable, y es lo que ya hace `WasteKpiCard`.
  */
 
+/**
+ * Las dos grillas de datos que dibuja el diseño para el MISMO folio. Difieren de
+ * verdad —en el cuerpo del valor, en la separación del par y en la de las columnas—
+ * así que se preservan las dos en vez de unificar por cuenta propia:
+ *
+ *   `panel` `3083:10974`  el panel de detalle, al lado de la lista
+ *                         gap-x-[16px] gap-y-[12px] · par gap-[2px] · valor 12.5px
+ *   `modal` `3085:13271`  el respaldo completo, donde el dato es el protagonista
+ *                         gap-x-[28px] gap-y-[14px] · par gap-[3px] · valor 13px
+ *
+ * El rótulo es el MISMO en las dos (`WasteFieldLabel`), y por eso no entra acá: lo
+ * que el modal agranda es el valor, no su etiqueta.
+ */
+export type WasteDefinitionGridVariant = 'panel' | 'modal';
+
+const GRID_VARIANT: Record<WasteDefinitionGridVariant, { grid: string; item: string; value: string }> = {
+  panel: { grid: 'gap-x-[16px] gap-y-[12px]', item: 'gap-[2px]', value: 'text-[12.5px]' },
+  modal: { grid: 'gap-x-[28px] gap-y-[14px]', item: 'gap-[3px]', value: 'text-[13px]' },
+};
+
 export interface WasteDefinitionItem {
   /** Rótulo del dato, en su capitalización natural. La mayúscula la pone el CSS. */
   label: string;
@@ -51,21 +71,22 @@ export interface WasteDefinitionItem {
 
 interface WasteDefinitionGridProps {
   items: WasteDefinitionItem[];
+  /** Ver `WasteDefinitionGridVariant`. Por defecto la del panel, que fue la primera. */
+  variant?: WasteDefinitionGridVariant;
 }
 
-export function WasteDefinitionGrid({ items }: WasteDefinitionGridProps) {
+export function WasteDefinitionGrid({ items, variant = 'panel' }: WasteDefinitionGridProps) {
+  const geometry = GRID_VARIANT[variant];
+
   return (
-    <dl
-      className="grid w-full grid-cols-1 gap-x-[16px] gap-y-[12px] sm:grid-cols-2"
-      data-name="Container"
-    >
+    <dl className={`grid w-full grid-cols-1 sm:grid-cols-2 ${geometry.grid}`} data-name="Container">
       {items.map((item) => (
-        <div key={item.label} className="flex flex-col items-start gap-[2px]">
+        <div key={item.label} className={`flex flex-col items-start ${geometry.item}`}>
           <dt>
             <WasteFieldLabel>{item.label}</WasteFieldLabel>
           </dt>
           <dd
-            className="w-full font-['Inter:Semi_Bold',sans-serif] text-[12.5px] font-semibold not-italic leading-[normal] text-[#131313]"
+            className={`w-full font-['Inter:Semi_Bold',sans-serif] font-semibold not-italic leading-[normal] text-[#131313] ${geometry.value}`}
             style={item.valueTone ? { color: item.valueTone } : undefined}
           >
             {item.value}
