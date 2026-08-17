@@ -578,6 +578,16 @@ export class WasteSinaderExportPdfService {
     for (let index = 0; index < range.count; index += 1) {
       doc.switchToPage(range.start + index);
 
+      /*
+       * El pie va por DEBAJO del margen inferior: el nodo lo pone a 1083 de 1123,
+       * o sea a 30pt del borde, y el margen de la hoja son 36pt. Escribir ahí con
+       * el margen puesto hace que pdfkit crea que el texto desbordó y agregue una
+       * hoja nueva —y como el pie se dibuja en todas, cascadea—. Por eso el margen
+       * se anula mientras se pinta el pie y se restaura después.
+       */
+      const bottomMargin = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+
       doc
         .moveTo(this.left, footerY)
         .lineTo(this.left + this.width, footerY)
@@ -607,6 +617,8 @@ export class WasteSinaderExportPdfService {
           align: 'right',
           lineBreak: false,
         });
+
+      doc.page.margins.bottom = bottomMargin;
     }
   }
 
