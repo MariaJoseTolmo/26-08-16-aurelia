@@ -6,6 +6,7 @@ import { MessagingService } from './messaging.service';
 import { EMAIL_TRANSPORT, EmailTransport } from './messaging.types';
 import { SmtpEmailTransport } from './smtp-email.transport';
 import { WasteSidrepRequestCorrectedEmailTemplateService } from './waste-sidrep-request-corrected-email-template.service';
+import { WasteSidrepRequestRejectedEmailTemplateService } from './waste-sidrep-request-rejected-email-template.service';
 import { WasteSinaderReportEmailTemplateService } from './waste-sinader-report-email-template.service';
 
 export type MessagingModuleOptions = {
@@ -26,6 +27,7 @@ export class MessagingModule {
         EmailTemplateService,
         InspectionRejectionEmailTemplateService,
         WasteSidrepRequestCorrectedEmailTemplateService,
+        WasteSidrepRequestRejectedEmailTemplateService,
         WasteSinaderReportEmailTemplateService,
         MessagingService,
         emailTransport,
@@ -38,6 +40,7 @@ export class MessagingModule {
         EmailTemplateService,
         InspectionRejectionEmailTemplateService,
         WasteSidrepRequestCorrectedEmailTemplateService,
+        WasteSidrepRequestRejectedEmailTemplateService,
         WasteSinaderReportEmailTemplateService,
         MessagingService,
         EMAIL_TRANSPORT,

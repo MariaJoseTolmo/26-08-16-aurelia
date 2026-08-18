@@ -190,6 +190,17 @@ export interface EmailShellInput {
   subheading: string;
   /** Nombre del destinatario, ya escapado; va en negrita tras "Hola, ". */
   recipientName: string;
+  /**
+   * Cierre del saludo, cuando el nodo NO usa el de sus medidas. Por omisión, el de
+   * `metrics`.
+   *
+   * Existe porque el correo de solicitud rechazada (`4278:21437`) rompe el par: usa las
+   * medidas `ROOMY` en los otros doce valores y cierra el saludo SIN coma, como los
+   * `COMPACT`. Es la misma clase de divergencia puntual que las tres medidas opcionales
+   * del recuadro, y se resuelve igual —prop opcional con el valor de antes por omisión—
+   * en vez de crear una tercera especificación completa por un carácter.
+   */
+  greetingSuffix?: string;
   /** Párrafos del cuerpo, ya escapados. */
   paragraphs: string[];
   notice: EmailShellNotice;
@@ -241,6 +252,9 @@ export function renderEmailShell(input: EmailShellInput): string {
   const noticePaddingX = input.notice.paddingX ?? 15;
   const noticeGap = input.notice.gap ?? 10;
 
+  /* Ídem con el cierre del saludo: por omisión, el de las medidas del correo. */
+  const greetingSuffix = input.greetingSuffix ?? m.greetingSuffix;
+
   /* Sólo el primer párrafo se despega del saludo; el resto van pegados entre sí. */
   const paragraphs = input.paragraphs
     .map(
@@ -290,7 +304,7 @@ ${input.extraCss ?? ''}    }
               <h1 style="margin:0;font-size:22px;line-height:27.5px;font-weight:700;color:#131313;">${input.heading}</h1>
               <p style="margin:${m.subheadingMarginTop}px 0 0;font-size:${m.subheadingFontSize}px;line-height:${m.subheadingLineHeight}px;color:#646464;">${input.subheading}</p>
               <div style="height:1px;margin:${m.dividerMarginTop}px 0 0;background:#e3e3e3;line-height:1px;">&nbsp;</div>
-              <p style="margin:${m.greetingMarginTop}px 0 0;font-size:14px;line-height:20px;${m.greetingFontWeight}color:#333333;">Hola, <strong>${input.recipientName}</strong>${m.greetingSuffix}</p>
+              <p style="margin:${m.greetingMarginTop}px 0 0;font-size:14px;line-height:20px;${m.greetingFontWeight}color:#333333;">Hola, <strong>${input.recipientName}</strong>${greetingSuffix}</p>
               ${paragraphs}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin-top:${noticeMarginTop}px;border:1px solid ${input.notice.border};border-radius:8px;background:${input.notice.background};">
                 <tr>
