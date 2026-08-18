@@ -13,7 +13,7 @@ const BASE = {
     'La fotografía frontal del camión está demasiado borrosa. Por favor asegurese de que la patente se vea nítida',
   rejectedByName: 'Karen Opazo Soto',
   rejectedAtLabel: '18-08-2026',
-  actionUrl: 'https://aurelia.goldfields.cl/waste/historico',
+  actionUrl: 'https://aurelia.goldfields.cl/waste/solicitud-retiro',
 };
 
 function main(): void {
@@ -50,11 +50,11 @@ function main(): void {
   assert.match(rendered.html, /Medio ambiente revisó tu solicitud de retiro y lo devolvió para corrección/);
   assert.match(rendered.html, /Ir a corregir formulario/);
   /*
-   * EL BOTÓN `4278:21525` LLEVA AL HISTÓRICO DE RETIROS, que es donde la solicitud
-   * rechazada vuelve a estar disponible para retomarla.
+   * EL BOTÓN `4278:21525` LLEVA A LA VISTA DE SOLICITUDES DE RETIRO, la única que dibuja
+   * el aviso de rechazadas, la pastilla "Rechazado" y el link "Corregir".
    */
-  assert.equal(WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH, '/waste/historico');
-  assert.match(rendered.html, /href="https:\/\/aurelia\.goldfields\.cl\/waste\/historico"/);
+  assert.equal(WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH, '/waste/solicitud-retiro');
+  assert.match(rendered.html, /href="https:\/\/aurelia\.goldfields\.cl\/waste\/solicitud-retiro"/);
   assert.match(rendered.html, /Una vez corrijas el formulario y lo reenvíes, Medio Ambiente recibirá/);
 
   // El par ROJO del sistema, verificado píxel a píxel sobre el render del nodo.
@@ -90,7 +90,7 @@ function main(): void {
   assert.match(rendered.text, /Motivo del rechazo · Karen Opazo Soto/);
   assert.match(rendered.text, /Fecha: 18-08-2026/);
   assert.match(rendered.text, /Rechazado por: Karen Opazo Soto · Medio Ambiente/);
-  assert.match(rendered.text, /https:\/\/aurelia\.goldfields\.cl\/waste\/historico/);
+  assert.match(rendered.text, /https:\/\/aurelia\.goldfields\.cl\/waste\/solicitud-retiro/);
 
   // ── Validación de entrada ────────────────────────────────────────────────────
   assert.throws(() => service.render({ ...BASE, recipientName: '  ' }), /recipientName is required/);
@@ -102,12 +102,12 @@ function main(): void {
    * sin manera de encontrar la solicitud rechazada.
    */
   assert.throws(
-    () => service.render({ ...BASE, actionUrl: 'https://aurelia.goldfields.cl/waste/solicitud-retiro' }),
-    /actionUrl must point to \/waste\/historico/,
+    () => service.render({ ...BASE, actionUrl: 'https://aurelia.goldfields.cl/waste/historico' }),
+    /actionUrl must point to \/waste\/solicitud-retiro/,
   );
   // La barra final y los parámetros de más siguen llevando a la misma pantalla.
   assert.doesNotThrow(() =>
-    service.render({ ...BASE, actionUrl: 'https://aurelia.goldfields.cl/waste/historico/?utm=mail' }),
+    service.render({ ...BASE, actionUrl: 'https://aurelia.goldfields.cl/waste/solicitud-retiro/?utm=mail' }),
   );
   /*
    * La fecha llega formateada y se valida: un ISO filtrado desde el backend pasaría

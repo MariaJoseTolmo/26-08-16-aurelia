@@ -90,23 +90,32 @@ const CLOSING_PARAGRAPH =
 const CTA_LABEL = 'Ir a corregir formulario';
 
 /**
- * Destino del botón `4278:21525`: el "Histórico de retiros" de la web.
+ * Destino del botón `4278:21525`: la vista "Histórico de retiros de residuos" de la web,
+ * que es la de las solicitudes de retiro.
+ *
+ * ES ESTA PANTALLA Y NO `/waste/historico`, aunque las dos se llamen parecido. Acá está
+ * TODO lo que el correo le pide al transportista:
+ *
+ *   el aviso "Rechazadas · N solicitud(es)"   nodo `4278:17632`
+ *   la pastilla "Rechazado" en Folio SIDREP   nodo `4278:18460`
+ *   el link "Corregir" de la fila             nodo `4278:18538`
+ *
+ * `/waste/historico` es otra vista —el histórico del aprobador, con sus diecinueve
+ * columnas de pesos y responsables— y no dibuja ninguna de las tres: mandar ahí al
+ * transportista lo dejaba sin manera de encontrar la solicitud rechazada.
+ *
+ * POR ESO EL RÓTULO CIERRA: el botón dice "Ir a corregir formulario" y el destino tiene un
+ * "Corregir" en la fila rechazada, que es lo que sigue después del clic.
  *
  * ES UNA CONSTANTE Y SE VALIDA, en vez de confiar en que cada llamador ponga la ruta
- * correcta: el correo tiene UN destino y es este. Un llamador que apuntara a otra pantalla
- * dejaría al transportista sin manera de encontrar la solicitud rechazada, y el error se
+ * correcta: el correo tiene UN destino y es este. El error de apuntar a otra pantalla se
  * vería recién en la bandeja de alguien.
  *
  * LO QUE VARÍA ES EL HOST, no la ruta —hay un dominio por ambiente—, así que se sigue
  * recibiendo la URL completa en `actionUrl` como en los otros tres correos y lo que se
  * comprueba es que el `pathname` sea éste.
- *
- * EL RÓTULO DEL BOTÓN NO NOMBRA ESTA PANTALLA: dice "Ir a corregir formulario" y el
- * destino es el histórico, que es donde la solicitud rechazada vuelve a estar disponible
- * para retomarla. Es lo que pidió el negocio y lo que dibuja el nodo; queda anotado porque
- * si el histórico algún día deja de ofrecer esa acción, el rótulo pasa a mentir.
  */
-export const WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH = '/waste/historico';
+export const WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH = '/waste/solicitud-retiro';
 
 /**
  * Área del revisor, en la fila "RECHAZADO POR" del nodo `4278:21516`.
@@ -140,7 +149,7 @@ export type WasteSidrepRequestRejectedEmailParams = {
   rejectedAtLabel: string;
   /**
    * Destino del botón `4278:21525`, con el host del ambiente y el path
-   * `WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH`: "https://…/waste/historico".
+   * `WASTE_SIDREP_REJECTED_EMAIL_ACTION_PATH`: "https://…/waste/solicitud-retiro".
    *
    * Es la URL directa de la vista y no un deep-link firmado, igual que en los otros tres
    * correos. La ruta se valida; ver la nota de la constante.
@@ -300,8 +309,8 @@ function detailRow(label: string, value: string, position: 'first' | 'last'): st
 }
 
 /**
- * URL del botón: `http(s)` —lo que ya exige el armazón— y apuntando al "Histórico de
- * retiros".
+ * URL del botón: `http(s)` —lo que ya exige el armazón— y apuntando a la vista de
+ * solicitudes de retiro.
  *
  * Se compara el `pathname` y no la URL entera para no atarse al host ni a lo que traiga
  * detrás: una barra final o un `?utm=…` siguen llevando a la misma pantalla, y rechazarlos
