@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
 import { SnackbarCheckIcon } from './icons/SnackbarCheckIcon';
+import { SnackbarCloseIcon } from './icons/SnackbarCloseIcon';
 
 /**
- * Snackbar de confirmación — nodo Figma `3785:45722`, instancia del componente
- * "Snackbar" del UI Kit.
+ * Snackbar de confirmación — nodos Figma `3785:45722` (Solicitud de retiro) y
+ * `3083:9723` (Folios SIDREP), instancias del componente "Snackbar" del UI Kit.
  *
  *   caja    bg #54a036 · rounded-[8px] · flex gap-[8px] items-center · p-[12px]
  *   icono   caja 24 × 24 con el glifo en `inset-[8.33%]`, o sea 20 × 20
  *   texto   Inter Bold 14px · leading-[22.7px] · tracking-[0.28px] · white
+ *   cerrar  caja 16 × 16 con el glifo en `inset-[8.33%]`, o sea 13.333 × 13.333
  *
- * La instancia del nodo tiene OCULTAS la segunda línea (`416:355`) y la X de cerrar
- * (`416:356`), asi que este componente dibuja solo el título. Cuando aparezca un
- * nodo que las use, se agregan como props en vez de inventarlas ahora.
+ * La segunda línea (`416:355`) sigue OCULTA en las dos instancias, así que este
+ * componente dibuja sólo el título. La X de cerrar (`416:356`) estaba oculta en
+ * `3785:45722` y VISIBLE en `3083:9723`, así que se agrega como el `dismissible` que
+ * quedó anotado acá, en vez de inventarla.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ESTE PATRÓN YA EXISTÍA INLINE, DOS VECES
@@ -26,10 +29,10 @@ import { SnackbarCheckIcon } from './icons/SnackbarCheckIcon';
  * misma caja de 24 con el glifo en 20, así que el dibujo del anillo con el check dejó
  * de estar aproximado a mano con `stroke`.
  *
- * LO QUE FALTA ES EL CASCARÓN, y no es un olvido. Esas dos copias llevan dos cosas que
- * este componente no tiene porque su nodo las trae OCULTAS: una X de cerrar y una
- * `shadow`. Migrarlas entero pide sumarle esas props —y en un caso reacomodar su
- * temporizador propio de 3200ms—, que es tocar flujos de inspecciones. Queda anotado.
+ * LO QUE FALTA ES LA `shadow`. La X de cerrar ya está —`dismissible`—, así que de las
+ * dos cosas que impedían migrar esas copias queda una, más el temporizador propio de
+ * 3200ms de una de ellas. Migrarlas sigue siendo tocar flujos de inspecciones y sigue
+ * anotado.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * `role="status"` con `aria-live="polite"` para que el lector de pantalla lo anuncie
@@ -47,6 +50,12 @@ interface SnackbarProps {
   autoHideMs?: number;
   onClose: () => void;
   /**
+   * Dibuja la X de cerrar del nodo `3083:9723`, que llama al mismo `onClose` que el
+   * temporizador: cerrar a mano y cerrarse solo son el mismo efecto, así que no lleva
+   * su propia prop. Sin esto no se dibuja, como en `3785:45722`.
+   */
+  dismissible?: boolean;
+  /**
    * Clases de posición. Se pasan desde afuera porque el nodo lo emplaza dentro de
    * la columna de contenido y no de la ventana, y cada pantalla sabe cuál es su
    * columna.
@@ -54,7 +63,14 @@ interface SnackbarProps {
   className?: string;
 }
 
-export function Snackbar({ open, message, autoHideMs = 6000, onClose, className = '' }: SnackbarProps) {
+export function Snackbar({
+  open,
+  message,
+  autoHideMs = 6000,
+  onClose,
+  dismissible = false,
+  className = '',
+}: SnackbarProps) {
   useEffect(() => {
     if (!open) return undefined;
 
@@ -76,6 +92,16 @@ export function Snackbar({ open, message, autoHideMs = 6000, onClose, className 
       <p className="font-['Inter:Bold',sans-serif] text-[14px] font-bold not-italic leading-[22.7px] tracking-[0.28px] text-white">
         {message}
       </p>
+      {dismissible ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar el aviso"
+          className="flex size-[16px] shrink-0 items-center justify-center"
+        >
+          <SnackbarCloseIcon className="block size-[13.333px] shrink-0 text-white" />
+        </button>
+      ) : null}
     </div>
   );
 }

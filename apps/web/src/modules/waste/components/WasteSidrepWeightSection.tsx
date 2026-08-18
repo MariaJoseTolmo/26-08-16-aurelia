@@ -7,6 +7,7 @@ import {
   WEIGHT_PENDING_LABEL,
 } from '../wasteSidrepForm';
 import { WarehouseFormCard } from './WarehouseFormCard';
+import { WasteDerivedValueField } from './WasteDerivedValueField';
 import { WasteSidrepFileDropzone } from './WasteSidrepFileDropzone';
 
 /**
@@ -36,6 +37,10 @@ import { WasteSidrepFileDropzone } from './WasteSidrepFileDropzone';
  *   pesos   bg #e6f3ff · border #c5d8f0
  *           rótulo Inter Semi Bold 11.5px #0d3862
  *           valor  Inter BOLD 19px #0d3862 ("1.250 kg")
+ *
+ * LAS TRES CAJAS DE PESO SON `WasteDerivedValueField`, el campo que transcribe un
+ * documento: el modal "Registrar cierre de folio" dibuja el mismo par de estados con la
+ * declaración SIDREP (`4230:13438` → `4230:13650`), así que la geometría vive ahí.
  *
  * LOS PESOS LOS TRAE LA API, no se calculan acá. El párrafo del nodo dice que los
  * transcribe AurelIA desde el ticket; el front sube el archivo y muestra lo que
@@ -87,7 +92,9 @@ export function WasteSidrepWeightSection({
   return (
     <WarehouseFormCard
       bodyGap
-      icon={<WasteSidrepWeightIcon className="block h-[13.5px] w-[16.875px] shrink-0 overflow-visible text-[#131313]" />}
+      icon={
+        <WasteSidrepWeightIcon className="block h-[13.5px] w-[16.875px] shrink-0 overflow-visible text-[#131313]" />
+      }
       title={SIDREP_WEIGHT_TITLE}
       description={SIDREP_WEIGHT_DESCRIPTION}
     >
@@ -126,29 +133,12 @@ export function WasteSidrepWeightSection({
         <div className="w-full pt-[16px]">
           <div className="flex w-full items-start gap-[14px]">
             {WEIGHT_ROWS.map(({ label, key }) => (
-              <div
+              <WasteDerivedValueField
                 key={label}
-                className={`flex min-w-px flex-1 items-center justify-between rounded-[8px] border border-solid px-[17px] py-[17.5px] ${
-                  validated ? 'border-[#c5d8f0] bg-[#e6f3ff]' : 'border-[#e3e3e3] bg-[#f7f7f7]'
-                }`}
-              >
-                <p
-                  className={`whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[11.5px] font-semibold not-italic leading-[normal] ${
-                    validated ? 'text-[#0d3862]' : 'text-[#646464]'
-                  }`}
-                >
-                  {label}
-                </p>
-                {weights ? (
-                  <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[#0d3862]">
-                    {formatWeightKg(weights[key])}
-                  </p>
-                ) : (
-                  <p className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-[10.5px] font-normal not-italic leading-[normal] text-[#646464]">
-                    {isAnalyzing ? 'Analizando…' : WEIGHT_PENDING_LABEL}
-                  </p>
-                )}
-              </div>
+                label={label}
+                value={weights ? formatWeightKg(weights[key]) : null}
+                pendingLabel={isAnalyzing ? 'Analizando…' : WEIGHT_PENDING_LABEL}
+              />
             ))}
           </div>
         </div>

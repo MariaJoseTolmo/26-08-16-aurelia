@@ -1,14 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
+import { ClockIcon } from '../../shared/components/icons/ClockIcon';
+import { Snackbar } from '../../shared/components/Snackbar';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WastePerformanceCriticalNoteIcon } from './icons/WasteCompanyPerformanceIcons';
 import { WarehouseFormLotIcon } from './icons/WarehouseIntakeFormIcons';
+import { WasteFolioVerifiedIcon } from './icons/WasteSidrepPendingFolioIcons';
 import {
+  WasteSinaderMarkDeclaredIcon,
+  WasteSinaderModalCloseIcon,
   WasteSinaderNoticeIcon,
   WasteSinaderNoticeInfoIcon,
 } from './icons/WasteSinaderReportIcons';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteFolioAttachmentsSection } from './components/WasteFolioAttachmentsSection';
 import { WastePill } from './components/WastePill';
 import { WasteDefinitionGrid } from './components/WasteDefinitionGrid';
 import { WasteFolioCloseModal } from './components/WasteFolioCloseModal';
@@ -18,6 +24,8 @@ import { WasteFolioFooterActionButton } from './components/WasteFolioFooterActio
 import { WasteFolioListCard } from './components/WasteFolioListCard';
 import { WasteFolioMasterDetail } from './components/WasteFolioMasterDetail';
 import { WasteFolioNotice } from './components/WasteFolioNotice';
+import { WasteFolioRejectedBanner } from './components/WasteFolioRejectedBanner';
+import { WasteFolioRejectModal } from './components/WasteFolioRejectModal';
 import { WasteFolioSupportModal } from './components/WasteFolioSupportModal';
 import { WasteNoticeBanner } from './components/WasteNoticeBanner';
 import { WasteTabs, wasteTabId, wasteTabPanelId, type WasteTab } from './components/WasteTabs';
@@ -38,6 +46,7 @@ import {
 } from './wasteSidrepFolios';
 import {
   openFolioCloseSubtitle,
+  openFolioClosedMessage,
   openFolioDetailSubtitle,
   openFolioFacts,
   openFolioListRow,
@@ -48,6 +57,24 @@ import {
   WASTE_SIDREP_OPEN_FOLIOS,
   type WasteSidrepOpenFolio,
 } from './wasteSidrepOpenFolios';
+import {
+  pendingRequestDetailSubtitle,
+  pendingRequestFacts,
+  pendingRequestListRow,
+  pendingRequestRejectedMessage,
+  pendingRequestRejectionHeading,
+  pendingRequestRejectionQuote,
+  pendingRequestSlaAlert,
+  pendingRequestVerification,
+  WASTE_SIDREP_PENDING_REQUESTS,
+  WASTE_SIDREP_REQUEST_APPROVE_ACTION,
+  WASTE_SIDREP_REQUEST_PENDING_STATUS,
+  WASTE_SIDREP_REQUEST_REJECT_ACTION,
+  WASTE_SIDREP_REQUEST_REJECTED_NOTE,
+  WASTE_SIDREP_REQUEST_REJECTED_STATUS,
+  type WasteSidrepPendingRequest,
+  type WasteSidrepRequestRejection,
+} from './wasteSidrepPendingFolios';
 
 /**
  * "Folios SIDREP" — nodos Figma `3083:10562` (pestaña "Cerrados") y `3081:7463`
@@ -70,16 +97,18 @@ import {
  * La franja es parte del encabezado y no del cuerpo: queda fija arriba del área
  * desplazable, que es lo que hace que las pestañas no se vayan al hacer scroll.
  *
- * DOS DE LAS TRES PESTAÑAS ESTÁN INTEGRADAS, una por nodo. "Pendientes de revisión"
- * existe —con su contador, porque el diseño lo muestra— y su panel explica que la
- * bandeja llega después, en vez de fingir una lista vacía o esconder la pestaña y perder
- * el contador.
+ * LAS TRES PESTAÑAS ESTÁN INTEGRADAS, una por nodo: `3073:5688` es "Pendientes de
+ * revisión", `3081:7463` "Abiertos" y `3083:10562` "Cerrados". Las tres reusan el mismo
+ * armazón —`WasteFolioMasterDetail`, `WasteFolioListCard`, `WasteFolioDetailPanel`— y lo
+ * que cambia entre ellas es qué se pone en cada ranura.
  *
- * TODO EL ESTADO ES DE CLIENTE: los folios salen de `WASTE_SIDREP_CLOSED_FOLIOS` y
- * `WASTE_SIDREP_OPEN_FOLIOS`, las maquetas de los nodos. Cuando exista el endpoint, cada
- * lista pasa a un hook de TanStack Query y los contadores de las pestañas a la misma
- * respuesta; el resto de la vista no cambia. Ver `wasteSidrepFolios.ts` y
- * `wasteSidrepOpenFolios.ts`.
+ * LA PRIMERA NO LISTA FOLIOS SINO SOLICITUDES, y por eso su modelo vive aparte: el folio
+ * SIDREP nace cuando el aprobador dice que sí. Ver `wasteSidrepPendingFolios.ts`.
+ *
+ * TODO EL ESTADO ES DE CLIENTE: las listas salen de `WASTE_SIDREP_PENDING_REQUESTS`,
+ * `WASTE_SIDREP_OPEN_FOLIOS` y `WASTE_SIDREP_CLOSED_FOLIOS`, las maquetas de los nodos.
+ * Cuando exista el endpoint, cada lista pasa a un hook de TanStack Query y los contadores
+ * de las pestañas a la misma respuesta; el resto de la vista no cambia.
  */
 
 /** Texto del nodo `3081:7672`, el `<h1>` del header. */
@@ -102,20 +131,57 @@ type WasteSidrepFolioTabId = 'pending' | 'open' | 'closed';
  * paginadas en el diseño real. Se conservan los números del nodo en vez de contar las
  * filas, que diría "3" y sería un dato distinto del que el diseño muestra.
  */
-const TABS: WasteTab<WasteSidrepFolioTabId>[] = [
-  { id: 'pending', label: 'Pendientes de revisión', count: 3 },
-  { id: 'open', label: 'Abiertos', count: 12 },
-  { id: 'closed', label: 'Cerrados', count: 48 },
-];
+const OPEN_TAB_COUNT = 12;
+const CLOSED_TAB_COUNT = 48;
+
+/**
+ * Los contadores se MUEVEN al cerrar un folio, y eso también sale del diseño: el nodo
+ * `3081:9331` —la vista después de confirmar un cierre— dibuja 3, 11 y 49 donde el
+ * `3081:7676` dibujaba 3, 12 y 48. O sea que el folio cambia de bandeja y los dos totales
+ * lo acusan.
+ */
+function foliosTabs(closedCount: number): WasteTab<WasteSidrepFolioTabId>[] {
+  return [
+    /*
+     * EL 3 DE "PENDIENTES" SÍ SE CUENTA, al revés que los otros dos. El nodo dibuja
+     * exactamente las tres solicitudes que lista, así que contar la bandeja da el mismo
+     * número que el diseño muestra y además no queda desfasado si se agrega una cuarta.
+     * En "Abiertos" y "Cerrados" los contadores son totales del período —el diseño lista
+     * tres de 12 y de 48—, y por eso ahí van los literales del nodo.
+     *
+     * RECHAZAR NO MUEVE ESTE CONTADOR, y eso lo decide el nodo `4295:24241`: dibuja la
+     * primera solicitud ya rechazada y la pestaña sigue diciendo 3. Una solicitud
+     * rechazada NO SALE de la bandeja —se queda con su pastilla "Rechazado" esperando la
+     * corrección del transportista, con el reloj del SLA corriendo—, así que no hay nada
+     * que descontar. Es lo contrario del cierre de folio, donde el folio sí cambia de
+     * bandeja y los dos totales lo acusan.
+     */
+    { id: 'pending', label: 'Pendientes de revisión', count: WASTE_SIDREP_PENDING_REQUESTS.length },
+    { id: 'open', label: 'Abiertos', count: OPEN_TAB_COUNT - closedCount },
+    { id: 'closed', label: 'Cerrados', count: CLOSED_TAB_COUNT + closedCount },
+  ];
+}
 
 const TABS_BASE_ID = 'waste-sidrep-folios';
 
 /** Rótulos accesibles de las listas maestras. Los nodos no les ponen título visible. */
+const PENDING_LIST_LABEL = 'Solicitudes de retiro pendientes de revisión';
 const OPEN_LIST_LABEL = 'Folios SIDREP abiertos';
 const CLOSED_LIST_LABEL = 'Folios SIDREP cerrados';
 
-const PENDING_NOTICE =
-  'La bandeja de folios pendientes de revisión se integra en una próxima iteración. Por ahora la vista muestra los folios abiertos y los ya cerrados.';
+/**
+ * Por qué "Aprobar y generar folio" sigue DESHABILITADO mientras "Rechazar" ya no lo está.
+ *
+ * LAS DOS ACCIONES SE ABRIERON POR SEPARADO PORQUE SON DOS NODOS SEPARADOS. "Rechazar"
+ * tiene el suyo —`4295:24214`, el modal de motivo— y por eso quedó integrado. Aprobar
+ * genera el folio SIDREP, o sea que escribe en la plataforma del Ministerio y mueve la
+ * solicitud a "Abiertos": ese diálogo todavía no está dibujado. Es la misma política con
+ * la que entró "Registrar cierre" para un folio no peligroso: antes que un botón que se ve
+ * activo y no hace nada, el estado deshabilitado que el módulo ya tiene con el motivo en
+ * su `title`.
+ */
+const PENDING_APPROVE_ACTION_HINT =
+  'La aprobación de solicitudes se integra en una próxima iteración.';
 
 /**
  * Por qué "Registrar cierre" queda deshabilitado en un folio NO peligroso.
@@ -133,15 +199,14 @@ const OPEN_FOLIO_ACTION_HINT =
   'El registro de cierre de un traslado no peligroso se integra en una próxima iteración.';
 
 /**
- * Por qué "Confirmar cierre" queda deshabilitado dentro del modal.
+ * Cuánto queda a la vista el snackbar de confirmación —el del cierre de folio y el del
+ * rechazo de solicitud, que comparten instancia—.
  *
- * El formulario es completo y validado, pero todavía no hay endpoint al que mandarlo. Es
- * el mismo criterio que el "Descargar PDF" del respaldo antes de que existiera el suyo: el
- * modal se abre y se llena, y el primario queda en el `#e2e2e2` que el propio nodo
- * `4230:13314` dibuja hasta que haya a quién confirmarle.
+ * El nodo no dibuja duración —Figma no dibuja el tiempo—, y acá se deja por debajo del
+ * default de 6s del componente: el aviso está centrado sobre el cuerpo y a 24px del borde
+ * inferior, o sea que tapa la última fila de la lista mientras está.
  */
-const OPEN_FOLIO_CONFIRM_HINT =
-  'El registro del cierre en la plataforma se integra en una próxima iteración.';
+const FEEDBACK_SNACKBAR_MS = 5000;
 
 /** Aviso azul reutilizado por los estados vacíos de las tres pestañas. */
 function WasteSidrepFoliosInfoNotice({ children }: { children: string }) {
@@ -157,13 +222,235 @@ function WasteSidrepFoliosInfoNotice({ children }: { children: string }) {
 }
 
 /**
+ * Pestaña "Pendientes de revisión" — nodos `3073:5688` (la bandeja) y `4295:24241` (la
+ * misma bandeja después de enviar un rechazo).
+ *
+ * La bandeja de trabajo del aprobador: solicitudes de retiro de residuo peligroso que
+ * todavía no son folio y esperan un sí o un no, contra un SLA de 6 horas. Por eso el
+ * panel muestra los adjuntos completos —es con lo que se decide— y cierra con las dos
+ * acciones en la misma franja en vez de una sola primaria.
+ *
+ * RECHAZAR NO SACA A LA SOLICITUD DE ACÁ. El segundo nodo lo dibuja explícito: la
+ * solicitud rechazada sigue en la lista, primera y seleccionada, con la pastilla
+ * "Rechazado" al lado de su reloj de SLA, y su panel se corona con la franja del motivo.
+ * El estado de la cabecera SIGUE SIENDO "Pendiente" (`4295:24536`) y las dos acciones del
+ * pie siguen ahí: el rechazo no resuelve la solicitud, la devuelve para que la corrijan.
+ */
+interface WasteSidrepPendingFoliosPanelProps {
+  /**
+   * Los rechazos enviados en esta sesión, por número de solicitud. Vive en la PÁGINA y no
+   * acá porque también lo consume el snackbar, que se dibuja fuera del área desplazable.
+   */
+  rejections: Record<string, WasteSidrepRequestRejection>;
+  onRequestRejected: (request: WasteSidrepPendingRequest, reason: string) => void;
+}
+
+function WasteSidrepPendingFoliosPanel({
+  rejections,
+  onRequestRejected,
+}: WasteSidrepPendingFoliosPanelProps) {
+  /*
+   * El nodo entra con la solicitud del TOPE DE LA LISTA abierta (`3073:5922`), que es la
+   * que tiene el fondo azul. Misma política que las otras dos pestañas —se busca por
+   * condición y no por posición— sólo que acá la condición es el orden de la bandeja: la
+   * lista ya llega priorizada por urgencia del SLA, así que la primera es la que toca.
+   */
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => WASTE_SIDREP_PENDING_REQUESTS[0]?.request ?? null,
+  );
+
+  /*
+   * La solicitud que se está rechazando, y no un `boolean`: mismo criterio que
+   * `closingFolio` en "Abiertos". Guardar la solicitud es lo que hace que el rechazo no
+   * pueda terminar aplicado sobre otra si la selección de la lista cambia con el modal
+   * encima.
+   */
+  const [rejectingRequest, setRejectingRequest] = useState<WasteSidrepPendingRequest | null>(null);
+
+  /*
+   * UNA SOLICITUD RECHAZADA SIGUE EN LA BANDEJA, y no es una licencia: el nodo `4295:24241`
+   * dibuja la lista DESPUÉS del rechazo y la solicitud sigue ahí, primera, seleccionada y
+   * con su reloj de SLA en teal. Lo que cambia es que suma la pastilla "Rechazado" y que
+   * su panel se corona con la franja del motivo. Tiene sentido: rechazar no resuelve la
+   * solicitud, la devuelve —el transportista corrige y vuelve—, así que sacarla de la
+   * bandeja habría dejado al aprobador sin dónde ver qué pidió corregir.
+   */
+  const requests = WASTE_SIDREP_PENDING_REQUESTS;
+  const rows = useMemo(
+    () =>
+      requests.map((request) => ({
+        ...pendingRequestListRow(request),
+        /* Pastilla del nodo `4295:24655`. Sólo la lleva la solicitud ya rechazada. */
+        badge: rejections[request.request] ? (
+          <WastePill tone="red">{WASTE_SIDREP_REQUEST_REJECTED_STATUS}</WastePill>
+        ) : undefined,
+      })),
+    [requests, rejections],
+  );
+  const selected = useMemo(
+    () => requests.find((request) => request.request === selectedId) ?? requests[0] ?? null,
+    [requests, selectedId],
+  );
+  const selectedRejection = selected ? rejections[selected.request] : undefined;
+
+  if (rows.length === 0) {
+    return (
+      <WasteSidrepFoliosInfoNotice>
+        No hay solicitudes de retiro pendientes de revisión.
+      </WasteSidrepFoliosInfoNotice>
+    );
+  }
+
+  return (
+    <>
+      <WasteFolioMasterDetail
+        list={
+          <WasteFolioListCard
+            label={PENDING_LIST_LABEL}
+            rows={rows}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        }
+        detail={
+          selected ? (
+            <WasteFolioDetailPanel
+              banner={
+                /*
+                 * Franja `4295:24658`: a dónde lleva "Enviar rechazo". Sólo aparece cuando la
+                 * solicitud ya fue rechazada, y CONVIVE con la alerta de SLA de abajo —el nodo
+                 * dibuja las dos, una sobre otra— porque dicen cosas distintas: ésta, qué se
+                 * pidió corregir; aquélla, cuánto queda del reloj para que vuelva corregida.
+                 */
+                selectedRejection ? (
+                  <WasteFolioRejectedBanner
+                    heading={pendingRequestRejectionHeading(selectedRejection)}
+                    reason={pendingRequestRejectionQuote(selectedRejection.reason)}
+                    note={WASTE_SIDREP_REQUEST_REJECTED_NOTE}
+                  />
+                ) : undefined
+              }
+              notice={
+                /*
+                 * ACÁ LA ALERTA VA SIEMPRE, al revés que en "Abiertos", donde sólo la lleva
+                 * el folio fuera de plazo. El nodo `3073:5973` la dibuja en la solicitud que
+                 * va EN TIEMPO: no avisa de un problema, dice cuánto queda del reloj, que es
+                 * el dato que ordena esta bandeja. Lo que cambia con el tramo es la frase
+                 * —ver `pendingRequestSlaAlert`—, no si aparece.
+                 */
+                <WasteFolioNotice
+                  tone="warning"
+                  icon={
+                    <ClockIcon className="block h-[11px] w-[13.75px] shrink-0 text-[#6b3a1f]" />
+                  }
+                >
+                  {pendingRequestSlaAlert(selected)}
+                </WasteFolioNotice>
+              }
+              title={selected.wasteType}
+              subtitle={pendingRequestDetailSubtitle(selected)}
+              status={<WastePill tone="amber">{WASTE_SIDREP_REQUEST_PENDING_STATUS}</WastePill>}
+              footer={
+                /*
+                 * Franja `3073:6083`: las dos acciones en mitades con `gap-[8px]`. El pie del
+                 * panel ya aporta el `px-[20px] pt-[15px] pb-[14px]` y el borde superior, así
+                 * que acá va sólo el reparto. `items-stretch` para que las dos midan lo mismo
+                 * aunque una lleve borde y la otra no.
+                 */
+                <div className="flex w-full items-stretch gap-[8px]">
+                  <div className="min-w-px flex-1">
+                    {/* Abre el modal `4295:24214`, que es donde el rechazo se escribe. */}
+                    <WasteFolioFooterActionButton
+                      label={WASTE_SIDREP_REQUEST_REJECT_ACTION}
+                      tone="danger"
+                      icon={(className) => <WasteSinaderModalCloseIcon className={className} />}
+                      onClick={() => setRejectingRequest(selected)}
+                    />
+                  </div>
+                  <div className="min-w-px flex-1">
+                    <WasteFolioFooterActionButton
+                      label={WASTE_SIDREP_REQUEST_APPROVE_ACTION}
+                      icon={(className) => <WasteSinaderMarkDeclaredIcon className={className} />}
+                      disabled
+                      disabledHint={PENDING_APPROVE_ACTION_HINT}
+                    />
+                  </div>
+                </div>
+              }
+            >
+              <WasteDefinitionGrid items={pendingRequestFacts(selected)} />
+              <WasteFolioDetailDivider />
+              {/*
+              Aviso VERDE del nodo `3073:6018`. Es el único aviso en verde del módulo y
+              dice algo distinto de los ámbar y rojos: que la plataforma ya cruzó patente
+              y tipo de residuo contra la resolución sanitaria vigente del transportista.
+              Va en párrafo, así que `multiline`.
+            */}
+              <WasteFolioNotice
+                tone="success"
+                density="multiline"
+                icon={
+                  <WasteFolioVerifiedIcon className="block size-[11px] shrink-0 text-[#2a5c16]" />
+                }
+              >
+                {pendingRequestVerification(selected)}
+              </WasteFolioNotice>
+              <WasteFolioAttachmentsSection attachments={selected.attachments} />
+            </WasteFolioDetailPanel>
+          ) : (
+            <WasteSidrepFoliosInfoNotice>
+              Elegí una solicitud de la lista para revisarla.
+            </WasteSidrepFoliosInfoNotice>
+          )
+        }
+      />
+      {rejectingRequest ? (
+        <WasteFolioRejectModal
+          open
+          onClose={() => setRejectingRequest(null)}
+          /*
+           * Enviar CIERRA EL MODAL Y REGISTRA EL RECHAZO: la solicitud se queda donde está,
+           * suma su pastilla en la lista y su panel se corona con la franja del motivo. El
+           * snackbar sólo acusa que el envío salió.
+           *
+           * EL MOTIVO TIPEADO YA NO SE DESCARTA —la franja lo dibuja—, y ahí termina el
+           * recorrido que el diseño resuelve. TODAVÍA NO HAY ESCRITURA REAL ni salida del
+           * correo: esto mueve estado de cliente sobre la maqueta, igual que el resto de la
+           * vista. Cuando exista el endpoint, este `onConfirm` pasa a ser el `onSuccess` de
+           * un `useMutation` que manda el motivo, sin que cambie nada de lo que ve la
+           * pantalla.
+           */
+          onConfirm={(reason) => {
+            setRejectingRequest(null);
+            onRequestRejected(rejectingRequest, reason);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
  * Pestaña "Abiertos" — nodo `3081:7463`.
  *
  * Un folio abierto es un traslado EN CURSO, así que el panel no habla de pesos recibidos
  * sino de tiempo: cuántos días lleva abierto, si se pasó del plazo, y que la plataforma
  * del Ministerio todavía no confirmó la recepción.
  */
-function WasteSidrepOpenFoliosPanel() {
+interface WasteSidrepOpenFoliosPanelProps {
+  /**
+   * Números de folio cerrados en esta sesión. Vive en la PÁGINA y no acá porque los
+   * contadores de las pestañas también se mueven al cerrar, y la tira de pestañas está en
+   * el header fijo: es el mismo motivo por el que `activeTab` está allá arriba.
+   */
+  closedFolios: string[];
+  onFolioClosed: (folio: WasteSidrepOpenFolio) => void;
+}
+
+function WasteSidrepOpenFoliosPanel({
+  closedFolios,
+  onFolioClosed,
+}: WasteSidrepOpenFoliosPanelProps) {
   /*
    * El nodo entra con el folio QUE PIDE ATENCIÓN abierto —el que se pasó del plazo— y no
    * con la lista sin selección. Misma política que la pestaña "Cerrados": se busca por
@@ -183,10 +470,21 @@ function WasteSidrepOpenFoliosPanel() {
    */
   const [closingFolio, setClosingFolio] = useState<WasteSidrepOpenFolio | null>(null);
 
-  const rows = useMemo(() => WASTE_SIDREP_OPEN_FOLIOS.map(openFolioListRow), []);
+  /* Un folio cerrado deja de estar abierto: sale de esta bandeja. Nodo `3081:9331`. */
+  const folios = useMemo(
+    () => WASTE_SIDREP_OPEN_FOLIOS.filter((folio) => !closedFolios.includes(folio.folio)),
+    [closedFolios],
+  );
+  const rows = useMemo(() => folios.map(openFolioListRow), [folios]);
+  /*
+   * LA SELECCIÓN CAE AL PRIMERO QUE QUEDE si el folio elegido se cerró, y se resuelve
+   * derivando en vez de sincronizando con un efecto: un `useEffect` que corrigiera
+   * `selectedId` renderizaría una vez el panel vacío antes de arreglarse. Es lo que
+   * dibuja el nodo `3081:9331`, con el detalle del primer folio que sobrevive.
+   */
   const selected = useMemo(
-    () => WASTE_SIDREP_OPEN_FOLIOS.find((folio) => folio.folio === selectedId) ?? null,
-    [selectedId],
+    () => folios.find((folio) => folio.folio === selectedId) ?? folios[0] ?? null,
+    [folios, selectedId],
   );
 
   if (rows.length === 0) {
@@ -255,6 +553,7 @@ function WasteSidrepOpenFoliosPanel() {
             */}
               <WasteFolioNotice
                 tone="warning"
+                density="multiline"
                 icon={
                   <WasteSinaderNoticeIcon className="block size-[11px] shrink-0 text-[#6b3a1f]" />
                 }
@@ -273,8 +572,23 @@ function WasteSidrepOpenFoliosPanel() {
         <WasteFolioCloseModal
           open
           subtitle={openFolioCloseSubtitle(closingFolio)}
+          dispatchedKg={closingFolio.dispatchedKg}
+          declarationReading={closingFolio.declarationReading}
           onClose={() => setClosingFolio(null)}
-          disabledHint={OPEN_FOLIO_CONFIRM_HINT}
+          /*
+           * Confirmar CIERRA EL MODAL Y AVISA ARRIBA, que es lo que el diseño encadena:
+           * `3083:9723` es el snackbar y `3081:9331` la vista detrás, ya sin este folio.
+           *
+           * TODAVÍA NO HAY ESCRITURA REAL. Esto mueve estado de cliente sobre la maqueta,
+           * igual que el resto de la vista; el snackbar dice la verdad sobre la maqueta y
+           * no sobre la plataforma del Ministerio. Cuando exista el endpoint, acá va un
+           * `useMutation` y este `onConfirm` pasa a ser su `onSuccess`, sin que cambie nada
+           * de lo que ve la pantalla.
+           */
+          onConfirm={() => {
+            setClosingFolio(null);
+            onFolioClosed(closingFolio);
+          }}
         />
       ) : null}
     </>
@@ -389,6 +703,12 @@ function WasteSidrepClosedFoliosPanel() {
                  */
                 selected.gap?.exceedsTolerance ? (
                   <WasteWeightDifferenceNotice
+                    /*
+                     * Siempre `true` acá: este panel sólo dibuja el recuadro fuera de
+                     * tolerancia, así que su variante verde (`3524:560`) no se usa. El
+                     * modal de cierre sí muestra las dos.
+                     */
+                    exceedsTolerance
                     difference={`${selected.gap.kg}kg`}
                     percentage={selected.gap.percentage}
                     dispatched={`Despachado ${selected.dispatchedKg} kg`}
@@ -464,9 +784,21 @@ interface WasteSidrepFoliosBodyProps {
    * estaba— hacer clic en una pestaña movía el subrayado y no el contenido.
    */
   activeTab: WasteSidrepFolioTabId;
+  /** Ver `WasteSidrepOpenFoliosPanelProps`; el cuerpo sólo los pasa hacia abajo. */
+  closedFolios: string[];
+  onFolioClosed: (folio: WasteSidrepOpenFolio) => void;
+  /** Ver `WasteSidrepPendingFoliosPanelProps`; ídem. */
+  rejections: Record<string, WasteSidrepRequestRejection>;
+  onRequestRejected: (request: WasteSidrepPendingRequest, reason: string) => void;
 }
 
-function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
+function WasteSidrepFoliosBody({
+  activeTab,
+  closedFolios,
+  onFolioClosed,
+  rejections,
+  onRequestRejected,
+}: WasteSidrepFoliosBodyProps) {
   return (
     <div className="flex w-full min-w-[1100px] flex-col items-start px-[28px] pb-[40px] pt-[20px]">
       <div
@@ -475,12 +807,15 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
         aria-labelledby={wasteTabId(TABS_BASE_ID, activeTab)}
         className="w-full"
       >
-        {activeTab === 'open' ? (
-          <WasteSidrepOpenFoliosPanel />
-        ) : activeTab === 'closed' ? (
-          <WasteSidrepClosedFoliosPanel />
+        {activeTab === 'pending' ? (
+          <WasteSidrepPendingFoliosPanel
+            rejections={rejections}
+            onRequestRejected={onRequestRejected}
+          />
+        ) : activeTab === 'open' ? (
+          <WasteSidrepOpenFoliosPanel closedFolios={closedFolios} onFolioClosed={onFolioClosed} />
         ) : (
-          <WasteSidrepFoliosInfoNotice>{PENDING_NOTICE}</WasteSidrepFoliosInfoNotice>
+          <WasteSidrepClosedFoliosPanel />
         )}
       </div>
     </div>
@@ -489,13 +824,58 @@ function WasteSidrepFoliosBody({ activeTab }: WasteSidrepFoliosBodyProps) {
 
 export function WasteSidrepFoliosPage() {
   /*
-   * ENTRA EN "ABIERTOS" y no en "Cerrados", que era el default de la iteración anterior.
-   * Es la pestaña que el nodo de esta vista dibuja activa (`3081:7684`), y es la que pide
-   * acción: un folio abierto fuera de plazo es trabajo pendiente, mientras que un folio
-   * cerrado ya es archivo. "Pendientes de revisión" será el default cuando su bandeja
-   * exista, porque va todavía más arriba en esa escala.
+   * ENTRA EN "PENDIENTES DE REVISIÓN", que es lo que faltaba para cerrar la escala. Cada
+   * nodo dibuja activa su propia pestaña, así que el default no lo decide el diseño sino
+   * cuál pide acción primero: una solicitud contra un SLA de 6 horas vence hoy; un folio
+   * abierto fuera de plazo se mide en días; uno cerrado ya es archivo. Era el default
+   * anunciado desde la iteración anterior, cuando esta bandeja todavía no existía.
    */
-  const [activeTab, setActiveTab] = useState<WasteSidrepFolioTabId>('open');
+  const [activeTab, setActiveTab] = useState<WasteSidrepFolioTabId>('pending');
+
+  /*
+   * Lo resuelto en esta sesión —folios cerrados y solicitudes rechazadas— y el aviso que
+   * lo confirma. Viven acá y no en cada panel porque los consume también la tira de
+   * pestañas, que está en el header fijo: el ancestro común es esta página.
+   */
+  const [closedFolios, setClosedFolios] = useState<string[]>([]);
+  /*
+   * Los rechazos van INDEXADOS POR SOLICITUD y no en una lista: la franja del panel busca
+   * el de la solicitud abierta en cada render, y volver a rechazar la misma —que el nodo
+   * permite, porque deja las dos acciones activas— tiene que REEMPLAZAR el motivo y no
+   * apilar un segundo registro.
+   */
+  const [rejections, setRejections] = useState<Record<string, WasteSidrepRequestRejection>>({});
+  /*
+   * UN SOLO MENSAJE PARA LOS DOS FLUJOS, y no uno por acción: el snackbar es uno y está
+   * anclado al borde inferior de la vista, así que dos estados sólo servirían para que
+   * dos avisos se pisaran en el mismo lugar. Cerrar un folio y rechazar una solicitud son
+   * además excluyentes en el tiempo: cada uno cierra su modal antes de avisar.
+   */
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  const tabs = useMemo(() => foliosTabs(closedFolios.length), [closedFolios.length]);
+
+  const handleFolioClosed = useCallback((folio: WasteSidrepOpenFolio) => {
+    setClosedFolios((previous) => [...previous, folio.folio]);
+    setFeedbackMessage(openFolioClosedMessage(folio));
+  }, []);
+
+  const handleRequestRejected = useCallback(
+    (request: WasteSidrepPendingRequest, reason: string) => {
+      /*
+       * El instante se SELLA ACÁ, cuando se envía, y no en el render de la franja: con
+       * `new Date()` adentro del componente el titular cambiaría de hora en cada render.
+       */
+      setRejections((previous) => ({
+        ...previous,
+        [request.request]: { request: request.request, reason, rejectedAt: new Date() },
+      }));
+      setFeedbackMessage(pendingRequestRejectedMessage(request));
+    },
+    [],
+  );
+
+  const dismissFeedbackMessage = useCallback(() => setFeedbackMessage(null), []);
 
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Folios SIDREP">
@@ -515,7 +895,7 @@ export function WasteSidrepFoliosPage() {
               <WasteTabs
                 baseId={TABS_BASE_ID}
                 label="Estados de los folios SIDREP"
-                tabs={TABS}
+                tabs={tabs}
                 value={activeTab}
                 onChange={setActiveTab}
                 variant="band"
@@ -534,9 +914,39 @@ export function WasteSidrepFoliosPage() {
            * `bg` en el cuerpo, una lista corta dejaba una banda blanca abajo.
            */
           <div className="h-[calc(100vh-56px-85.5px)] w-full overflow-auto bg-[#f7f7f7]">
-            <WasteSidrepFoliosBody activeTab={activeTab} />
+            <WasteSidrepFoliosBody
+              activeTab={activeTab}
+              closedFolios={closedFolios}
+              onFolioClosed={handleFolioClosed}
+              rejections={rejections}
+              onRequestRejected={handleRequestRejected}
+            />
           </div>
         }
+      />
+
+      {/*
+        Snackbar `3083:9723`, emplazado como en `3081:9331`: la instancia mide 525 × 48 en
+        x=287.5, y=506.5 dentro de la columna de contenido de 1100 × 578.5. Eso es el CENTRO
+        EXACTO en horizontal —(1100 − 525) / 2 = 287.5— y 24px por encima del borde inferior
+        —578.5 − (506.5 + 48) = 24—.
+
+        Va `fixed` con `left-[220px]` para descontar el sidebar y `mx-auto` para centrarse en
+        lo que queda, el mismo emplazamiento que ya usa el snackbar de "Solicitud de retiro".
+        El ancho NO se fija: los 525 del nodo son el texto más el padding, y los hijos van
+        `shrink-0` en el propio nodo, así que `w-fit` los reproduce y acompaña a un folio con
+        nombre más largo.
+
+        SE DIBUJA FUERA DEL ÁREA DESPLAZABLE. Adentro se iría con el scroll, y el nodo lo
+        ancla al borde inferior de la vista, no del contenido.
+      */}
+      <Snackbar
+        open={feedbackMessage !== null}
+        message={feedbackMessage ?? ''}
+        autoHideMs={FEEDBACK_SNACKBAR_MS}
+        onClose={dismissFeedbackMessage}
+        dismissible
+        className="fixed bottom-[24px] left-[220px] right-0 z-[90] mx-auto w-fit max-w-[calc(100vw-260px)]"
       />
     </div>
   );

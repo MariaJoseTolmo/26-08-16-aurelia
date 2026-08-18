@@ -1,5 +1,6 @@
 import type { WasteDefinitionItem } from './components/WasteDefinitionGrid';
 import type { WasteFolioListRow } from './components/WasteFolioListCard';
+import type { WasteSidrepFolioGap } from './wasteSidrepFolios';
 
 /**
  * Folios SIDREP de la pestaña "Abiertos" — nodo `3081:7463`.
@@ -35,6 +36,34 @@ import type { WasteFolioListRow } from './components/WasteFolioListCard';
  * dos —patente, destinataria, fecha, aceptación— se completan de forma coherente para
  * que la vista sea navegable. No son datos del diseño y no se deben tomar como tales.
  */
+
+/**
+ * Lo que la DECLARACIÓN SIDREP transcribe cuando se sube al modal de cierre — nodos
+ * `4230:13653`, `4230:13657` y `4230:13658` del estado completo `4230:13614`.
+ *
+ * ESTOS TRES DATOS NO SE TIPEAN, y es la mitad del diseño del modal. El estado vacío
+ * (`4230:13273`) los dibuja como dos cajas grises que dicen "Se requiere declaración
+ * SIDREP", y el completo los muestra ya escritos en azul: salen de LEER el documento, igual
+ * que los tres pesos de "Peso del residuo" salen de leer el ticket de pesaje. Cuando exista
+ * el parser, esto es la respuesta de la API y el modal la recibe por prop.
+ *
+ * REUSA `WasteSidrepFolioGap` de los folios CERRADOS, y no contradice el "no comparte
+ * modelo" de más arriba: lo que no se comparte es el FOLIO —abierto y cerrado tienen datos
+ * distintos—, pero la brecha de peso es la misma medición, con los mismos nodos y los
+ * mismos cuatro campos. Registrar el cierre es justamente lo que convierte un folio de esta
+ * lista en uno de aquélla.
+ */
+export interface WasteSidrepOpenFolioDeclarationReading {
+  /** N° de ticket de recepción en destino: "TR-04812". Nodo `4230:13653`. */
+  receptionTicket: string;
+  /**
+   * Kg recibidos en destino, sólo el número: "590". La unidad la pega el consumidor porque
+   * el nodo `4230:13657` la escribe PEGADA ("590kg") y el `4230:13669` separada ("610 kg").
+   */
+  receivedKg: string;
+  /** La brecha contra el peso despachado, con su tolerancia y su calificación. */
+  gap: WasteSidrepFolioGap;
+}
 
 export interface WasteSidrepOpenFolio {
   /** Número de folio SIDREP: "2026-SD-04812". */
@@ -113,7 +142,33 @@ export interface WasteSidrepOpenFolio {
    * que son los que lo mencionan —en la leyenda de la fila y en la alerta del panel—.
    */
   slaLabel: string | null;
+  /**
+   * Lo que la declaración SIDREP de este folio va a transcribir — ver
+   * `WasteSidrepOpenFolioDeclarationReading`.
+   *
+   * ES MAQUETA Y VIVE EN EL FOLIO SÓLO HASTA QUE EXISTA EL PARSER. No es un dato del folio
+   * abierto: un folio abierto todavía no tiene ticket de recepción ni peso recibido —por eso
+   * está abierto—. Está acá para que el estado completo del modal (`4230:13614`) sea
+   * alcanzable y verificable hoy, subiendo cualquier PDF. Cuando exista el endpoint, el modal
+   * lo recibe de un `useMutation` y este campo desaparece.
+   */
+  declarationReading: WasteSidrepOpenFolioDeclarationReading;
 }
+
+/**
+ * Tolerancias por tipo de residuo de las lecturas de maqueta.
+ *
+ * La del aceite es LITERALMENTE el mismo texto que en `wasteSidrepFolios.ts`, porque es el
+ * mismo tipo de residuo y el mismo histórico. La de los envases NO se copia de allá: aquel
+ * folio despacha 142 kg y su texto dice "~4 kg", y el 3% de los 210 de éste son ~6, así que
+ * copiarla habría dejado una tolerancia que no cierra con su propio peso. Las dos mueren con
+ * el endpoint, que es quien conoce el histórico.
+ */
+const OPEN_OIL_TOLERANCE =
+  'Tolerancia esperada para Aceite lubricante: ±2% (~20 kg) · histórico general por tipo de residuo.';
+
+const OPEN_CONTAINER_TOLERANCE =
+  'Tolerancia esperada para Envases contaminados: ±3% (~6 kg) · histórico general por tipo de residuo.';
 
 /** Rótulo de estado de la pastilla del panel. Nodo `3081:7934`. */
 export const WASTE_SIDREP_FOLIO_OPEN_STATUS = 'Abierto';
@@ -149,6 +204,24 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
     carrierAcceptance: 'Confirmada en plataforma oficial',
     overSla: true,
     slaLabel: '3 días',
+    /*
+     * LA ÚNICA LECTURA QUE SALE DEL NODO, y coincide exactamente con el folio homónimo de
+     * la lista de CERRADOS: 610 despachados, 590 recibidos, brecha de 20 kg = 3,3% sobre una
+     * tolerancia de ~12 kg. Es la maqueta diciendo que registrar este cierre es lo que
+     * convierte este folio en aquél.
+     */
+    declarationReading: {
+      receptionTicket: 'TR-04812',
+      receivedKg: '590',
+      gap: {
+        kg: '20',
+        percentage: '3,3%',
+        tolerance:
+          'Tolerancia esperada para Baterías de plomo: ±2% (~12 kg) · histórico general por tipo de residuo.',
+        qualifier: 'sobre tolerancia',
+        exceedsTolerance: true,
+      },
+    },
   },
   {
     /*
@@ -169,6 +242,19 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
     carrierAcceptance: 'Confirmada en plataforma oficial',
     overSla: false,
     slaLabel: null,
+    /* Maqueta: 1.020 despachados contra 1.005 recibidos son 15 kg = 1,5%, DENTRO de los ~20
+     * que tolera el aceite, así que su modal completo no muestra el recuadro ámbar. */
+    declarationReading: {
+      receptionTicket: 'TR-04803',
+      receivedKg: '1.005',
+      gap: {
+        kg: '15',
+        percentage: '1,5%',
+        tolerance: OPEN_OIL_TOLERANCE,
+        qualifier: 'normal',
+        exceedsTolerance: false,
+      },
+    },
   },
   {
     /* Fila del nodo `3081:7904`. El panel es maqueta. */
@@ -195,6 +281,18 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
     carrierAcceptance: 'Pendiente de confirmación',
     overSla: false,
     slaLabel: null,
+    /* Maqueta: 2 kg sobre 210 son 1,0%, dentro de los ~6 que tolera este residuo. */
+    declarationReading: {
+      receptionTicket: 'TR-04798',
+      receivedKg: '208',
+      gap: {
+        kg: '2',
+        percentage: '1,0%',
+        tolerance: OPEN_CONTAINER_TOLERANCE,
+        qualifier: 'normal',
+        exceedsTolerance: false,
+      },
+    },
   },
 ];
 
@@ -241,6 +339,21 @@ export function openFolioDetailSubtitle(folio: WasteSidrepOpenFolio): string {
  */
 export function openFolioCloseSubtitle(folio: WasteSidrepOpenFolio): string {
   return `Folio SIDREP ${folio.folio} · ${folio.wasteType} · ${folio.carrier}`;
+}
+
+/**
+ * Mensaje del snackbar que confirma el cierre — nodo `3083:9723`.
+ *
+ * EL NODO TRAE EL TEXTO PARTIDO EN DOS SPANS, `"Folio "` y `"Resiter S.A. · Folio
+ * 2026-SD-04812 cerrado exitosamente"`, con el mismo estilo los dos. Leídos juntos dirían
+ * "Folio" dos veces, y el ANCHO MEDIDO de la instancia descarta que se rendericen los dos:
+ * sus 525px menos el padding, el check de 24, los dos `gap-[8px]` y la X de 16 dejan 445px
+ * de texto, que es lo que mide el segundo span solo; con el prefijo harían falta unos 490 y
+ * la caja mediría cerca de 570. Así que el primero es un resto de la plantilla del UI Kit y
+ * no se reproduce.
+ */
+export function openFolioClosedMessage(folio: WasteSidrepOpenFolio): string {
+  return `${folio.carrier} · Folio ${folio.folio} cerrado exitosamente`;
 }
 
 /**

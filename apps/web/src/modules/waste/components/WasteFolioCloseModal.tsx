@@ -1,41 +1,56 @@
 import { useEffect, useRef, useState } from 'react';
 import { WarehouseFormLotIcon } from '../icons/WarehouseIntakeFormIcons';
+import type { WasteSidrepOpenFolioDeclarationReading } from '../wasteSidrepOpenFolios';
+import { WasteDerivedValueField } from './WasteDerivedValueField';
 import { WasteFolioFooterActionButton } from './WasteFolioFooterActionButton';
 import { WasteSidrepFileDropzone } from './WasteSidrepFileDropzone';
+import { WasteWeightDifferenceNotice } from './WasteWeightDifferenceNotice';
 import {
   WasteFormModal,
   WasteFormModalCancelButton,
   WasteFormModalDateInput,
   WasteFormModalField,
   WasteFormModalNotice,
-  WASTE_FORM_MODAL_INPUT_CLASS,
 } from './WasteFormModal';
 
 /**
- * Modal "Registrar cierre de folio" — nodo `4230:13273`.
+ * Modal "Registrar cierre de folio" — DOS NODOS, un solo formulario en sus dos estados:
+ *
+ *   `4230:13273`  vacío     520 × 479
+ *   `4230:13614`  completo  520 × 587
  *
  * Lo abre "Registrar cierre" (`3081:7977`), el pie del panel de detalle de un folio SIDREP
  * ABIERTO, y sólo cuando el residuo es PELIGROSO: un traslado no peligroso no genera
- * declaración SIDREP, que es el documento sobre el que se apoya todo este formulario.
- * Ver `WasteSidrepFoliosPage`.
+ * declaración SIDREP, que es el documento sobre el que se apoya todo este formulario. Ver
+ * `WasteSidrepFoliosPage`.
  *
  * ES EL PASO QUE CIERRA EL TRASLADO. Un folio abierto es un residuo que salió de faena y
  * cuya recepción en destino todavía no está confirmada; este formulario registra la
- * confirmación: cuándo se dispuso finalmente, con qué declaración SIDREP, con qué ticket
- * de recepción y con cuántos kilos llegaron.
+ * confirmación: cuándo se dispuso finalmente y con qué declaración SIDREP.
  *
- * EL FORMULARIO ES PROGRESIVO Y ESO ES LO QUE EL NODO DIBUJA. El ticket de recepción y los
- * kg recibidos NO son campos todavía: son dos cajas grises que dicen "Se requiere
- * declaración SIDREP" (`4230:13440` y `4230:13443`). Los dos datos salen del documento, así
- * que pedirlos antes de tenerlo invita a escribirlos de memoria. Con el PDF cargado pasan a
- * ser campos, y su forma es la MISMA del selector de fecha de este mismo nodo —rótulo Inter
- * Semi Bold 11.5px sobre una caja de 36px— así que el estado desbloqueado no inventa
- * vocabulario: reusa el que el nodo ya trae. El nodo no lo dibuja, y queda dicho.
+ * EL TICKET Y LOS KILOS NO SE TIPEAN: LOS TRANSCRIBE EL DOCUMENTO. Es lo que dicen los dos
+ * nodos leídos juntos. El vacío los dibuja como dos cajas grises con el motivo escrito al
+ * lado —"Se requiere declaración SIDREP"— y el completo los muestra ya escritos en azul, en
+ * Inter Bold 19px, sin ningún control de edición. Los dos datos salen de la declaración,
+ * exactamente igual que los tres pesos de "Peso del residuo" salen del ticket de pesaje;
+ * pedirlos a mano habría sido invitar a transcribir de memoria un informe reglamentario. Las
+ * dos cajas son `WasteDerivedValueField`, el mismo campo de aquella tarjeta.
  *
- * "CONFIRMAR CIERRE" ENTRA DESHABILITADO, y esta vez no es una desviación: el nodo
- * `4230:13314` lo pinta `#e2e2e2` con el texto en `#acacac`, que es lo correcto con el
- * formulario recién abierto. Se habilita cuando están los cuatro datos Y hay a quién
- * confirmarle —ver `onConfirm`—.
+ * EL RECUADRO DE DIFERENCIA DE PESO APARECE CON LA LECTURA, no antes: sin peso recibido no
+ * hay brecha que medir. Es `WasteWeightDifferenceNotice` —nodo `4230:13658`, idéntico al
+ * `3437:3362` del panel de detalle— y viene en DOS TONOS según la tolerancia: ámbar fuera
+ * (`3524:544`) y verde dentro (`3524:560`).
+ *
+ * SE MUESTRA EN LOS DOS CASOS, y ahí este modal se separa del panel de detalle, que sólo
+ * dibuja el recuadro cuando la brecha se pasa. Acá no es una alerta, es el número que se
+ * está por registrar: el modal no tiene grilla donde leerlo —el panel lo trae en
+ * `folioFacts`—, así que esconderlo en el caso conforme dejaba confirmar un cierre sin
+ * haber visto nunca la diferencia. El tono es el que dice si hay que reclamarla.
+ *
+ * "CONFIRMAR CIERRE" ENTRA DESHABILITADO, y no es una desviación: el nodo `4230:13314` lo
+ * pinta `#e2e2e2` con el texto en `#acacac`, que es lo correcto con el formulario recién
+ * abierto, y el `4230:13676` lo pinta `#c8a064` con el formulario completo. Se habilita
+ * cuando hay fecha Y declaración leída, y hay a quién confirmarle —ver `onConfirm`—.
  *
  * Geometría del design context (el armazón, en `WasteFormModal`):
  *
@@ -46,31 +61,25 @@ import {
  *              caja h-[36px] · rounded-[7px] · border #d1d1d1 · texto 12.5px #131313
  *              calendario 18 × 18 a 6px del borde derecho
  *   grupo      gap-[8px]
- *   dropzone   border-[1.5px] DASHED #d1d1d1 · rounded-[9px] · px-[17.5px] py-[15.5px]
- *              gap-[12px] · caja de icono 34 × 34 · glifo nube 17.5 × 14
- *              rótulo Inter Semi Bold 10px #646464 · ayuda Inter Regular 9.5px #acacac
+ *   dropzone   vacía    border-[1.5px] DASHED #d1d1d1 · bg white · glifo nube 17.5 × 14
+ *              cargada  border-[1.5px] SÓLIDO #a8dfa8 · bg #e0ffd3 · glifo check
+ *                       segunda línea = nombre del archivo, 10.5px #2a5c16
+ *                       botón de quitar 24 × 24 · rounded-[5px] · X de 16 × 16
+ *              rounded-[9px] · px-[17.5px] py-[15.5px] · gap-[12px] · caja de icono 34 × 34
  *              → `WasteSidrepFileDropzone` en variante `row`, sin un solo cambio
- *   bloqueados fila gap-[14px] · dos cajas al 50%
- *              bg #f7f7f7 · border #e3e3e3 · rounded-[8px] · px-[17px] py-[17.5px]
- *              rótulo Inter Semi Bold 11.5px #646464 · mensaje Inter Regular 10.5px, a la
- *              derecha, mismo color
+ *   derivados  fila gap-[14px] · dos cajas al 50% · → `WasteDerivedValueField`
+ *   brecha     bg #fff0e6 · border #f5c4a0 · rounded-[8px] · px-[17px] py-[13px]
  *   pie        "Cancelar" + "Confirmar cierre" con su glifo de 15 × 12
- *
- * LOS ANCHOS DE TEXTO DE LAS CAJAS BLOQUEADAS NO SE REPRODUCEN. El nodo mide el rótulo en
- * 87 y 75 y el mensaje en 110 y 99: son anchos MEDIDOS de texto que hugea, no cajas del
- * diseño —de hecho el mismo mensaje mide distinto en las dos cajas—. Van los dos textos al
- * tamaño de su contenido con `justify-between`, que es lo que el nodo hace, y cada uno se
- * parte en dos líneas como ahí; el alto de 63px se conserva.
  */
 
-/** Texto del nodo `4230:13277`. */
+/** Texto de los nodos `4230:13277` y `4230:13618`. */
 export const WASTE_FOLIO_CLOSE_TITLE = 'Registrar cierre de folio';
 
 /**
- * Aviso azul del nodo `4230:13287`.
+ * Aviso azul de los nodos `4230:13287` y `4230:13628`.
  *
- * OJO: el NOMBRE DE CAPA de este nodo está obsoleto —dice "Registra estos datos una vez
- * que confirmes que el…"— y el texto real es el de abajo. Manda el design context.
+ * OJO: el NOMBRE DE CAPA de los dos está obsoleto —dice "Registra estos datos una vez que
+ * confirmes que el…"— y el texto real es el de abajo. Manda el design context.
  */
 export const WASTE_FOLIO_CLOSE_NOTICE =
   'Llena los siguientes campos una vez que confirmes que el destinatario cerró el SIDREP en la plataforma oficial y te haya hecho llegar el certificado de disposición final.';
@@ -82,26 +91,26 @@ export const WASTE_FOLIO_CLOSE_TICKET_LABEL = 'Nº de ticket de recepción';
 export const WASTE_FOLIO_CLOSE_RECEIVED_LABEL = 'Kg recibidos en destino';
 
 /**
- * Ayuda de la dropzone — nodo `4230:13435`.
+ * Ayuda de la dropzone vacía — nodo `4230:13435`.
  *
- * Se reproduce TAL CUAL, con el punto pegado a "Pdf" y sin espacio antes del separador:
- * es el texto del diseño y corregirlo acá lo dejaría distinto del resto de las dropzonas
- * del flujo SIDREP, que lo escriben igual.
+ * Se reproduce TAL CUAL, con el punto pegado a "Pdf" y sin espacio antes del separador: es el
+ * texto del diseño y corregirlo acá lo dejaría distinto del resto de las dropzonas del flujo
+ * SIDREP, que lo escriben igual.
  */
 export const WASTE_FOLIO_CLOSE_DECLARATION_HINT = 'Pdf· Máx. 10 MB';
 
-/** Mensaje de las dos cajas bloqueadas — nodos `4230:13440` y `4230:13443`. */
-export const WASTE_FOLIO_CLOSE_LOCKED_HINT = 'Se requiere declaración SIDREP';
+/** Mensaje de las dos cajas sin lectura — nodos `4230:13440` y `4230:13443`. */
+export const WASTE_FOLIO_CLOSE_PENDING_HINT = 'Se requiere declaración SIDREP';
 
-/** Rótulo del primario del pie — nodo `4230:13317`. */
+/** Rótulo del primario del pie — nodos `4230:13317` y `4230:13679`. */
 export const WASTE_FOLIO_CLOSE_CONFIRM = 'Confirmar cierre';
 
 /**
  * Tope de la declaración, el mismo que anuncia la ayuda de la dropzone.
  *
- * Se valida en el cliente porque es el único lugar donde se puede validar hoy: sin
- * endpoint, un PDF de 40 MB se aceptaría en silencio y el error aparecería recién el día
- * que exista el envío.
+ * Se valida en el cliente porque es el único lugar donde se puede validar hoy: sin endpoint,
+ * un PDF de 40 MB se aceptaría en silencio y el error aparecería recién el día que exista el
+ * envío.
  */
 const DECLARATION_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -112,22 +121,31 @@ export interface WasteFolioCloseSubmit {
   disposedOn: string;
   /** PDF de la declaración SIDREP cerrada en la plataforma del Ministerio. */
   declaration: File;
-  /** N° de ticket de recepción en destino, ya sin espacios en los extremos. */
+  /** N° de ticket de recepción, tal como lo transcribió la declaración. */
   receptionTicket: string;
-  /** Kg recibidos en destino, tal como se tipearon. */
+  /** Kg recibidos en destino, tal como los transcribió la declaración. */
   receivedKg: string;
 }
 
 interface WasteFolioCloseModalProps {
   open: boolean;
-  /** "Folio SIDREP 2026-SD-04812 · Baterías de plomo-ácido · Resiter S.A." Nodo `4230:13279`. */
+  /** "Folio SIDREP 2026-SD-04812 · Baterías de plomo-ácido · Resiter S.A." Nodo `4230:13620`. */
   subtitle: string;
+  /** Peso neto despachado, sólo el número: "610". Lo escribe el recuadro de la brecha. */
+  dispatchedKg: string;
+  /**
+   * Lo que la declaración transcribe. Hoy es la maqueta del folio y se muestra en cuanto hay
+   * archivo; cuando exista el parser esto pasa a ser la respuesta de la API y esta prop se
+   * vuelve `| null` para cubrir el análisis en curso y el fallo de lectura, como ya hace
+   * `WasteSidrepWeightSection`.
+   */
+  declarationReading: WasteSidrepOpenFolioDeclarationReading;
   onClose: () => void;
   /**
-   * Registra el cierre del folio. SIN ESTO EL PRIMARIO QUEDA DESHABILITADO en vez de
-   * simular el registro: cerrar un folio SIDREP es un acto de fiscalización, y un botón
-   * que dice "Confirmar cierre" y no confirma nada es peor que uno visiblemente apagado.
-   * Es el mismo criterio que `onDownload` en `WasteFolioSupportModal`.
+   * Registra el cierre del folio. SIN ESTO EL PRIMARIO QUEDA DESHABILITADO en vez de simular
+   * el registro: cerrar un folio SIDREP es un acto de fiscalización, y un botón que dice
+   * "Confirmar cierre" y no confirma nada es peor que uno visiblemente apagado. Es el mismo
+   * criterio que `onDownload` en `WasteFolioSupportModal`.
    */
   onConfirm?: (input: WasteFolioCloseSubmit) => void;
   /** Bloquea el pie mientras la API responde. */
@@ -141,6 +159,8 @@ interface WasteFolioCloseModalProps {
 export function WasteFolioCloseModal({
   open,
   subtitle,
+  dispatchedKg,
+  declarationReading,
   onClose,
   onConfirm,
   isSubmitting = false,
@@ -150,27 +170,23 @@ export function WasteFolioCloseModal({
   const dateRef = useRef<HTMLInputElement>(null);
   const [disposedOn, setDisposedOn] = useState('');
   const [declaration, setDeclaration] = useState<File | null>(null);
-  const [receptionTicket, setReceptionTicket] = useState('');
-  const [receivedKg, setReceivedKg] = useState('');
   const [fileError, setFileError] = useState<string | null>(null);
 
   /*
    * Cada apertura arranca en blanco, el mismo criterio que `WasteSinaderDeclareModal`: un
-   * modal que recuerda lo tipeado la vez anterior invita a confirmar datos de OTRO folio
-   * sin releerlos, y acá esos datos cierran un traslado.
+   * modal que recuerda lo cargado la vez anterior invita a confirmar datos de OTRO folio sin
+   * releerlos, y acá esos datos cierran un traslado.
    *
-   * LA FECHA ARRANCA VACÍA aunque el nodo `4230:13293` dibuje "17/07/2026". Ese valor es
-   * la muestra del diseño, no un default: la fecha de disposición final es la del
-   * certificado que emite el destinatario, no la de hoy, así que prellenarla dejaría una
-   * fecha que nadie verificó dentro de un registro de fiscalización.
+   * LA FECHA ARRANCA VACÍA aunque los dos nodos dibujen "17/07/2026". Ese valor es la muestra
+   * del diseño, no un default: la fecha de disposición final es la del certificado que emite el
+   * destinatario, no la de hoy, así que prellenarla dejaría una fecha que nadie verificó dentro
+   * de un registro de fiscalización.
    */
   useEffect(() => {
     if (!open) return undefined;
 
     setDisposedOn('');
     setDeclaration(null);
-    setReceptionTicket('');
-    setReceivedKg('');
     setFileError(null);
     dateRef.current?.focus();
     return undefined;
@@ -184,34 +200,31 @@ export function WasteFolioCloseModal({
 
     setFileError(null);
     setDeclaration(file);
-    /*
-     * Quitar el documento vuelve a bloquear los dos campos, así que lo que se haya
-     * tipeado se descarta: si el respaldo se fue, el ticket y los kilos que salían de él
-     * dejan de tener de dónde venir.
-     */
-    if (!file) {
-      setReceptionTicket('');
-      setReceivedKg('');
-    }
   }
 
-  const trimmedTicket = receptionTicket.trim();
-  const trimmedReceivedKg = receivedKg.trim();
-  const isComplete =
-    disposedOn.length > 0 &&
-    declaration !== null &&
-    trimmedTicket.length > 0 &&
-    trimmedReceivedKg.length > 0;
-  const canConfirm = Boolean(onConfirm) && isComplete && !isSubmitting;
+  /*
+   * La lectura depende del ARCHIVO, no de la fecha: es el documento el que la produce. El día
+   * que exista el parser, acá va el resultado de la mutación y no la maqueta del folio.
+   *
+   * SE NORMALIZA A `null` EN UN SOLO LUGAR, y no es defensa de más. Los tres consumidores
+   * —el verde de la dropzone, los dos campos y el recuadro de la brecha— tienen que estar de
+   * acuerdo sobre si hay lectura o no; con la comprobación repetida en cada uno, una lectura
+   * `undefined` daba `undefined !== null` y pintaba la dropzone en verde con los campos
+   * todavía pendientes, un estado que el diseño no tiene. Además, cuando `declarationReading`
+   * pase a ser `| null` para cubrir el análisis en curso, esta línea ya está bien.
+   */
+  const reading = declaration && declarationReading ? declarationReading : null;
+  const canConfirm =
+    Boolean(onConfirm) && disposedOn.length > 0 && reading !== null && !isSubmitting;
 
   function handleSubmit() {
-    if (!onConfirm || !canConfirm || !declaration) return;
+    if (!onConfirm || !canConfirm || !declaration || !reading) return;
 
     onConfirm({
       disposedOn,
       declaration,
-      receptionTicket: trimmedTicket,
-      receivedKg: trimmedReceivedKg,
+      receptionTicket: reading.receptionTicket,
+      receivedKg: reading.receivedKg,
     });
   }
 
@@ -251,7 +264,7 @@ export function WasteFolioCloseModal({
         )}
       </WasteFormModalField>
 
-      {/* Grupo `4230:13428`: el documento y los dos datos que dependen de él. */}
+      {/* Grupo `4230:13428` / `4230:13637`: el documento y los dos datos que transcribe. */}
       <div className="flex w-full flex-col items-start gap-[8px]">
         <WasteSidrepFileDropzone
           label={WASTE_FOLIO_CLOSE_DECLARATION_LABEL}
@@ -259,7 +272,12 @@ export function WasteFolioCloseModal({
           accept="application/pdf"
           file={declaration}
           onChange={handleDeclarationChange}
-          confirmed={declaration !== null}
+          /*
+           * El verde depende de la LECTURA y no del archivo, igual que en
+           * `WasteSidrepWeightSection`: con el PDF subido pero la lectura fallada, mostrarlo
+           * validado diría algo que no es.
+           */
+          confirmed={reading !== null}
         />
 
         {fileError ? (
@@ -271,44 +289,42 @@ export function WasteFolioCloseModal({
           </p>
         ) : null}
 
-        {/* Fila `4230:13437`: las dos mitades, bloqueadas o no según el documento. */}
+        {/* Fila `4230:13437` / `4230:13649`: las dos mitades, con lectura o sin ella. */}
         <div className="flex w-full items-start gap-[14px]">
-          {declaration ? (
-            <>
-              <WasteFormModalField label={WASTE_FOLIO_CLOSE_TICKET_LABEL}>
-                {(fieldId) => (
-                  <input
-                    id={fieldId}
-                    value={receptionTicket}
-                    onChange={(event) => setReceptionTicket(event.target.value)}
-                    type="text"
-                    autoComplete="off"
-                    className={WASTE_FORM_MODAL_INPUT_CLASS}
-                  />
-                )}
-              </WasteFormModalField>
-              <WasteFormModalField label={WASTE_FOLIO_CLOSE_RECEIVED_LABEL}>
-                {(fieldId) => (
-                  <input
-                    id={fieldId}
-                    value={receivedKg}
-                    onChange={(event) => setReceivedKg(event.target.value)}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    className={WASTE_FORM_MODAL_INPUT_CLASS}
-                  />
-                )}
-              </WasteFormModalField>
-            </>
-          ) : (
-            <>
-              <WasteFolioCloseLockedField label={WASTE_FOLIO_CLOSE_TICKET_LABEL} />
-              <WasteFolioCloseLockedField label={WASTE_FOLIO_CLOSE_RECEIVED_LABEL} />
-            </>
-          )}
+          <WasteDerivedValueField
+            label={WASTE_FOLIO_CLOSE_TICKET_LABEL}
+            value={reading?.receptionTicket ?? null}
+            pendingLabel={WASTE_FOLIO_CLOSE_PENDING_HINT}
+          />
+          <WasteDerivedValueField
+            label={WASTE_FOLIO_CLOSE_RECEIVED_LABEL}
+            /* El nodo `4230:13657` la escribe PEGADA: "590kg". */
+            value={reading ? `${reading.receivedKg}kg` : null}
+            pendingLabel={WASTE_FOLIO_CLOSE_PENDING_HINT}
+          />
         </div>
       </div>
+
+      {/*
+        Recuadro `4230:13658`, en sus dos tonos: `3524:544` fuera de tolerancia y
+        `3524:560` dentro. Mismos formatos que el panel de detalle de un folio cerrado:
+        la brecha pegada ("20kg"), el despachado separado ("Despachado 610 kg").
+
+        APARECE SIEMPRE QUE HAY LECTURA, conforme o no. Acá no es una alerta, es el
+        número que se está por registrar: el modal no tiene grilla donde leer la brecha
+        —a diferencia del panel de detalle, que la trae en `folioFacts`—, así que
+        esconderla en el caso conforme dejaba confirmar un cierre sin haberla visto
+        nunca. El tono es el que dice si hay que reclamarla.
+      */}
+      {reading ? (
+        <WasteWeightDifferenceNotice
+          exceedsTolerance={reading.gap.exceedsTolerance}
+          difference={`${reading.gap.kg}kg`}
+          percentage={reading.gap.percentage}
+          dispatched={`Despachado ${dispatchedKg} kg`}
+          tolerance={reading.gap.tolerance}
+        />
+      ) : null}
 
       {errorMessage ? (
         <p
@@ -319,27 +335,5 @@ export function WasteFolioCloseModal({
         </p>
       ) : null}
     </WasteFormModal>
-  );
-}
-
-/**
- * Una de las dos cajas grises de los nodos `4230:13438` y `4230:13441`: el dato que
- * todavía no se puede pedir, con el motivo escrito al lado.
- *
- * NO es un `<input disabled>` y es a propósito: no hay nada que escribir ahí todavía, así
- * que un campo apagado se leería como "esto se llena después" en vez de "esto necesita el
- * documento". El rótulo va como `<p>` y no como `<label>` porque no hay control que
- * rotular.
- */
-function WasteFolioCloseLockedField({ label }: { label: string }) {
-  return (
-    <div className="flex min-w-px flex-1 items-center justify-between gap-[8px] rounded-[8px] border border-solid border-[#e3e3e3] bg-[#f7f7f7] px-[17px] py-[17.5px]">
-      <p className="font-['Inter:Semi_Bold',sans-serif] text-[11.5px] font-semibold not-italic leading-[normal] text-[#646464]">
-        {label}
-      </p>
-      <p className="text-right font-['Inter:Regular',sans-serif] text-[10.5px] font-normal not-italic leading-[normal] text-[#646464]">
-        {WASTE_FOLIO_CLOSE_LOCKED_HINT}
-      </p>
-    </div>
   );
 }

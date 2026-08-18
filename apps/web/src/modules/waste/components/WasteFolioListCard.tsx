@@ -2,17 +2,19 @@ import type { ReactNode } from 'react';
 import { WasteAlertWeightIcon } from '../icons/WasteDashboardIcons';
 import { WarehouseFormAttachedCheckIcon } from '../icons/WarehouseIntakeFormIcons';
 import { WarehousePageNextIcon } from '../icons/WarehouseIntakeIcons';
+import { WarehouseHazardousIcon } from '../icons/WarehouseTableIcons';
 import { WasteFolioInTransitIcon } from '../icons/WasteSidrepOpenFolioIcons';
 
 /**
- * Lista de folios SIDREP de la vista "Folios SIDREP" — nodo `3083:10909` (pestaña
- * "Cerrados") y `3081:7871` (pestaña "Abiertos"), la columna izquierda de las dos.
+ * Lista de folios SIDREP de la vista "Folios SIDREP" — nodos `3083:10909` (pestaña
+ * "Cerrados"), `3081:7871` ("Abiertos") y `3073:5921` ("Pendientes de revisión"), la
+ * columna izquierda de las tres.
  *
- * LAS DOS PESTAÑAS DIBUJAN LA MISMA FILA y por eso hay un solo componente: casilla
+ * LAS TRES PESTAÑAS DIBUJAN LA MISMA FILA y por eso hay un solo componente: casilla
  * de 36px, título, subtítulo, un dato destacado con su leyenda y el chevron. Lo que
- * cambia entre ellas es QUÉ dice cada ranura —"Cerrado / 08 jul" contra "4 días /
- * sobre 3 días"— y el tono del glifo y del dato. Ninguna de las dos cosas es
- * geometría, así que van como props y no como un segundo archivo.
+ * cambia entre ellas es QUÉ dice cada ranura —"Cerrado / 08 jul", "4 días / sobre 3
+ * días", "4h 20m / restantes"— y el tono del glifo y del dato. Ninguna de las dos
+ * cosas es geometría, así que van como props y no como un segundo archivo.
  *
  * Es la lista maestra de un maestro-detalle: cada fila abre su folio en
  * `WasteFolioDetailPanel`, a la derecha. Por eso las filas son BOTONES dentro de
@@ -51,29 +53,32 @@ import { WasteFolioInTransitIcon } from '../icons/WasteSidrepOpenFolioIcons';
  */
 
 /**
- * En qué está el folio. Los tres tonos salen de nodos concretos, no de una escala
+ * En qué está el folio. Los cuatro tonos salen de nodos concretos, no de una escala
  * inventada, y cambian LA CASILLA Y EL GLIFO a la vez:
  *
- *   `closed`     `3083:10911`  bg var(--teal/100, #c5fff6) · check #006153
- *   `weightGap`  `3083:10943`  bg #fff0e6 · balanza #570b1d
- *   `inTransit`  `3081:7873`   bg #fff0e6 · camión #e8720c
+ *   `closed`         `3083:10911`  bg var(--teal/100, #c5fff6) · check #006153
+ *   `weightGap`      `3083:10943`  bg #fff0e6 · balanza #570b1d
+ *   `inTransit`      `3081:7873`   bg #fff0e6 · camión #e8720c
+ *   `pendingReview`  `3073:5923`   bg #fff0e6 · glifo "peligroso" #e8720c
  *
  * El check dice "cerró limpio"; la balanza, "cerró con diferencia de peso" —el
  * folio `2026-SD-04812`, el único de los tres que trae el recuadro de alerta en su
  * panel—; el camión, "el traslado sigue en curso", que es lo que un folio ABIERTO
- * es. Por eso el tono se nombra por el ESTADO y no por el color: el color es
- * consecuencia, y el glifo cambia con él.
+ * es; el "peligroso", "esto todavía es una SOLICITUD de retiro de residuo peligroso y
+ * espera tu decisión", que es lo que hay antes de que exista folio. Por eso el tono
+ * se nombra por el ESTADO y no por el color: el color es consecuencia, y el glifo
+ * cambia con él.
  *
- * `inTransit` comparte la casilla ámbar con `weightGap` y NO son el mismo tono: el
- * nodo de "Abiertos" les da el mismo `#fff0e6` de fondo pero glifos distintos —y el
- * camión va en `#e8720c`, no en el `#570b1d` de la balanza—. Distinguirlos por el
- * fondo habría perdido justamente lo que los diferencia.
+ * TRES DE LOS CUATRO COMPARTEN LA CASILLA ÁMBAR Y NO SON EL MISMO TONO: los nodos
+ * les dan el mismo `#fff0e6` de fondo pero glifos distintos —y `#570b1d` la balanza
+ * contra `#e8720c` el camión y el "peligroso"—. Distinguirlos por el fondo habría perdido
+ * justamente lo que los diferencia.
  *
  * `#fff0e6` con `#6b3a1f` es el mismo par ámbar que ya usa `WastePill` para
  * "Pendiente" y que el panel repite en su pastilla y en su recuadro de peso; no es
  * un color nuevo del sistema.
  */
-export type WasteFolioListRowTone = 'closed' | 'weightGap' | 'inTransit';
+export type WasteFolioListRowTone = 'closed' | 'weightGap' | 'inTransit' | 'pendingReview';
 
 const ROW_TONE: Record<WasteFolioListRowTone, { tile: string; icon: ReactNode }> = {
   closed: {
@@ -97,25 +102,42 @@ const ROW_TONE: Record<WasteFolioListRowTone, { tile: string; icon: ReactNode }>
     tile: 'bg-[#fff0e6]',
     icon: <WasteFolioInTransitIcon className="block h-[14px] w-[17.5px] shrink-0 text-[#e8720c]" />,
   },
+  pendingReview: {
+    tile: 'bg-[#fff0e6]',
+    /*
+     * MISMO GLIFO que la pastilla "Peligroso" de las tablas del módulo
+     * (`3765:42730`), que va en caja de 12.5 × 10: el path escalado por 1.4 coincide
+     * con el de este nodo, coordenada por coordenada. Se reusa a la caja de acá.
+     */
+    icon: <WarehouseHazardousIcon className="block h-[14px] w-[17.5px] shrink-0 text-[#e8720c]" />,
+  },
 };
 
 /**
- * Con qué peso se lee el dato destacado de la fila. Los dos hexes salen de los
+ * Con qué peso se lee el dato destacado de la fila. Los tres hexes salen de los
  * nodos y significan cosas distintas:
  *
- *   `calm`  `3083:11037` / `3081:7899`  var(--teal/900_txt, #006153)
- *   `late`  `3081:7883`                var(--red/500_cta, #bd3b5b)
+ *   `calm`     `3083:11037` / `3081:7899` / `3073:5933`  var(--teal/900_txt, #006153)
+ *   `warning`  `3073:5949`                               #e8720c
+ *   `late`     `3081:7883`  / `3073:5965`                var(--red/500_cta, #bd3b5b)
  *
- * `late` lo lleva SÓLO el folio que se pasó de su plazo —el de "4 días" sobre 3—.
- * En "Cerrados" ninguna fila lo usa: el nodo pinta las tres en teal, también la que
- * cerró con diferencia de peso, porque ahí lo ámbar es la casilla y no el estado.
- * Por eso el tono es una propiedad de la FILA y no del componente, y por eso su
- * valor por defecto es `calm`.
+ * `late` lo lleva SÓLO el folio que se pasó de su plazo —el de "4 días" sobre 3 en
+ * "Abiertos", el "Vencido · 40m" en "Pendientes de revisión"—. En "Cerrados" ninguna
+ * fila lo usa: el nodo pinta las tres en teal, también la que cerró con diferencia de
+ * peso, porque ahí lo ámbar es la casilla y no el estado. Por eso el tono es una
+ * propiedad de la FILA y no del componente, y por eso su valor por defecto es `calm`.
+ *
+ * `warning` LO TRAE "PENDIENTES DE REVISIÓN" Y ES UN ESCALÓN, no un cuarto color
+ * suelto: esa pestaña mide un SLA de horas y el nodo lo dibuja en tres tramos —queda
+ * tiempo (teal), se está por vencer (`1h 05m`, ámbar) y ya venció (rojo)—, mientras
+ * "Abiertos" mide días y sólo distingue dentro/fuera de plazo. Es el mismo `#e8720c`
+ * del camión y del glifo de la casilla, no un color nuevo.
  */
-export type WasteFolioListRowHighlightTone = 'calm' | 'late';
+export type WasteFolioListRowHighlightTone = 'calm' | 'warning' | 'late';
 
 const HIGHLIGHT_TONE: Record<WasteFolioListRowHighlightTone, string> = {
   calm: 'text-[#006153]',
+  warning: 'text-[#e8720c]',
   late: 'text-[#bd3b5b]',
 };
 
@@ -141,6 +163,19 @@ export interface WasteFolioListRow {
   tone: WasteFolioListRowTone;
   /** Ver `WasteFolioListRowHighlightTone`. Por defecto `calm`. */
   highlightTone?: WasteFolioListRowHighlightTone;
+  /**
+   * Pastilla opcional entre el bloque de texto y el dato destacado — nodo `4295:24655`,
+   * el "Rechazado" de la solicitud que volvió al transportista.
+   *
+   * ES UNA RANURA Y NO UN `string` CON TONO: la pastilla ya existe como `WastePill`, y
+   * pasarla armada evita que esta lista tenga que conocer los tonos del módulo para
+   * dibujar algo que no es suyo.
+   *
+   * VA ANTES DEL DATO DESTACADO Y NO EN SU LUGAR, que es como lo dibuja el nodo: la
+   * solicitud rechazada CONSERVA su reloj de SLA en teal —sigue corriendo, porque el
+   * transportista todavía tiene que corregir— y la pastilla se suma a la izquierda.
+   */
+  badge?: ReactNode;
 }
 
 interface WasteFolioListCardProps {
@@ -204,6 +239,8 @@ export function WasteFolioListCard({ label, rows, selectedId, onSelect }: WasteF
                   {row.subtitle}
                 </span>
               </span>
+
+              {row.badge ? <span className="flex shrink-0">{row.badge}</span> : null}
 
               {/*
                 En "Cerrados" el estado va en teal en las TRES filas, también en la

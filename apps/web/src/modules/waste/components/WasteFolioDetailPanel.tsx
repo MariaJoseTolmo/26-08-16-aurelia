@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
  * Geometría del design context:
  *
  *   tarjeta  bg white · border var(--gray/300, #e3e3e3) · rounded-[10px]
+ *   franja   `4295:24658`  a sangre, pegada al borde superior · con su propia línea
  *   aviso    `3083:10960`  px-[20px] pt-[14px] · sin línea
  *   cabecera `3083:10965`  px-[20px] pt-[18px] pb-[19px] · border-b #e3e3e3
  *            título   `3083:10968` Inter Bold 14.5px · #131313 · pb-[3px]
@@ -43,6 +44,15 @@ import type { ReactNode } from 'react';
 
 interface WasteFolioDetailPanelProps {
   /**
+   * Banda A SANGRE pegada al borde superior de la tarjeta —`WasteFolioRejectedBanner` en
+   * el nodo `4295:24658`—, por encima del aviso.
+   *
+   * ES OTRA RANURA Y NO EL MISMO `notice` CON OTRO CONTENIDO: aquél vive con el
+   * `px-[20px] pt-[14px]` que la tarjeta le pone alrededor, y esto toca los dos bordes
+   * laterales y el superior. El padding no es del contenido: es de la ranura.
+   */
+  banner?: ReactNode;
+  /**
    * Recuadro de alerta arriba de la cabecera — `WasteWeightDifferenceNotice` en el
    * nodo. Sin esto la cabecera arranca pegada al borde de la tarjeta.
    */
@@ -60,6 +70,7 @@ interface WasteFolioDetailPanelProps {
 }
 
 export function WasteFolioDetailPanel({
+  banner,
   notice,
   title,
   subtitle,
@@ -72,6 +83,20 @@ export function WasteFolioDetailPanel({
       className="flex w-full flex-col items-start rounded-[10px] border border-solid border-[#e3e3e3] bg-white"
       data-name="Container"
     >
+      {/*
+        `rounded-t-[9px]` y no `overflow-hidden` en la tarjeta: la franja va a sangre, así
+        que su fondo rojo llega a las dos esquinas superiores y sin radio se comería la
+        curva de la tarjeta. 9 es EL RADIO INTERIOR —los 10 de la tarjeta menos el 1px de
+        su borde—, o sea que la curva de la franja calza exactamente con la del borde.
+        Recortar con `overflow-hidden` daba el mismo píxel pero cortando también cualquier
+        foco o sombra que asome del panel.
+      */}
+      {banner ? (
+        <div className="w-full overflow-hidden rounded-t-[9px]" data-name="Container">
+          {banner}
+        </div>
+      ) : null}
+
       {notice ? (
         <div className="w-full px-[20px] pt-[14px]" data-name="Container:margin">
           {notice}

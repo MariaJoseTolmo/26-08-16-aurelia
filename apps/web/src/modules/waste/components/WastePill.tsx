@@ -33,18 +33,23 @@ import type { ReactNode } from 'react';
  *   `amber`   `3817:56001` "Pendiente"          bg #fff0e6 · sin borde     · #6b3a1f
  *   `blue`    `3830:65747` "En curso"           bg #e6f3ff · sin borde     · #0d3862
  *             `3830:65648` "CHATARRA" (categoría del residuo, mismo par)
+ *   `red`     `4295:24655` "Rechazado"          bg #ffd0db · sin borde     · #570b1d
  *
  * `blue` es el MISMO par que `WasteHazardBadge` usa para "No peligroso" y que el
  * banner informativo de SINADER usa de fondo: es el azul de superficie del
  * módulo, no un color nuevo.
+ *
+ * `red` es el MISMO par que el tono `danger` de `WasteFolioNotice` y que la franja de
+ * rechazo `4295:24658`: tampoco es un color nuevo del sistema.
  */
-export type WastePillTone = 'neutral' | 'teal' | 'amber' | 'blue';
+export type WastePillTone = 'neutral' | 'teal' | 'amber' | 'blue' | 'red';
 
 const PILL_TONE: Record<WastePillTone, string> = {
   neutral: 'border border-solid border-[#e3e3e3] bg-[#f7f7f7] text-[#acacac]',
   teal: 'bg-[#c5fff6] text-[#006153]',
   amber: 'bg-[#fff0e6] text-[#6b3a1f]',
   blue: 'bg-[#e6f3ff] text-[#0d3862]',
+  red: 'bg-[#ffd0db] text-[#570b1d]',
 };
 
 /** `chip` es el rectángulo redondeado; `pill` la cápsula. Nada más cambia. */
