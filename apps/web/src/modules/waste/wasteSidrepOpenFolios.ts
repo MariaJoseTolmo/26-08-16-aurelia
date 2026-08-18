@@ -1,3 +1,4 @@
+import type { WasteFolioCloseVariant } from './components/WasteFolioCloseModal';
 import type { WasteDefinitionItem } from './components/WasteDefinitionGrid';
 import type { WasteFolioListRow } from './components/WasteFolioListCard';
 import type { WasteSidrepFolioGap } from './wasteSidrepFolios';
@@ -33,8 +34,20 @@ import type { WasteSidrepFolioGap } from './wasteSidrepFolios';
  * recurso filtrado por estado—, pero no se debe leer como el mismo folio.
  *
  * EL NODO SÓLO DIBUJA EL PANEL DEL PRIMER FOLIO. Los datos de transporte de los otros
- * dos —patente, destinataria, fecha, aceptación— se completan de forma coherente para
+ * tres —patente, destinataria, fecha, aceptación— se completan de forma coherente para
  * que la vista sea navegable. No son datos del diseño y no se deben tomar como tales.
+ *
+ * EL CUARTO TRASLADO TAMPOCO ESTÁ EN LA MAQUETA DEL `3081:7463`, y entra por el mismo motivo
+ * que el cuarto folio cerrado de `wasteSidrepFolios.ts`: los tres del nodo son RESPEL por el
+ * DS 148, así que sin él la variante NO PELIGROSA de la pestaña —el panel `6854:5707` y el
+ * cierre `4230:14038`— no era alcanzable ni verificable.
+ *
+ * EL NODO `6854:5367` DIBUJA LAS TRES FILAS NO PELIGROSAS, con el residuo, el peso y los días
+ * en placeholders ("[Nombre del residuo no peligroso] — X.XXX kg", "X días"). NO se copió esa
+ * lista: es la ilustración de la variante, no otra maqueta de datos, y con los tres traslados
+ * cambiados de rama la variante PELIGROSA se volvía inalcanzable. La bandeja queda con TRES
+ * PELIGROSOS Y DOS NO PELIGROSOS: las dos ramas se recorren en la misma pantalla y ninguna se
+ * lee como la excepción de la otra.
  */
 
 /**
@@ -65,26 +78,35 @@ export interface WasteSidrepOpenFolioDeclarationReading {
   gap: WasteSidrepFolioGap;
 }
 
-export interface WasteSidrepOpenFolio {
-  /** Número de folio SIDREP: "2026-SD-04812". */
-  folio: string;
+/** Lo que TODO traslado abierto tiene, con folio SIDREP o sin él. */
+interface WasteSidrepOpenFolioBase {
+  /**
+   * Identidad del traslado en la lista y en la selección del maestro-detalle.
+   *
+   * NO ES EL FOLIO, y es lo que hace falta para que la unión de abajo sea posible: el nodo
+   * `6854:5707` dibuja el panel de un traslado NO PELIGROSO y no escribe número de folio en
+   * ninguna parte, así que la vista necesitaba una clave que exista en los dos casos. En el
+   * peligroso ES el folio —es su clave natural—; en el no peligroso es una clave interna de
+   * maqueta, y con el endpoint los dos pasan a ser el id del recurso.
+   */
+  id: string;
   wasteType: string;
   /**
    * Si el residuo es PELIGROSO (RESPEL).
    *
-   * ES LO QUE DECIDE CÓMO SE CIERRA EL FOLIO: un traslado peligroso se cierra con el modal
-   * `4230:13273`, que pide la declaración SIDREP, y uno no peligroso no la tiene —no la
-   * genera— así que su cierre es otro formulario. Ver `WasteSidrepFoliosPage`.
+   * ES LO QUE DECIDE CON QUÉ DOCUMENTO SE CIERRA EL FOLIO, y ya no SI se cierra: el nodo
+   * `4230:14038` es el mismo formulario de cierre pidiendo el ticket de recepción final en
+   * vez de la declaración SIDREP del `4230:13273`. Los dos folios llegan al modal; la
+   * peligrosidad elige la variante. Ver `openFolioCloseVariant`.
    *
-   * Es un campo plano y no una unión discriminada como en `wasteSidrepFolios.ts`: allá la
-   * peligrosidad cambia QUÉ DATOS tiene el folio cerrado —resolución sanitaria, paquete de
-   * respaldos— y acá no cambia ninguno, sólo con qué formulario se cierra. Una unión sin
-   * campos distintos entre ramas es ceremonia.
+   * REGLA QUE CAMBIÓ: antes un folio no peligroso llevaba "Registrar cierre" DESHABILITADO,
+   * porque el único formulario dibujado pedía un documento que ese traslado no genera. Es la
+   * misma corrección que ya hizo el respaldo de traslado con `folioSupportVariant`: la
+   * peligrosidad no decide si la acción existe, decide cuál de sus dos formas se usa.
    *
-   * LOS TRES FOLIOS DEL NODO SON PELIGROSOS —baterías de plomo-ácido, aceite lubricante
-   * usado y envases contaminados son los tres RESPEL por el DS 148—, así que la rama no
-   * peligrosa no tiene muestra en esta pestaña. No se inventa un cuarto folio para
-   * mostrarla: el nodo dibuja tres.
+   * Y TAMBIÉN DECIDE SI HAY FOLIO SIDREP, que es lo que lo volvió el discriminante de una
+   * unión: el nodo `6854:5707` prueba que el traslado no peligroso no tiene número de folio.
+   * Ver `WasteSidrepOpenNonHazardousFolio`.
    */
   isHazardous: boolean;
   /** Empresa transportista: "Resiter S.A.". Nodo `3081:7880`. */
@@ -156,6 +178,49 @@ export interface WasteSidrepOpenFolio {
 }
 
 /**
+ * Traslado de residuo PELIGROSO — el caso que dibujan los nodos `3081:7463` y `3081:7930`.
+ *
+ * ES EL ÚNICO QUE TIENE FOLIO SIDREP, y de ahí sale toda la diferencia de la vista: la fila
+ * lo escribe al lado del transportista, el subtítulo del panel lo encabeza, el modal de cierre
+ * lo repite en su cabecera y el aviso ámbar del pie habla de cerrarlo en la plataforma del
+ * Ministerio.
+ */
+export interface WasteSidrepOpenHazardousFolio extends WasteSidrepOpenFolioBase {
+  isHazardous: true;
+  /** Número de folio SIDREP: "2026-SD-04812". Nodo `3081:7881`. */
+  folio: string;
+}
+
+/**
+ * Traslado de residuo NO PELIGROSO — el caso que dibuja el nodo `6854:5707`, emplazado en el
+ * `6854:5367`.
+ *
+ * NO TIENE FOLIO SIDREP, y no es un olvido de la maqueta: SIDREP es el Sistema de Declaración
+ * de Residuos PELIGROSOS, así que un traslado no peligroso no genera folio ahí. El nodo lo
+ * confirma tres veces —la fila escribe sólo "Resiter S.A." donde la peligrosa escribe
+ * "Resiter S.A. · Folio 2026-SD-04812", el subtítulo del panel escribe sólo el transportista,
+ * y el aviso ámbar sobre "el cierre del SIDREP en la plataforma oficial" DESAPARECE del
+ * cuerpo—. Las tres cosas dicen lo mismo: acá no hay folio que cerrar en la plataforma.
+ */
+export interface WasteSidrepOpenNonHazardousFolio extends WasteSidrepOpenFolioBase {
+  isHazardous: false;
+}
+
+/**
+ * Un traslado de la bandeja "Abiertos", PELIGROSO O NO.
+ *
+ * ES UNA UNIÓN DISCRIMINADA POR `isHazardous` —igual que `WasteSidrepFolio` en los cerrados—
+ * y ya no un campo plano con el folio siempre presente. La razón es la del nodo `6854:5707`:
+ * el folio SIDREP existe SÓLO en la rama peligrosa, así que leerlo obliga a estrechar antes y
+ * la regla la comprueba el compilador. Con `folio: string` en los dos casos, cualquier
+ * proyección nueva podía escribir "Folio SIDREP …" sobre un traslado que no tiene folio, y el
+ * error se veía en pantalla en vez de en el build.
+ */
+export type WasteSidrepOpenFolio =
+  | WasteSidrepOpenHazardousFolio
+  | WasteSidrepOpenNonHazardousFolio;
+
+/**
  * Tolerancias por tipo de residuo de las lecturas de maqueta.
  *
  * La del aceite es LITERALMENTE el mismo texto que en `wasteSidrepFolios.ts`, porque es el
@@ -169,6 +234,19 @@ const OPEN_OIL_TOLERANCE =
 
 const OPEN_CONTAINER_TOLERANCE =
   'Tolerancia esperada para Envases contaminados: ±3% (~6 kg) · histórico general por tipo de residuo.';
+
+/*
+ * La de la chatarra usa el MISMO ±2% que la del folio cerrado homónimo —mismo tipo de residuo,
+ * mismo histórico— pero con los kilos de ESTE traslado: el 2% de 2.640 son ~53, no los ~70 de
+ * aquellos 3.480. Copiar el texto entero habría dejado una tolerancia que no cierra con su
+ * propio peso.
+ */
+const OPEN_SCRAP_TOLERANCE =
+  'Tolerancia esperada para Chatarra metálica: ±2% (~53 kg) · histórico general por tipo de residuo.';
+
+/* Ídem: el 2% de los 1.860 de ese traslado son ~37 kg. */
+const OPEN_WOOD_TOLERANCE =
+  'Tolerancia esperada para Madera de embalaje: ±2% (~37 kg) · histórico general por tipo de residuo.';
 
 /** Rótulo de estado de la pastilla del panel. Nodo `3081:7934`. */
 export const WASTE_SIDREP_FOLIO_OPEN_STATUS = 'Abierto';
@@ -190,6 +268,7 @@ export const WASTE_SIDREP_OPEN_FOLIO_NOTICE =
 export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
   {
     /* El único folio cuyo PANEL dibuja el nodo, y el único fuera de plazo. */
+    id: '2026-SD-04812',
     folio: '2026-SD-04812',
     wasteType: 'Baterías de plomo-ácido',
     isHazardous: true,
@@ -225,9 +304,99 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
   },
   {
     /*
+     * EL ÚNICO TRASLADO QUE NO SALE DE LA MAQUETA DEL `3081:7463`, y el que hace alcanzable
+     * toda la rama no peligrosa: el panel `6854:5707` y el cierre `4230:14038`. Los tres del
+     * nodo son RESPEL por el DS 148 —baterías de plomo-ácido, aceite lubricante usado y
+     * envases contaminados—, así que sin éste no había desde dónde abrirla. Chatarra metálica
+     * es el mismo residuo con el que el `4327:35730` prueba la variante de "Cerrados".
+     *
+     * SIN `folio`, y la unión lo PROHÍBE en esta rama. El `2026-SD-04807` que tuvo mientras el
+     * modelo era plano era un número de folio SIDREP inventado para un traslado que no declara
+     * en SIDREP. El `id` es clave interna —nunca se muestra— y por eso no imita un folio.
+     *
+     * VA SEGUNDO PORQUE LA LISTA ESTÁ ORDENADA POR ANTIGÜEDAD —4 días, 1 día, recién
+     * generado—, y sus 2 días caen ahí. Con el endpoint el orden lo da la consulta.
+     */
+    id: 'open-nh-chatarra-metalica',
+    wasteType: 'Chatarra metálica',
+    isHazardous: false,
+    carrier: 'ICB Ingeniería',
+    dispatchedKg: '2.640',
+    plate: 'JCVR-18',
+    destination: 'KDM Tratamiento',
+    generatedAt: '14 jul, 11:40',
+    elapsedLabel: '2 días',
+    openedFor: '2 días',
+    openedForCaption: 'dentro de plazo',
+    carrierAcceptance: 'Confirmada en plataforma oficial',
+    overSla: false,
+    slaLabel: null,
+    /*
+     * Maqueta: 2.640 despachados contra 2.615 recibidos son 25 kg = 0,9%, dentro de los ~53
+     * que tolera la chatarra. El ticket de recepción final transcribe los mismos dos datos
+     * que transcribe una declaración SIDREP —el nodo `4230:14038` dibuja las mismas dos
+     * cajas— así que la lectura tiene la misma forma en las dos variantes.
+     */
+    declarationReading: {
+      receptionTicket: 'TR-26-0412',
+      receivedKg: '2.615',
+      gap: {
+        kg: '25',
+        percentage: '0,9%',
+        tolerance: OPEN_SCRAP_TOLERANCE,
+        qualifier: 'normal',
+        exceedsTolerance: false,
+      },
+    },
+  },
+  {
+    /*
+     * SEGUNDO TRASLADO NO PELIGROSO, también de maqueta. Con uno solo la rama se recorría pero
+     * no se leía como una bandeja: era un caso aislado entre tres RESPEL. Con dos se ve que la
+     * variante es un tipo de traslado y no una excepción, y que sus filas comparten la forma
+     * —transportista solo, sin "· Folio …"—.
+     *
+     * OTRO RESIDUO Y OTROS DATOS A PROPÓSITO: repitiendo chatarra y destinatario las dos filas
+     * se leían como el mismo traslado duplicado.
+     *
+     * VA ACÁ, detrás de la chatarra, porque los dos llevan 2 días y la lista está ordenada por
+     * antigüedad. Y va DENTRO DE PLAZO porque el `find((f) => f.overSla)` con el que entra la
+     * vista tiene que seguir cayendo en el `2026-SD-04812`, el folio cuyo panel dibuja el nodo
+     * `3081:7463`. Tampoco hay nodo de un traslado no peligroso fuera de plazo.
+     */
+    id: 'open-nh-madera-embalaje',
+    wasteType: 'Madera de embalaje',
+    isHazardous: false,
+    carrier: 'Resiter S.A.',
+    dispatchedKg: '1.860',
+    plate: 'KLRS-91',
+    destination: 'KDM Tratamiento',
+    generatedAt: '14 jul, 08:15',
+    elapsedLabel: '2 días',
+    openedFor: '2 días',
+    openedForCaption: 'dentro de plazo',
+    carrierAcceptance: 'Confirmada en plataforma oficial',
+    overSla: false,
+    slaLabel: null,
+    /* Maqueta: 1.860 despachados contra 1.845 recibidos son 15 kg = 0,8%, dentro de los ~37. */
+    declarationReading: {
+      receptionTicket: 'TR-26-0398',
+      receivedKg: '1.845',
+      gap: {
+        kg: '15',
+        percentage: '0,8%',
+        tolerance: OPEN_WOOD_TOLERANCE,
+        qualifier: 'normal',
+        exceedsTolerance: false,
+      },
+    },
+  },
+  {
+    /*
      * De acá abajo, sólo la FILA sale del nodo (`3081:7888`): residuo, peso,
      * transportista, folio, "1 día" y "dentro de plazo". El resto es maqueta.
      */
+    id: '2026-SD-04803',
     folio: '2026-SD-04803',
     wasteType: 'Aceite lubricante usado',
     isHazardous: true,
@@ -258,6 +427,7 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
   },
   {
     /* Fila del nodo `3081:7904`. El panel es maqueta. */
+    id: '2026-SD-04798',
     folio: '2026-SD-04798',
     wasteType: 'Envases contaminados',
     isHazardous: true,
@@ -306,9 +476,14 @@ export const WASTE_SIDREP_OPEN_FOLIOS: WasteSidrepOpenFolio[] = [
  */
 export function openFolioListRow(folio: WasteSidrepOpenFolio): WasteFolioListRow {
   return {
-    id: folio.folio,
+    id: folio.id,
     title: `${folio.wasteType} — ${folio.dispatchedKg} kg`,
-    subtitle: `${folio.carrier} · Folio ${folio.folio}`,
+    /*
+     * LA FILA NO PELIGROSA ESCRIBE SÓLO EL TRANSPORTISTA — nodo `6854:5367`, donde las tres
+     * filas dicen "Resiter S.A." / "ICB Ingeniería" a secas donde la peligrosa (`3081:7879`)
+     * dice "Resiter S.A. · Folio 2026-SD-04812". No hay folio que nombrar.
+     */
+    subtitle: folio.isHazardous ? `${folio.carrier} · Folio ${folio.folio}` : folio.carrier,
     highlight: folio.openedFor,
     caption: folio.openedForCaption,
     tone: 'inTransit',
@@ -325,6 +500,9 @@ export function openFolioListRow(folio: WasteSidrepOpenFolio): WasteFolioListRow
  * S.A."—, así que son dos textos distintos y cada uno se reproduce como está.
  */
 export function openFolioDetailSubtitle(folio: WasteSidrepOpenFolio): string {
+  /* Nodo `6854:5713`: en el traslado no peligroso el subtítulo es el transportista y nada más. */
+  if (!folio.isHazardous) return folio.carrier;
+
   return `Folio SIDREP ${folio.folio} · ${folio.carrier}`;
 }
 
@@ -338,7 +516,29 @@ export function openFolioDetailSubtitle(folio: WasteSidrepOpenFolio): string {
  * ninguna parte. Es la misma forma que el subtítulo del respaldo de un folio cerrado.
  */
 export function openFolioCloseSubtitle(folio: WasteSidrepOpenFolio): string {
+  /*
+   * SIN FOLIO EN EL NO PELIGROSO, y esto NO sale de un nodo: el `4230:14038` escribe "Folio
+   * SIDREP 2026-SD-04812 · Baterías de plomo-ácido · Resiter S.A." porque está relleno con el
+   * contenido de la maqueta PELIGROSA, como se anotó en ese componente. Se deriva de la regla
+   * que sí está dibujada tres veces en el `6854:5707`: si el traslado no tiene folio, la
+   * cabecera del modal no puede nombrarlo. Quedan el residuo y el transportista, que son los
+   * otros dos datos de ese subtítulo.
+   */
+  if (!folio.isHazardous) return `${folio.wasteType} · ${folio.carrier}`;
+
   return `Folio SIDREP ${folio.folio} · ${folio.wasteType} · ${folio.carrier}`;
+}
+
+/**
+ * Cuál de las dos formas del modal de cierre le corresponde a este folio — `4230:13273` con
+ * la declaración SIDREP, `4230:14038` con el ticket de recepción final.
+ *
+ * ES UNA FUNCIÓN Y NO UN TERNARIO EN LA VISTA, igual que `folioSupportVariant` en los folios
+ * cerrados: es la regla de negocio —qué documento respalda el cierre de un traslado— y vive
+ * junto al campo que la decide, no repetida en cada lugar que abra el modal.
+ */
+export function openFolioCloseVariant(folio: WasteSidrepOpenFolio): WasteFolioCloseVariant {
+  return folio.isHazardous ? 'hazardous' : 'nonHazardous';
 }
 
 /**
@@ -353,6 +553,15 @@ export function openFolioCloseSubtitle(folio: WasteSidrepOpenFolio): string {
  * no se reproduce.
  */
 export function openFolioClosedMessage(folio: WasteSidrepOpenFolio): string {
+  /*
+   * TAMPOCO SALE DE UN NODO —el `3083:9723` es el del cierre peligroso— y se compone con la
+   * misma forma menos el folio: lo que se cerró es el traslado, y nombrarlo por un folio que
+   * la pantalla nunca mostró dejaría al aprobador leyendo un número que no vio en ningún lado.
+   */
+  if (!folio.isHazardous) {
+    return `${folio.carrier} · Traslado de ${folio.wasteType} cerrado exitosamente`;
+  }
+
   return `${folio.carrier} · Folio ${folio.folio} cerrado exitosamente`;
 }
 

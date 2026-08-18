@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { WarehouseFormCalendarIcon } from '../icons/WarehouseIntakeFormIcons';
+import { WasteFolioVerifiedIcon } from '../icons/WasteSidrepPendingFolioIcons';
 import {
   WasteSinaderModalCloseIcon,
   WasteSinaderNoticeIcon,
@@ -213,23 +214,80 @@ export function WasteFormModal({
 }
 
 /**
- * Aviso azul de la primera fila del cuerpo — nodos `4319:34792` y `4230:13284`.
- *
- * El glifo va BAKEADO y no como prop: los dos nodos usan el mismo "i" en círculo de
- * 11.5 × 11.5 en `#0d3862`, así que dejarlo abierto era una forma de que el tercer modal
- * pusiera otro.
+ * Aviso del cuerpo — nodos `4319:34792`, `4230:13284` y `3087:17249` en azul, `3087:17710`
+ * en verde.
  *
  * NO es `WasteNoticeBanner`: aquél va `px-[17px]` y es el aviso a todo el ancho de una
  * VISTA; éste va `px-[15px]`, la medida del modal.
+ *
+ * EL TEXTO ES UN `<div>` Y NO UN `<p>`, y es por el modal de aprobación: sus dos avisos
+ * dibujan varios párrafos —el `3087:17252` tres líneas con la del medio en Inter Bold— así
+ * que el aviso tiene que poder recibirlos. Un `<p>` no puede contener otro `<p>` —el
+ * navegador lo cierra solo y el bloque termina fuera de la caja—, así que la etiqueta cambia
+ * y las clases se quedan donde están: los avisos de una sola frase salen idénticos, porque
+ * `leading-[17.25px]` se hereda igual.
  */
-export function WasteFormModalNotice({ children }: { children: ReactNode }) {
+
+/**
+ * Qué dice el aviso. Cada tono sale de nodos concretos y trae SU PROPIO GLIFO BAKEADO, no
+ * uno por prop: dejarlo abierto era la forma de que el próximo modal pusiera otro dibujo en
+ * la misma caja.
+ *
+ *   `info`     `4319:34792` · `4230:13284` · `3087:17249`
+ *              bg #e6f3ff · borde #c5d8f0 · tinta #0d3862 · "i" en círculo · gap 10
+ *   `success`  `3087:17710`
+ *              bg #e0ffd3 · borde #a8dfa8 · tinta #2a5c16 · tilde en círculo · gap 8
+ *
+ * EL GAP CAMBIA ENTRE LOS DOS Y NO ES UN DESCUIDO DE ESTE ARCHIVO: es lo que miden los
+ * nodos. El azul pone el glifo en x=15 y el texto en x=36.5 —15 + 11.5 + 10—, y el verde
+ * mete los dos en un grupo con `gap-[8px]` declarado. Dos píxeles de diferencia que el
+ * diseño escribió; unificarlos habría sido corregir el diseño desde el código.
+ *
+ * El par verde es el MISMO que el aviso de verificación del panel de pendientes
+ * (`3073:6018`) y que la dropzone cargada del flujo SIDREP: es el verde de confirmación del
+ * módulo, no un color nuevo. De ahí sale también el glifo, `WasteFolioVerifiedIcon`, que a
+ * `size-[11.5px]` da exactamente el asset de 11.5 de este nodo —verificado token a token: es
+ * el mismo trazado por 11.5/11, 96 números con 4.09e-5 de desviación máxima—.
+ */
+export type WasteFormModalNoticeTone = 'info' | 'success';
+
+const NOTICE_TONE: Record<
+  WasteFormModalNoticeTone,
+  { box: string; gap: string; ink: string; icon: (className: string) => ReactNode }
+> = {
+  info: {
+    box: 'border-[#c5d8f0] bg-[#e6f3ff]',
+    gap: 'gap-[10px]',
+    ink: 'text-[#0d3862]',
+    icon: (className) => <WasteSinaderNoticeIcon className={className} />,
+  },
+  success: {
+    box: 'border-[#a8dfa8] bg-[#e0ffd3]',
+    gap: 'gap-[8px]',
+    ink: 'text-[#2a5c16]',
+    icon: (className) => <WasteFolioVerifiedIcon className={className} />,
+  },
+};
+
+export function WasteFormModalNotice({
+  tone = 'info',
+  children,
+}: {
+  /** Por defecto `info`, que fue el primero y es el mayoritario en los modales del módulo. */
+  tone?: WasteFormModalNoticeTone;
+  children: ReactNode;
+}) {
+  const skin = NOTICE_TONE[tone];
+
   return (
-    <div className="w-full rounded-[8px] border border-solid border-[#c5d8f0] bg-[#e6f3ff]">
-      <div className="flex w-full items-start gap-[10px] px-[15px] py-[12px]">
-        <WasteSinaderNoticeIcon className="block size-[11.5px] shrink-0 text-[#0d3862]" />
-        <p className="min-w-px flex-1 font-['Inter:Regular',sans-serif] text-[11.5px] font-normal not-italic leading-[17.25px] text-[#0d3862]">
+    <div className={`w-full rounded-[8px] border border-solid ${skin.box}`}>
+      <div className={`flex w-full items-start px-[15px] py-[12px] ${skin.gap}`}>
+        {skin.icon(`block size-[11.5px] shrink-0 ${skin.ink}`)}
+        <div
+          className={`min-w-px flex-1 font-['Inter:Regular',sans-serif] text-[11.5px] font-normal not-italic leading-[17.25px] ${skin.ink}`}
+        >
           {children}
-        </p>
+        </div>
       </div>
     </div>
   );

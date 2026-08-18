@@ -14,15 +14,30 @@ import {
 } from './WasteFormModal';
 
 /**
- * Modal "Registrar cierre de folio" — DOS NODOS, un solo formulario en sus dos estados:
+ * Modal "Registrar cierre de folio" — TRES NODOS, un solo formulario en dos variantes:
  *
- *   `4230:13273`  vacío     520 × 479
- *   `4230:13614`  completo  520 × 587
+ *   `4230:13273`  peligroso     vacío     520 × 479
+ *   `4230:13614`  peligroso     completo  520 × 587
+ *   `4230:14038`  no peligroso  vacío     520 × 479
  *
  * Lo abre "Registrar cierre" (`3081:7977`), el pie del panel de detalle de un folio SIDREP
- * ABIERTO, y sólo cuando el residuo es PELIGROSO: un traslado no peligroso no genera
- * declaración SIDREP, que es el documento sobre el que se apoya todo este formulario. Ver
- * `WasteSidrepFoliosPage`.
+ * ABIERTO, y lo abre SIEMPRE. La peligrosidad NO decide si el folio se cierra con este
+ * formulario, decide QUÉ DOCUMENTO lo respalda: el `4230:14038` es el mismo formulario
+ * pidiendo el ticket de recepción final en vez de la declaración SIDREP. Ver
+ * `WASTE_FOLIO_CLOSE_DOCUMENT_LABELS` y `WasteSidrepFoliosPage`.
+ *
+ * LAS DOS VARIANTES DIFIEREN EN EXACTAMENTE UNA COSA, el rótulo de la dropzone. Medido nodo a
+ * nodo contra el `4230:13273` —cabecera, aviso azul, fecha, grupo del documento, las dos
+ * cajas derivadas y el pie— el `4230:14038` no cambia UN valor: mismo ancho 520, mismos
+ * `px-[22px] py-[20px]`, mismo `gap-[16px]`, mismas cajas `#f7f7f7`/`#e3e3e3` de
+ * `px-[17px] py-[17.5px]`, mismo primario `#e2e2e2` de `149.641 × 34.5`. Por eso la variante
+ * es una prop y no un segundo componente.
+ *
+ * EL "SE REQUIERE DECLARACIÓN SIDREP" DE LAS DOS CAJAS NO ES UN RESTO DE LA COPIA: el nodo no
+ * peligroso lo escribe igual (`4230:14073` y `4230:14076`), y cierra con su propio aviso azul,
+ * que en las dos variantes habla de que "el destinatario cerró el SIDREP en la plataforma
+ * oficial". El ticket y los kilos salen de ESA declaración; lo que cambia es el documento que
+ * el aprobador adjunta para transcribirla.
  *
  * ES EL PASO QUE CIERRA EL TRASLADO. Un folio abierto es un residuo que salió de faena y
  * cuya recepción en destino todavía no está confirmada; este formulario registra la
@@ -84,14 +99,30 @@ export const WASTE_FOLIO_CLOSE_TITLE = 'Registrar cierre de folio';
 export const WASTE_FOLIO_CLOSE_NOTICE =
   'Llena los siguientes campos una vez que confirmes que el destinatario cerró el SIDREP en la plataforma oficial y te haya hecho llegar el certificado de disposición final.';
 
-/** Rótulos de los nodos `4230:13291`, `4230:13434`, `4230:13439` y `4230:13442`. */
+/** Rótulos de los nodos `4230:13291`, `4230:13439` y `4230:13442`. */
 export const WASTE_FOLIO_CLOSE_DATE_LABEL = 'Fecha de disposición final';
-export const WASTE_FOLIO_CLOSE_DECLARATION_LABEL = 'Declaración SIDREP';
 export const WASTE_FOLIO_CLOSE_TICKET_LABEL = 'Nº de ticket de recepción';
 export const WASTE_FOLIO_CLOSE_RECEIVED_LABEL = 'Kg recibidos en destino';
 
+/** Con qué documento se respalda el cierre, que es lo único que la peligrosidad cambia acá. */
+export type WasteFolioCloseVariant = 'hazardous' | 'nonHazardous';
+
 /**
- * Ayuda de la dropzone vacía — nodo `4230:13435`.
+ * Rótulo de la dropzone por variante — nodos `4230:13434` (peligroso) y `4230:14067` (no
+ * peligroso).
+ *
+ * SON DOS `Record` Y NO CUATRO CONSTANTES SUELTAS —éste y `DOCUMENT_TOO_LARGE`— porque los
+ * dos textos nombran el MISMO documento: con constantes sueltas se podía sumar una variante,
+ * o cambiar un rótulo, y dejar el formulario pidiendo un archivo y rechazándolo por tamaño con
+ * el nombre del otro. Indexados por la variante, el compilador exige el par completo.
+ */
+export const WASTE_FOLIO_CLOSE_DOCUMENT_LABELS: Record<WasteFolioCloseVariant, string> = {
+  hazardous: 'Declaración SIDREP',
+  nonHazardous: 'Ticket de recepción final',
+};
+
+/**
+ * Ayuda de la dropzone vacía — nodos `4230:13435` y `4230:14068`, idénticos.
  *
  * Se reproduce TAL CUAL, con el punto pegado a "Pdf" y sin espacio antes del separador: es el
  * texto del diseño y corregirlo acá lo dejaría distinto del resto de las dropzonas del flujo
@@ -106,21 +137,28 @@ export const WASTE_FOLIO_CLOSE_PENDING_HINT = 'Se requiere declaración SIDREP';
 export const WASTE_FOLIO_CLOSE_CONFIRM = 'Confirmar cierre';
 
 /**
- * Tope de la declaración, el mismo que anuncia la ayuda de la dropzone.
+ * Tope del documento, el mismo que anuncia la ayuda de la dropzone en las dos variantes.
  *
  * Se valida en el cliente porque es el único lugar donde se puede validar hoy: sin endpoint,
  * un PDF de 40 MB se aceptaría en silencio y el error aparecería recién el día que exista el
  * envío.
  */
-const DECLARATION_MAX_BYTES = 10 * 1024 * 1024;
+const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
-const DECLARATION_TOO_LARGE = 'La declaración SIDREP supera los 10 MB.';
+/** El rechazo por tamaño nombra el documento que se pidió. Ver `WASTE_FOLIO_CLOSE_DOCUMENT_LABELS`. */
+const DOCUMENT_TOO_LARGE: Record<WasteFolioCloseVariant, string> = {
+  hazardous: 'La declaración SIDREP supera los 10 MB.',
+  nonHazardous: 'El ticket de recepción final supera los 10 MB.',
+};
 
 export interface WasteFolioCloseSubmit {
   /** Fecha de disposición final en ISO `yyyy-mm-dd`, tal como la entrega el `<input type="date">`. */
   disposedOn: string;
-  /** PDF de la declaración SIDREP cerrada en la plataforma del Ministerio. */
-  declaration: File;
+  /**
+   * El PDF que respalda el cierre: la declaración SIDREP cerrada en la plataforma del
+   * Ministerio, o el ticket de recepción final si el traslado no es peligroso.
+   */
+  document: File;
   /** N° de ticket de recepción, tal como lo transcribió la declaración. */
   receptionTicket: string;
   /** Kg recibidos en destino, tal como los transcribió la declaración. */
@@ -129,6 +167,13 @@ export interface WasteFolioCloseSubmit {
 
 interface WasteFolioCloseModalProps {
   open: boolean;
+  /**
+   * Con qué documento se cierra este folio. SIN DEFAULT: el peligroso era el único caso
+   * integrado y por eso podía ser el implícito, pero ahora los dos folios llegan a este
+   * formulario, y un default habría dejado un cierre no peligroso pidiendo la declaración
+   * SIDREP con sólo olvidar la prop.
+   */
+  variant: WasteFolioCloseVariant;
   /** "Folio SIDREP 2026-SD-04812 · Baterías de plomo-ácido · Resiter S.A." Nodo `4230:13620`. */
   subtitle: string;
   /** Peso neto despachado, sólo el número: "610". Lo escribe el recuadro de la brecha. */
@@ -158,6 +203,7 @@ interface WasteFolioCloseModalProps {
 
 export function WasteFolioCloseModal({
   open,
+  variant,
   subtitle,
   dispatchedKg,
   declarationReading,
@@ -169,7 +215,7 @@ export function WasteFolioCloseModal({
 }: WasteFolioCloseModalProps) {
   const dateRef = useRef<HTMLInputElement>(null);
   const [disposedOn, setDisposedOn] = useState('');
-  const [declaration, setDeclaration] = useState<File | null>(null);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
   /*
@@ -186,20 +232,20 @@ export function WasteFolioCloseModal({
     if (!open) return undefined;
 
     setDisposedOn('');
-    setDeclaration(null);
+    setDocumentFile(null);
     setFileError(null);
     dateRef.current?.focus();
     return undefined;
   }, [open]);
 
-  function handleDeclarationChange(file: File | null) {
-    if (file && file.size > DECLARATION_MAX_BYTES) {
-      setFileError(DECLARATION_TOO_LARGE);
+  function handleDocumentChange(file: File | null) {
+    if (file && file.size > DOCUMENT_MAX_BYTES) {
+      setFileError(DOCUMENT_TOO_LARGE[variant]);
       return;
     }
 
     setFileError(null);
-    setDeclaration(file);
+    setDocumentFile(file);
   }
 
   /*
@@ -213,16 +259,16 @@ export function WasteFolioCloseModal({
    * todavía pendientes, un estado que el diseño no tiene. Además, cuando `declarationReading`
    * pase a ser `| null` para cubrir el análisis en curso, esta línea ya está bien.
    */
-  const reading = declaration && declarationReading ? declarationReading : null;
+  const reading = documentFile && declarationReading ? declarationReading : null;
   const canConfirm =
     Boolean(onConfirm) && disposedOn.length > 0 && reading !== null && !isSubmitting;
 
   function handleSubmit() {
-    if (!onConfirm || !canConfirm || !declaration || !reading) return;
+    if (!onConfirm || !canConfirm || !documentFile || !reading) return;
 
     onConfirm({
       disposedOn,
-      declaration,
+      document: documentFile,
       receptionTicket: reading.receptionTicket,
       receivedKg: reading.receivedKg,
     });
@@ -264,14 +310,14 @@ export function WasteFolioCloseModal({
         )}
       </WasteFormModalField>
 
-      {/* Grupo `4230:13428` / `4230:13637`: el documento y los dos datos que transcribe. */}
+      {/* Grupo `4230:13428` / `4230:13637` / `4230:14061`: el documento y los dos datos que transcribe. */}
       <div className="flex w-full flex-col items-start gap-[8px]">
         <WasteSidrepFileDropzone
-          label={WASTE_FOLIO_CLOSE_DECLARATION_LABEL}
+          label={WASTE_FOLIO_CLOSE_DOCUMENT_LABELS[variant]}
           hint={WASTE_FOLIO_CLOSE_DECLARATION_HINT}
           accept="application/pdf"
-          file={declaration}
-          onChange={handleDeclarationChange}
+          file={documentFile}
+          onChange={handleDocumentChange}
           /*
            * El verde depende de la LECTURA y no del archivo, igual que en
            * `WasteSidrepWeightSection`: con el PDF subido pero la lectura fallada, mostrarlo
@@ -289,7 +335,7 @@ export function WasteFolioCloseModal({
           </p>
         ) : null}
 
-        {/* Fila `4230:13437` / `4230:13649`: las dos mitades, con lectura o sin ella. */}
+        {/* Fila `4230:13437` / `4230:13649` / `4230:14070`: las dos mitades, con lectura o sin ella. */}
         <div className="flex w-full items-start gap-[14px]">
           <WasteDerivedValueField
             label={WASTE_FOLIO_CLOSE_TICKET_LABEL}

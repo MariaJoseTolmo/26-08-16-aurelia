@@ -402,6 +402,49 @@ export const WASTE_SIDREP_CLOSED_FOLIOS: WasteSidrepFolio[] = [
     generatedAtLong: '09 jul 2026, 09:20',
     closedAtLong: '11 jul 2026, 15:05',
   },
+  {
+    /*
+     * SEGUNDO FOLIO NO PELIGROSO, y el único de esta lista que cierra FUERA DE TOLERANCIA sin
+     * ser un RESPEL. Es la combinación que faltaba: hasta acá la brecha ámbar y el respaldo no
+     * peligroso no se cruzaban nunca, así que el recuadro de diferencia sobre la variante de
+     * siete datos del `4327:35730` no se podía mirar en pantalla.
+     *
+     * VA ÚLTIMO A PROPÓSITO. La vista entra por `find((f) => f.gap?.exceedsTolerance)` y ese
+     * `find` tiene que seguir cayendo en el `2026-SD-04812`, que es el folio cuyo panel dibuja
+     * el nodo; al ir después, éste no le gana la selección inicial.
+     *
+     * NINGÚN DATO SALE DEL DISEÑO, igual que el `2026-SD-04788`: es maqueta para que la rama
+     * sea recorrible y se va con el endpoint.
+     */
+    folio: '2026-SD-04771',
+    wasteType: 'Neumáticos fuera de uso',
+    isHazardous: false,
+    carrier: 'ICB Ingeniería',
+    dispatchedKg: '5.240',
+    receivedKg: '5.060',
+    /* 180 kg sobre 5.240 son 3,4%, y el 2% de ese peso son ~105: se pasa. */
+    gap: {
+      kg: '180',
+      percentage: '3,4%',
+      tolerance:
+        'Tolerancia esperada para Neumáticos fuera de uso: ±2% (~105 kg) · histórico general por tipo de residuo.',
+      qualifier: 'sobre tolerancia',
+      exceedsTolerance: true,
+    },
+    destination: 'KDM Tratamiento',
+    generatedAt: '06 jul, 07:40',
+    closedAt: '09 jul, 16:20',
+    closedDate: '09 jul',
+    docs: [
+      'Ticket de recepción — ticket_recepcion_04771.pdf',
+      'Guía de despacho — guia_2288.pdf',
+    ],
+    plate: 'RTHM-52',
+    driver: 'Marcelo Ibáñez Rojas',
+    containerCount: 1,
+    generatedAtLong: '06 jul 2026, 07:40',
+    closedAtLong: '09 jul 2026, 16:20',
+  },
 ];
 
 /**

@@ -4,6 +4,14 @@ import type {
   WasteFolioListRow,
   WasteFolioListRowHighlightTone,
 } from './components/WasteFolioListCard';
+/*
+ * La bandeja de pendientes IMPORTA EL ESTADO DE LA DE ABIERTOS, y en un solo sentido: el
+ * aviso verde del modal de aprobación promete que la solicitud pasará a "Abierto", que es
+ * exactamente la pastilla de aquella pestaña. No hay ciclo —`wasteSidrepOpenFolios` sólo
+ * mira a `wasteSidrepFolios`— y la dependencia es la que el dominio ya tiene: aprobar una
+ * solicitud es lo que la convierte en folio abierto.
+ */
+import { WASTE_SIDREP_FOLIO_OPEN_STATUS } from './wasteSidrepOpenFolios';
 
 /**
  * Solicitudes de la pestaña "Pendientes de revisión" — nodo `3073:5688`.
@@ -409,4 +417,100 @@ export function pendingRequestRejectionHeading(rejection: WasteSidrepRequestReje
  */
 export function pendingRequestRejectionQuote(reason: string): string {
   return `“${reason}”.`;
+}
+
+/**
+ * Textos del modal "Aprobar y generar folio SIDREP" — nodo `3087:17238`,
+ * el diálogo que abre el botón `3073:6088` del pie del panel de esta misma bandeja.
+ *
+ * ES EL DIÁLOGO QUE FALTABA PARA CERRAR LA BANDEJA. Hasta acá "Aprobar y generar folio"
+ * entraba deshabilitado porque su nodo no existía; con éste, las dos salidas de una
+ * solicitud —el sí y el no— quedan dibujadas y conectadas.
+ *
+ * EL MODAL NO GENERA EL FOLIO: LO REGISTRA. Es lo que dice su propio aviso azul, y ordena
+ * todo lo demás. El SIDREP se emite en la Ventanilla Única del RETC, que es una plataforma
+ * del Ministerio y está fuera de AurelIA; lo que el aprobador hace acá es TRANSCRIBIR el
+ * número que aquella le devolvió, para que el traslado se pueda seguir de este lado. Por
+ * eso el campo pide un folio ya existente en vez de ofrecer un botón que lo emita, y por
+ * eso el aviso nombra la solicitud con la que hay que ir: son los datos a copiar allá.
+ *
+ * LA LÍNEA DEL MEDIO DEL AVISO ES EL MISMO TEXTO QUE EL SUBTÍTULO de la cabecera —el nodo
+ * escribe "Solicitud #SR-2026-0847 · Resiter S.A." en los dos lugares— y por eso las dos
+ * salen de `pendingRequestDetailSubtitle`, la misma proyección que ya usa el panel. No es
+ * repetición del diseño por descuido: arriba nombra QUÉ se está aprobando y en el aviso es
+ * el dato a copiar en la otra plataforma.
+ *
+ * EL PLACEHOLDER SE TOMA DEL DESIGN CONTEXT Y NO DEL NOMBRE DE LA CAPA. La capa se llama
+ * "Ej. 2026-SD-04821" y el texto vigente dice "Ej. 2026-SD-01234": Figma congela el nombre
+ * con el texto que tenía al crearse, así que el nombre es la versión vieja. Manda el design
+ * context, igual que en `WASTE_FOLIO_CLOSE_NOTICE`.
+ */
+export const WASTE_SIDREP_APPROVE_MODAL = {
+  /** Texto del nodo `3087:17242`. */
+  title: 'Aprobar y generar folio SIDREP',
+  /** Primera línea del aviso azul — nodo `3087:17252`. */
+  noticeLead: 'Genera el SIDREP en la Ventanilla Única del RETC con estos datos:',
+  /** Tercera línea del mismo aviso, con "AurelIA" tal como el nodo lo capitaliza. */
+  noticeTail: 'Y luego registra el N° de folio aquí para continuar el seguimiento en AurelIA.',
+  /** Texto del nodo `3087:17255`. */
+  folioLabel: 'N° de Folio SIDREP',
+  /** Texto del nodo `3087:17257`. */
+  folioPlaceholder: 'Ej. 2026-SD-01234',
+  /** Texto del nodo `3087:17260`. */
+  dateLabel: 'Fecha de generación',
+  /** Texto del nodo `3087:17267`. */
+  cancelLabel: 'Cancelar',
+  /** Texto del nodo `3087:17271`. */
+  submitLabel: 'Confirmar y notificar',
+  /**
+   * Primera mitad de la primera línea del aviso VERDE — nodo `3087:17714`.
+   *
+   * Va partido en tres porque el nodo le pone Inter Bold al nombre del estado y deja el
+   * resto en regular. Los espacios entre las partes los escribe el JSX con `{' '}` en vez
+   * de quedar colgando al final de estas constantes, donde son invisibles y el primero que
+   * las toque se los come.
+   */
+  outcomeLead: 'Al confirmar, la solicitud pasará a estado',
+  /** Segunda línea del mismo aviso — nodo `3087:17714`. */
+  outcomeNote:
+    'La aceptación del SIDREP por parte del transportista ocurre directamente en la plataforma oficial del Ministerio.',
+} as const;
+
+/**
+ * El estado al que pasa la solicitud, en NEGRITA dentro del aviso verde.
+ *
+ * SALE DE `WASTE_SIDREP_FOLIO_OPEN_STATUS` Y NO DE UN LITERAL, y ésa es toda la gracia: es
+ * literalmente la pastilla que va a llevar el folio en la pestaña "Abiertos" cuando esta
+ * aprobación termine. Con "Abierto" escrito a mano acá, el día que el diseño renombre el
+ * estado la promesa del modal y la pastilla del panel dirían cosas distintas.
+ */
+export const WASTE_SIDREP_APPROVE_OUTCOME_STATUS = WASTE_SIDREP_FOLIO_OPEN_STATUS;
+
+/**
+ * Cierre de la primera línea del aviso verde — nodo `3087:17714`.
+ *
+ * NOMBRA AL TRANSPORTISTA porque es a quien se notifica, y por eso se compone en vez de
+ * guardarse como texto: el nodo escribe "Resiter S.A." porque es la solicitud que dibuja.
+ */
+export function pendingRequestApprovalOutcome(request: WasteSidrepPendingRequest): string {
+  return `y se notificará automáticamente a ${request.carrier}.`;
+}
+
+/**
+ * Mensaje del snackbar que confirma la aprobación.
+ *
+ * MISMA FORMA QUE `openFolioClosedMessage`, el del cierre de folio: transportista, folio y
+ * el verbo en participio. Los tres avisos de la vista comparten instancia —ver
+ * `WasteSidrepFoliosPage`—, así que compartir la forma es lo que hace que se lean como el
+ * mismo sistema y no como tres frases sueltas.
+ *
+ * NOMBRA EL FOLIO RECIÉN TRANSCRIPTO Y NO LA SOLICITUD, y ahí se separa del mensaje de
+ * rechazo: aprobar es justamente el acto que convierte una en el otro, así que el número
+ * que queda vigente después del clic es el del folio.
+ */
+export function pendingRequestApprovedMessage(
+  request: WasteSidrepPendingRequest,
+  folio: string,
+): string {
+  return `${request.carrier} · Folio ${folio} generado exitosamente`;
 }
