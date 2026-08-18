@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { ClockIcon } from '../../shared/components/icons/ClockIcon';
 import { Snackbar } from '../../shared/components/Snackbar';
+import { useWasteSidrepRejectionsStore } from '../../shared/stores/waste-sidrep-rejections.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WastePerformanceCriticalNoteIcon } from './icons/WasteCompanyPerformanceIcons';
 import { WarehouseFormLotIcon } from './icons/WarehouseIntakeFormIcons';
@@ -14,6 +15,7 @@ import {
   WasteSinaderNoticeInfoIcon,
 } from './icons/WasteSinaderReportIcons';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteFolioApproveModal } from './components/WasteFolioApproveModal';
 import { WasteFolioAttachmentsSection } from './components/WasteFolioAttachmentsSection';
 import { WastePill } from './components/WastePill';
 import { WasteDefinitionGrid } from './components/WasteDefinitionGrid';
@@ -46,6 +48,7 @@ import {
 } from './wasteSidrepFolios';
 import {
   openFolioCloseSubtitle,
+  openFolioCloseVariant,
   openFolioClosedMessage,
   openFolioDetailSubtitle,
   openFolioFacts,
@@ -58,6 +61,7 @@ import {
   type WasteSidrepOpenFolio,
 } from './wasteSidrepOpenFolios';
 import {
+  pendingRequestApprovedMessage,
   pendingRequestDetailSubtitle,
   pendingRequestFacts,
   pendingRequestListRow,
@@ -139,8 +143,14 @@ const CLOSED_TAB_COUNT = 48;
  * `3081:9331` —la vista después de confirmar un cierre— dibuja 3, 11 y 49 donde el
  * `3081:7676` dibujaba 3, 12 y 48. O sea que el folio cambia de bandeja y los dos totales
  * lo acusan.
+ *
+ * APROBAR LOS MUEVE POR EL MISMO MOTIVO, un escalón más arriba: el nodo `3087:17238` es el
+ * diálogo que convierte una solicitud en folio, así que la solicitud sale de "Pendientes" y
+ * el folio entra en "Abiertos". No hay un nodo con la vista después de aprobar —el diseño
+ * no lo dibujó—, pero la regla ya está establecida por el cierre y aplicarla es lo coherente:
+ * si al cerrar los dos totales acusan el cambio de bandeja, al aprobar también.
  */
-function foliosTabs(closedCount: number): WasteTab<WasteSidrepFolioTabId>[] {
+function foliosTabs(closedCount: number, approvedCount: number): WasteTab<WasteSidrepFolioTabId>[] {
   return [
     /*
      * EL 3 DE "PENDIENTES" SÍ SE CUENTA, al revés que los otros dos. El nodo dibuja
@@ -155,9 +165,16 @@ function foliosTabs(closedCount: number): WasteTab<WasteSidrepFolioTabId>[] {
      * corrección del transportista, con el reloj del SLA corriendo—, así que no hay nada
      * que descontar. Es lo contrario del cierre de folio, donde el folio sí cambia de
      * bandeja y los dos totales lo acusan.
+     *
+     * APROBAR SÍ LO MUEVE, y es la otra cara de lo mismo: ahí la solicitud deja de estar
+     * pendiente porque ya es folio.
      */
-    { id: 'pending', label: 'Pendientes de revisión', count: WASTE_SIDREP_PENDING_REQUESTS.length },
-    { id: 'open', label: 'Abiertos', count: OPEN_TAB_COUNT - closedCount },
+    {
+      id: 'pending',
+      label: 'Pendientes de revisión',
+      count: WASTE_SIDREP_PENDING_REQUESTS.length - approvedCount,
+    },
+    { id: 'open', label: 'Abiertos', count: OPEN_TAB_COUNT - closedCount + approvedCount },
     { id: 'closed', label: 'Cerrados', count: CLOSED_TAB_COUNT + closedCount },
   ];
 }
@@ -168,35 +185,6 @@ const TABS_BASE_ID = 'waste-sidrep-folios';
 const PENDING_LIST_LABEL = 'Solicitudes de retiro pendientes de revisión';
 const OPEN_LIST_LABEL = 'Folios SIDREP abiertos';
 const CLOSED_LIST_LABEL = 'Folios SIDREP cerrados';
-
-/**
- * Por qué "Aprobar y generar folio" sigue DESHABILITADO mientras "Rechazar" ya no lo está.
- *
- * LAS DOS ACCIONES SE ABRIERON POR SEPARADO PORQUE SON DOS NODOS SEPARADOS. "Rechazar"
- * tiene el suyo —`4295:24214`, el modal de motivo— y por eso quedó integrado. Aprobar
- * genera el folio SIDREP, o sea que escribe en la plataforma del Ministerio y mueve la
- * solicitud a "Abiertos": ese diálogo todavía no está dibujado. Es la misma política con
- * la que entró "Registrar cierre" para un folio no peligroso: antes que un botón que se ve
- * activo y no hace nada, el estado deshabilitado que el módulo ya tiene con el motivo en
- * su `title`.
- */
-const PENDING_APPROVE_ACTION_HINT =
-  'La aprobación de solicitudes se integra en una próxima iteración.';
-
-/**
- * Por qué "Registrar cierre" queda deshabilitado en un folio NO peligroso.
- *
- * El botón abre el formulario de registro de cierre, y ese formulario depende de la
- * peligrosidad: el nodo `4230:13273` pide la declaración SIDREP, que un traslado no
- * peligroso no genera. El cierre de un traslado no peligroso es otro nodo y otra
- * iteración, así que ahí el botón va en el estado deshabilitado que el módulo ya tiene
- * —`#e2e2e2` / `#acacac`— con el motivo en su `title`, en vez de abrir un formulario que
- * pide un documento que no existe.
- *
- * En un folio PELIGROSO el botón va ACTIVO, como lo dibuja el nodo `3081:7977`.
- */
-const OPEN_FOLIO_ACTION_HINT =
-  'El registro de cierre de un traslado no peligroso se integra en una próxima iteración.';
 
 /**
  * Cuánto queda a la vista el snackbar de confirmación —el del cierre de folio y el del
@@ -235,6 +223,11 @@ function WasteSidrepFoliosInfoNotice({ children }: { children: string }) {
  * "Rechazado" al lado de su reloj de SLA, y su panel se corona con la franja del motivo.
  * El estado de la cabecera SIGUE SIENDO "Pendiente" (`4295:24536`) y las dos acciones del
  * pie siguen ahí: el rechazo no resuelve la solicitud, la devuelve para que la corrijan.
+ *
+ * APROBAR SÍ LA SACA, y es lo que separa las dos salidas de esta bandeja. El modal
+ * `3087:17238` registra el folio SIDREP que la Ventanilla Única del RETC acaba de emitir, o
+ * sea que la solicitud deja de ser una solicitud: pasa a ser un folio abierto y se va a la
+ * pestaña de al lado, igual que un folio cerrado se va de "Abiertos".
  */
 interface WasteSidrepPendingFoliosPanelProps {
   /**
@@ -243,11 +236,20 @@ interface WasteSidrepPendingFoliosPanelProps {
    */
   rejections: Record<string, WasteSidrepRequestRejection>;
   onRequestRejected: (request: WasteSidrepPendingRequest, reason: string) => void;
+  /**
+   * Números de solicitud aprobadas en esta sesión. Vive en la PÁGINA por el mismo motivo
+   * que `closedFolios`: los contadores de las pestañas también se mueven al aprobar, y la
+   * tira de pestañas está en el header fijo.
+   */
+  approvedRequests: string[];
+  onRequestApproved: (request: WasteSidrepPendingRequest, folio: string) => void;
 }
 
 function WasteSidrepPendingFoliosPanel({
   rejections,
   onRequestRejected,
+  approvedRequests,
+  onRequestApproved,
 }: WasteSidrepPendingFoliosPanelProps) {
   /*
    * El nodo entra con la solicitud del TOPE DE LA LISTA abierta (`3073:5922`), que es la
@@ -267,6 +269,9 @@ function WasteSidrepPendingFoliosPanel({
    */
   const [rejectingRequest, setRejectingRequest] = useState<WasteSidrepPendingRequest | null>(null);
 
+  /* La solicitud que se está aprobando, guardada por el mismo motivo que la que se rechaza. */
+  const [approvingRequest, setApprovingRequest] = useState<WasteSidrepPendingRequest | null>(null);
+
   /*
    * UNA SOLICITUD RECHAZADA SIGUE EN LA BANDEJA, y no es una licencia: el nodo `4295:24241`
    * dibuja la lista DESPUÉS del rechazo y la solicitud sigue ahí, primera, seleccionada y
@@ -274,8 +279,18 @@ function WasteSidrepPendingFoliosPanel({
    * su panel se corona con la franja del motivo. Tiene sentido: rechazar no resuelve la
    * solicitud, la devuelve —el transportista corrige y vuelve—, así que sacarla de la
    * bandeja habría dejado al aprobador sin dónde ver qué pidió corregir.
+   *
+   * UNA APROBADA SÍ SALE: ya no es una solicitud, es un folio. Se filtra igual que en
+   * "Abiertos" con `closedFolios`, y la selección cae sola al primero que quede porque
+   * `selected` deriva de esta lista en vez de sincronizarse con un efecto.
    */
-  const requests = WASTE_SIDREP_PENDING_REQUESTS;
+  const requests = useMemo(
+    () =>
+      WASTE_SIDREP_PENDING_REQUESTS.filter(
+        (request) => !approvedRequests.includes(request.request),
+      ),
+    [approvedRequests],
+  );
   const rows = useMemo(
     () =>
       requests.map((request) => ({
@@ -368,11 +383,11 @@ function WasteSidrepPendingFoliosPanel({
                     />
                   </div>
                   <div className="min-w-px flex-1">
+                    {/* Abre el modal `3087:17238`, donde se registra el folio recién emitido. */}
                     <WasteFolioFooterActionButton
                       label={WASTE_SIDREP_REQUEST_APPROVE_ACTION}
                       icon={(className) => <WasteSinaderMarkDeclaredIcon className={className} />}
-                      disabled
-                      disabledHint={PENDING_APPROVE_ACTION_HINT}
+                      onClick={() => setApprovingRequest(selected)}
                     />
                   </div>
                 </div>
@@ -426,6 +441,36 @@ function WasteSidrepPendingFoliosPanel({
           }}
         />
       ) : null}
+
+      {approvingRequest ? (
+        <WasteFolioApproveModal
+          open
+          /*
+           * LA SOLICITUD ENTERA Y NO SUS TEXTOS: el diálogo la nombra en tres lugares —el
+           * subtítulo de la cabecera, la línea en negrita del aviso azul y el cierre del
+           * verde— y los arma él con las mismas proyecciones que usa este panel. El
+           * `3087:17244` escribe la misma línea que la cabecera del detalle de atrás, así que
+           * la repetición es del diseño y sale de una sola fuente.
+           */
+          request={approvingRequest}
+          onClose={() => setApprovingRequest(null)}
+          /*
+           * Confirmar CIERRA EL MODAL Y APRUEBA: la solicitud sale de esta bandeja, los dos
+           * contadores lo acusan y el snackbar nombra el folio recién registrado.
+           *
+           * LA FECHA DE GENERACIÓN SE RECIBE Y TODAVÍA NO SE USA, y queda anotado: el folio
+           * es lo único que la pantalla vuelve a mostrar hoy —en el snackbar— porque la
+           * maqueta de "Abiertos" es estática y no hay dónde escribir la fecha. Se pide igual
+           * porque el nodo la pide y porque es el dato que el endpoint va a necesitar; cuando
+           * exista, este `onConfirm` pasa a ser el `onSuccess` de un `useMutation` que manda
+           * las dos cosas, sin que cambie nada de lo que ve la pantalla.
+           */
+          onConfirm={({ folio }) => {
+            setApprovingRequest(null);
+            onRequestApproved(approvingRequest, folio);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -439,9 +484,10 @@ function WasteSidrepPendingFoliosPanel({
  */
 interface WasteSidrepOpenFoliosPanelProps {
   /**
-   * Números de folio cerrados en esta sesión. Vive en la PÁGINA y no acá porque los
-   * contadores de las pestañas también se mueven al cerrar, y la tira de pestañas está en
-   * el header fijo: es el mismo motivo por el que `activeTab` está allá arriba.
+   * Identidades de los traslados cerrados en esta sesión —`WasteSidrepOpenFolio.id`, que en el
+   * peligroso es su folio y en el no peligroso una clave interna—. Vive en la PÁGINA y no acá
+   * porque los contadores de las pestañas también se mueven al cerrar, y la tira de pestañas
+   * está en el header fijo: es el mismo motivo por el que `activeTab` está allá arriba.
    */
   closedFolios: string[];
   onFolioClosed: (folio: WasteSidrepOpenFolio) => void;
@@ -460,7 +506,7 @@ function WasteSidrepOpenFoliosPanel({
   const [selectedId, setSelectedId] = useState<string | null>(
     () =>
       (WASTE_SIDREP_OPEN_FOLIOS.find((folio) => folio.overSla) ?? WASTE_SIDREP_OPEN_FOLIOS[0])
-        ?.folio ?? null,
+        ?.id ?? null,
   );
 
   /*
@@ -472,7 +518,7 @@ function WasteSidrepOpenFoliosPanel({
 
   /* Un folio cerrado deja de estar abierto: sale de esta bandeja. Nodo `3081:9331`. */
   const folios = useMemo(
-    () => WASTE_SIDREP_OPEN_FOLIOS.filter((folio) => !closedFolios.includes(folio.folio)),
+    () => WASTE_SIDREP_OPEN_FOLIOS.filter((folio) => !closedFolios.includes(folio.id)),
     [closedFolios],
   );
   const rows = useMemo(() => folios.map(openFolioListRow), [folios]);
@@ -483,7 +529,7 @@ function WasteSidrepOpenFoliosPanel({
    * dibuja el nodo `3081:9331`, con el detalle del primer folio que sobrevive.
    */
   const selected = useMemo(
-    () => folios.find((folio) => folio.folio === selectedId) ?? folios[0] ?? null,
+    () => folios.find((folio) => folio.id === selectedId) ?? folios[0] ?? null,
     [folios, selectedId],
   );
 
@@ -532,34 +578,47 @@ function WasteSidrepOpenFoliosPanel({
               status={<WastePill tone="amber">{WASTE_SIDREP_FOLIO_OPEN_STATUS}</WastePill>}
               footer={
                 /*
-                 * Sólo un folio PELIGROSO abre el modal de cierre (`4230:13273`): es el que
-                 * tiene declaración SIDREP, que es el documento del que cuelga el
-                 * formulario. Ver `OPEN_FOLIO_ACTION_HINT`.
+                 * TODO FOLIO ABIERTO SE CIERRA DESDE ACÁ, peligroso o no, y el botón va
+                 * ACTIVO en los dos casos como lo dibuja el nodo `3081:7977`. Antes el no
+                 * peligroso iba deshabilitado porque el único formulario dibujado
+                 * (`4230:13273`) pedía la declaración SIDREP; el nodo `4230:14038` dibuja el
+                 * cierre no peligroso pidiendo el ticket de recepción final, así que la
+                 * peligrosidad elige la VARIANTE del modal y no si el botón funciona. Ver
+                 * `openFolioCloseVariant`.
                  */
                 <WasteFolioFooterActionButton
                   label={WASTE_SIDREP_OPEN_FOLIO_ACTION}
                   icon={(className) => <WarehouseFormLotIcon className={className} />}
-                  onClick={selected.isHazardous ? () => setClosingFolio(selected) : undefined}
-                  disabled={!selected.isHazardous}
-                  disabledHint={OPEN_FOLIO_ACTION_HINT}
+                  onClick={() => setClosingFolio(selected)}
                 />
               }
             >
               <WasteDefinitionGrid items={openFolioFacts(selected)} />
-              <WasteFolioDetailDivider />
               {/*
-              Aviso ámbar del nodo `3081:7968`. Va en TODOS los folios abiertos: no
-              describe este traslado, describe qué significa que el folio esté abierto.
-            */}
-              <WasteFolioNotice
-                tone="warning"
-                density="multiline"
-                icon={
-                  <WasteSinaderNoticeIcon className="block size-[11px] shrink-0 text-[#6b3a1f]" />
-                }
-              >
-                {WASTE_SIDREP_OPEN_FOLIO_NOTICE}
-              </WasteFolioNotice>
+                Línea + aviso ámbar (`3081:7968`) SÓLO EN EL TRASLADO PELIGROSO. El aviso dice
+                que "aún no se ha confirmado el cierre del SIDREP en la plataforma oficial", y
+                el nodo `6854:5707` —el panel no peligroso— no lo dibuja: después de la grilla
+                el cuerpo termina. Es coherente con que ese traslado no tenga folio SIDREP, no
+                hay nada que confirmar en la plataforma del Ministerio. La línea se va con él:
+                separaba la grilla del aviso, y sin aviso quedaba huérfana al pie del cuerpo.
+
+                DENTRO DEL PELIGROSO SIGUE SIENDO INCONDICIONAL: no describe este traslado,
+                describe qué significa que su folio esté abierto.
+              */}
+              {selected.isHazardous ? (
+                <>
+                  <WasteFolioDetailDivider />
+                  <WasteFolioNotice
+                    tone="warning"
+                    density="multiline"
+                    icon={
+                      <WasteSinaderNoticeIcon className="block size-[11px] shrink-0 text-[#6b3a1f]" />
+                    }
+                  >
+                    {WASTE_SIDREP_OPEN_FOLIO_NOTICE}
+                  </WasteFolioNotice>
+                </>
+              ) : null}
             </WasteFolioDetailPanel>
           ) : (
             <WasteSidrepFoliosInfoNotice>
@@ -571,6 +630,12 @@ function WasteSidrepOpenFoliosPanel({
       {closingFolio ? (
         <WasteFolioCloseModal
           open
+          /*
+           * `4230:13273` con la declaración SIDREP o `4230:14038` con el ticket de recepción
+           * final. Se dibuja centrado sobre la vista, como los otros diálogos del módulo: el
+           * velo de `WasteFormModal` es un `fixed inset-0` centrado con `createPortal`.
+           */
+          variant={openFolioCloseVariant(closingFolio)}
           subtitle={openFolioCloseSubtitle(closingFolio)}
           dispatchedKg={closingFolio.dispatchedKg}
           declarationReading={closingFolio.declarationReading}
@@ -790,6 +855,8 @@ interface WasteSidrepFoliosBodyProps {
   /** Ver `WasteSidrepPendingFoliosPanelProps`; ídem. */
   rejections: Record<string, WasteSidrepRequestRejection>;
   onRequestRejected: (request: WasteSidrepPendingRequest, reason: string) => void;
+  approvedRequests: string[];
+  onRequestApproved: (request: WasteSidrepPendingRequest, folio: string) => void;
 }
 
 function WasteSidrepFoliosBody({
@@ -798,6 +865,8 @@ function WasteSidrepFoliosBody({
   onFolioClosed,
   rejections,
   onRequestRejected,
+  approvedRequests,
+  onRequestApproved,
 }: WasteSidrepFoliosBodyProps) {
   return (
     <div className="flex w-full min-w-[1100px] flex-col items-start px-[28px] pb-[40px] pt-[20px]">
@@ -811,6 +880,8 @@ function WasteSidrepFoliosBody({
           <WasteSidrepPendingFoliosPanel
             rejections={rejections}
             onRequestRejected={onRequestRejected}
+            approvedRequests={approvedRequests}
+            onRequestApproved={onRequestApproved}
           />
         ) : activeTab === 'open' ? (
           <WasteSidrepOpenFoliosPanel closedFolios={closedFolios} onFolioClosed={onFolioClosed} />
@@ -839,12 +910,20 @@ export function WasteSidrepFoliosPage() {
    */
   const [closedFolios, setClosedFolios] = useState<string[]>([]);
   /*
-   * Los rechazos van INDEXADOS POR SOLICITUD y no en una lista: la franja del panel busca
-   * el de la solicitud abierta en cada render, y volver a rechazar la misma —que el nodo
-   * permite, porque deja las dos acciones activas— tiene que REEMPLAZAR el motivo y no
-   * apilar un segundo registro.
+   * LOS RECHAZOS YA NO SON ESTADO DE ESTA PÁGINA. Salieron a un store cuando apareció el
+   * aviso `4278:17632`, que los cuenta en OTRA ruta —el histórico de retiros—: acá el
+   * `useState` se desmontaba al navegar y el aviso nunca los habría visto. La forma
+   * —indexados por solicitud— y el por qué están en `waste-sidrep-rejections.store`.
    */
-  const [rejections, setRejections] = useState<Record<string, WasteSidrepRequestRejection>>({});
+  const rejections = useWasteSidrepRejectionsStore((state) => state.rejections);
+  const rejectRequest = useWasteSidrepRejectionsStore((state) => state.rejectRequest);
+  /*
+   * Las aprobadas van en una LISTA DE NÚMEROS y no indexadas como los rechazos, y la
+   * diferencia es de forma, no de gusto: un rechazo se consulta —la franja del panel busca
+   * el de la solicitud abierta y lo dibuja— mientras que una aprobación sólo se resta, porque
+   * la solicitud aprobada ya no está en pantalla. Es exactamente lo que hace `closedFolios`.
+   */
+  const [approvedRequests, setApprovedRequests] = useState<string[]>([]);
   /*
    * UN SOLO MENSAJE PARA LOS DOS FLUJOS, y no uno por acción: el snackbar es uno y está
    * anclado al borde inferior de la vista, así que dos estados sólo servirían para que
@@ -853,24 +932,29 @@ export function WasteSidrepFoliosPage() {
    */
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
-  const tabs = useMemo(() => foliosTabs(closedFolios.length), [closedFolios.length]);
+  const tabs = useMemo(
+    () => foliosTabs(closedFolios.length, approvedRequests.length),
+    [closedFolios.length, approvedRequests.length],
+  );
 
   const handleFolioClosed = useCallback((folio: WasteSidrepOpenFolio) => {
-    setClosedFolios((previous) => [...previous, folio.folio]);
+    setClosedFolios((previous) => [...previous, folio.id]);
     setFeedbackMessage(openFolioClosedMessage(folio));
   }, []);
 
   const handleRequestRejected = useCallback(
     (request: WasteSidrepPendingRequest, reason: string) => {
-      /*
-       * El instante se SELLA ACÁ, cuando se envía, y no en el render de la franja: con
-       * `new Date()` adentro del componente el titular cambiaría de hora en cada render.
-       */
-      setRejections((previous) => ({
-        ...previous,
-        [request.request]: { request: request.request, reason, rejectedAt: new Date() },
-      }));
+      /* El instante lo sella la acción del store; ver su nota. */
+      rejectRequest(request.request, reason);
       setFeedbackMessage(pendingRequestRejectedMessage(request));
+    },
+    [rejectRequest],
+  );
+
+  const handleRequestApproved = useCallback(
+    (request: WasteSidrepPendingRequest, folio: string) => {
+      setApprovedRequests((previous) => [...previous, request.request]);
+      setFeedbackMessage(pendingRequestApprovedMessage(request, folio));
     },
     [],
   );
@@ -920,6 +1004,8 @@ export function WasteSidrepFoliosPage() {
               onFolioClosed={handleFolioClosed}
               rejections={rejections}
               onRequestRejected={handleRequestRejected}
+              approvedRequests={approvedRequests}
+              onRequestApproved={handleRequestApproved}
             />
           </div>
         }

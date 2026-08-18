@@ -31,10 +31,15 @@ import {
 /** Rótulo del estado, para cuando haya que nombrarlo en pantalla. */
 export const WASTE_WITHDRAWAL_DRAFT_STATUS_LABEL = 'Borrador';
 
-/** Textos del aviso — nodos `4278:15649`, `4278:15653`, `4278:18046` y `4278:15661`. */
+/**
+ * Textos del aviso — nodos `4278:15653`, `4278:18046` y `4278:15661`.
+ *
+ * EL ENCABEZADO NO ESTÁ ACÁ: "Notificaciones del proceso" es del cascarón que este aviso
+ * comparte con el de solicitudes rechazadas, así que vive en `WasteProcessNoticeCard` como
+ * `WASTE_PROCESS_NOTICE_HEADING`. Con una copia en cada aviso, cambiarlo en uno dejaría dos
+ * tarjetas de la misma vista con encabezados distintos.
+ */
 export const WASTE_WITHDRAWAL_DRAFT_NOTICE = {
-  /** Encabezado de la tarjeta. */
-  heading: 'Notificaciones del proceso',
   /** Título de la columna izquierda. */
   title: 'Formulario inconcluso',
   /**
@@ -171,16 +176,20 @@ function pad(value: number): string {
 }
 
 /**
- * "Hoy 16:54" — nodo `4278:15663`.
+ * "Hoy 16:54" — nodos `4278:15663` (guardado del borrador) y `4278:17651` (último rechazo).
  *
- * EL NODO SOLO DIBUJA EL CASO DE HOY, y un borrador de anteayer que también dijera
+ * EL NOMBRE NO DICE "BORRADOR" A PROPÓSITO: los dos avisos de "Notificaciones del proceso"
+ * fechan su línea igual, así que el formato es del AVISO y no del borrador. Se renombró
+ * cuando apareció el segundo; antes se llamaba `formatWasteDraftSavedAt`.
+ *
+ * LOS NODOS SÓLO DIBUJAN EL CASO DE HOY, y un borrador de anteayer que también dijera
  * "Hoy" mentiría. Para los demás días se usa `dd-mm-yy`, que es el formato de fecha
  * de esta vista (columna PERIODO), con la hora detrás.
  *
  * Recibe "hoy" en vez de leerlo: la vista ya resolvió `new Date()` una sola vez al
  * montar y todo lo que depende de la fecha usa esa misma lectura.
  */
-export function formatWasteDraftSavedAt(savedAtIso: string, today: Date): string {
+export function formatWasteNoticeTimestamp(savedAtIso: string, today: Date): string {
   const savedAt = new Date(savedAtIso);
   if (Number.isNaN(savedAt.getTime())) return '';
 
