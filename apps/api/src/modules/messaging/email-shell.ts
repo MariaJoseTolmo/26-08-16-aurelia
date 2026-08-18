@@ -134,6 +134,26 @@ export interface EmailShellNotice {
    */
   paddingY: number;
   /**
+   * Separación entre el recuadro y lo que tiene encima. 16 en los nodos de SINADER
+   * y de rechazo, 14 en el de solicitud corregida (`4295:25141`).
+   *
+   * Es la misma clase de divergencia que documenta `EmailShellMetrics` —dos momentos
+   * del sistema de diseño, diferencias de pocos píxeles— y por eso se preserva en vez
+   * de unificar por cuenta propia. Por omisión, los 16 de los correos que ya salen.
+   */
+  marginTop?: number;
+  /**
+   * Relleno horizontal del recuadro: `padding-left` de la celda del icono y
+   * `padding-right` de la del cuerpo. 15 en los nodos de SINADER y de rechazo, 14 en
+   * `4295:25142`. Por omisión, los 15 de los correos que ya salen.
+   */
+  paddingX?: number;
+  /**
+   * Separación entre el glifo y el cuerpo. 10 en los nodos de SINADER y de rechazo,
+   * 9 en `4295:25142`. Por omisión, los 10 de los correos que ya salen.
+   */
+  gap?: number;
+  /**
    * Glifo de la izquierda, ya como HTML y CON SUS PROPIOS ESTILOS. El armazón no
    * le impone color ni tipografía porque un `<img>` y un carácter no necesitan lo
    * mismo, y meterle estilos de texto a una imagen ensucia el HTML sin efecto.
@@ -213,6 +233,14 @@ export function renderEmailShell(input: EmailShellInput): string {
    */
   const extraBlocks = input.extraBlocksHtml ? `${input.extraBlocksHtml}\n              ` : '';
 
+  /*
+   * Medidas del recuadro que difieren entre nodos. Los valores por omisión son los
+   * de los tres correos que ya salen, así que el HTML de aquéllos no cambia.
+   */
+  const noticeMarginTop = input.notice.marginTop ?? 16;
+  const noticePaddingX = input.notice.paddingX ?? 15;
+  const noticeGap = input.notice.gap ?? 10;
+
   /* Sólo el primer párrafo se despega del saludo; el resto van pegados entre sí. */
   const paragraphs = input.paragraphs
     .map(
@@ -264,10 +292,10 @@ ${input.extraCss ?? ''}    }
               <div style="height:1px;margin:${m.dividerMarginTop}px 0 0;background:#e3e3e3;line-height:1px;">&nbsp;</div>
               <p style="margin:${m.greetingMarginTop}px 0 0;font-size:14px;line-height:20px;${m.greetingFontWeight}color:#333333;">Hola, <strong>${input.recipientName}</strong>${m.greetingSuffix}</p>
               ${paragraphs}
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin-top:16px;border:1px solid ${input.notice.border};border-radius:8px;background:${input.notice.background};">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin-top:${noticeMarginTop}px;border:1px solid ${input.notice.border};border-radius:8px;background:${input.notice.background};">
                 <tr>
-                  <td width="${input.notice.iconCellWidth}" valign="top" style="padding:${input.notice.paddingY}px 0 ${input.notice.paddingY}px 15px;${input.notice.iconCellStyle ?? ''}">${input.notice.iconHtml}</td>
-                  <td style="padding:${input.notice.paddingY}px 15px ${input.notice.paddingY}px 10px;color:${input.notice.color};font-size:${input.notice.fontSize}px;line-height:${input.notice.lineHeight}px;">
+                  <td width="${input.notice.iconCellWidth}" valign="top" style="padding:${input.notice.paddingY}px 0 ${input.notice.paddingY}px ${noticePaddingX}px;${input.notice.iconCellStyle ?? ''}">${input.notice.iconHtml}</td>
+                  <td style="padding:${input.notice.paddingY}px ${noticePaddingX}px ${input.notice.paddingY}px ${noticeGap}px;color:${input.notice.color};font-size:${input.notice.fontSize}px;line-height:${input.notice.lineHeight}px;">
                     ${input.notice.bodyHtml}
                   </td>
                 </tr>
