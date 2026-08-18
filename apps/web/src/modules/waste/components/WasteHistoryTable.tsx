@@ -115,12 +115,20 @@ const COLUMNS: WasteHistoryColumn[] = [
   { key: 'support', label: 'Respaldo', width: '3.6433%', filter: 'none', centered: true },
 ];
 
-/** Tonos de `WasteWithdrawalPill` para los tres estados del nodo `4230:12718`. */
+/**
+ * Tonos de `WasteWithdrawalPill` para los estados de la tabla.
+ *
+ * Los tres primeros salen del nodo `4230:12718`. El `red` de "Rechazado" no —ese estado no
+ * está dibujado acá— y tampoco es un color nuevo: es el par `#ffd0db`/`#570b1d` con el que
+ * el módulo marca el rechazo desde la franja `4295:24658`. Ver la nota de
+ * `WasteHistoryStatus`.
+ */
 const STATUS_TONE = {
   open: 'amber',
   informational: 'neutral',
   closed: 'teal',
-} as const satisfies Record<WasteHistoryStatus, 'amber' | 'neutral' | 'teal'>;
+  rejected: 'red',
+} as const satisfies Record<WasteHistoryStatus, 'amber' | 'neutral' | 'teal' | 'red'>;
 
 interface WasteHistoryTableProps {
   /** Filas ya filtradas y paginadas: la tabla no filtra, solo dibuja. */
@@ -251,9 +259,27 @@ function WasteHistoryTableCells({ row }: { row: WasteHistoryRow }) {
       <td className={cell}>{row.sector}</td>
       <td className={cell}>{row.recipient}</td>
       <td className={cell}>
-        {row.sidrepFolio ?? (
-          <span className="text-[11.5px] text-[#646464]">{WASTE_HISTORY_FOLIO_NOT_APPLICABLE}</span>
-        )}
+        {/*
+          TRES CASOS Y NO DOS. Hay folio → el número. No hay folio y la solicitud fue
+          RECHAZADA → la pastilla del estado, porque "No aplica" sería falso: es peligrosa,
+          va a SIDREP y el folio todavía no se emitió. No hay folio y no es peligrosa → "No
+          aplica", que es el caso del nodo.
+
+          Es la celda que el aviso `4278:17632` manda a mirar —"revisa la columna «Folio
+          SIDREP» para identificar las solicitudes rechazadas"—, y es el mismo patrón con el
+          que la tabla de retiros pone "A espera de aprobación" (`3817:55964`) en una
+          solicitud enviada sin folio.
+        */}
+        {row.sidrepFolio ??
+          (row.status === 'rejected' ? (
+            <WasteWithdrawalPill tone={STATUS_TONE.rejected}>
+              {WASTE_HISTORY_STATUS_LABELS.rejected}
+            </WasteWithdrawalPill>
+          ) : (
+            <span className="text-[11.5px] text-[#646464]">
+              {WASTE_HISTORY_FOLIO_NOT_APPLICABLE}
+            </span>
+          ))}
       </td>
       <td className={cell}>{row.declaredWeight}</td>
       <td className={cell}>{row.receivedWeight}</td>

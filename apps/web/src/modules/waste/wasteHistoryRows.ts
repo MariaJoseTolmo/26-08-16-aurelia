@@ -13,18 +13,50 @@
  *   peligroso     → tiene folio SIDREP → estado Abierto o Cerrado
  *   no peligroso  → "No aplica"        → estado Informativo
  *   respaldo      → sólo en los CERRADOS
+ *   RECHAZADO     → peligroso SIN folio todavía; ver la nota del estado
  *
  * Esa coherencia es la regla de negocio de la vista, así que los defaults la
  * respetan: un "no peligroso" con folio sería un dato imposible.
  */
 
-/** Estados del nodo `4230:12718`. Reusan los tonos de `WasteWithdrawalPill`. */
-export type WasteHistoryStatus = 'open' | 'informational' | 'closed';
+/**
+ * Estados del nodo `4230:12718` MÁS "Rechazado", que ese nodo no dibuja.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A CONFIRMAR CON DISEÑO: "RECHAZADO" NO TIENE NODO EN ESTA TABLA
+ *
+ * El nodo `4230:12718` dibuja tres pastillas —Abierto, Informativo, Cerrado— y ninguna
+ * de rechazo, porque cuando se dibujó la tabla el rechazo de solicitudes no existía. Lo
+ * pide el aviso `4278:17632`, que manda a "revisar la columna Folio SIDREP para
+ * identificar las solicitudes rechazadas": sin este estado, esa columna dice "No aplica"
+ * en una solicitud que sí aplica —es peligrosa y va a SIDREP— y el aviso manda a mirar
+ * algo que no está.
+ *
+ * NO SE INVENTÓ NI EL TONO NI EL PATRÓN. El tono es el `red` de `WastePill`
+ * (`#ffd0db`/`#570b1d`), que el módulo ya usa para el rechazo desde la franja
+ * `4295:24658`; y la pastilla en la celda de FOLIO es lo que la tabla de retiros ya hace
+ * con "A espera de aprobación" (`3817:55964`) para una solicitud sin folio. Lo que falta
+ * es que diseño confirme la pastilla en ESTA tabla.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * UNA RECHAZADA NO TIENE FOLIO. El folio SIDREP se emite al APROBAR —lo dice el modal
+ * `3087:17238`, "Aprobar y generar folio SIDREP"—, así que una solicitud devuelta para
+ * corrección no puede tenerlo. Por eso su celda de folio lleva la pastilla del estado y
+ * no un número.
+ */
+export type WasteHistoryStatus = 'open' | 'informational' | 'closed' | 'rejected';
 
 export const WASTE_HISTORY_STATUS_LABELS: Record<WasteHistoryStatus, string> = {
   open: 'Abierto',
   informational: 'Informativo',
   closed: 'Cerrado',
+  /*
+   * La misma palabra que la pastilla de la bandeja de pendientes
+   * (`WASTE_SIDREP_REQUEST_REJECTED_STATUS`, nodo `4295:24656`): es el mismo hecho visto
+   * desde otra tabla, y dos palabras distintas para el mismo estado se leerían como dos
+   * estados.
+   */
+  rejected: 'Rechazado',
 };
 
 /** Texto del nodo `4230:12490`, para los retiros sin folio. */
@@ -97,6 +129,18 @@ interface WasteHistorySeed {
 
 /** Lo único que cambia fila a fila en el nodo. */
 const SEEDS: WasteHistorySeed[] = [
+  /*
+   * LA RECHAZADA VA PRIMERA Y ES LA ÚNICA QUE EL NODO NO DIBUJA. Va arriba porque es la
+   * única fila de la tabla que le pide algo a alguien —corregir y reenviar— y porque es
+   * la que el aviso `4278:17632` manda a buscar; el resto son historia.
+   *
+   * SIN FOLIO Y PELIGROSA, que es lo que la hace RESPEL rechazada: el folio se emite al
+   * aprobar. Los pesos y los responsables siguen siendo los del placeholder del nodo,
+   * igual que en las diez filas de muestra —una rechazada real no tendría peso recibido
+   * ni responsable de cierre—, porque llenarlos distinto sería inventar datos donde el
+   * nodo puso "XXXX".
+   */
+  { isHazardous: true, sidrepFolio: null, status: 'rejected', hasSupport: false },
   { isHazardous: true, sidrepFolio: '2026-SD-04821', status: 'open', hasSupport: false },
   { isHazardous: false, sidrepFolio: null, status: 'informational', hasSupport: false },
   { isHazardous: true, sidrepFolio: '2026-SD-04743', status: 'open', hasSupport: false },
