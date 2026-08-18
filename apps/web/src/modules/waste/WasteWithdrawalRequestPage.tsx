@@ -7,10 +7,13 @@ import {
   type WasteWithdrawalNoticeKind,
 } from '../../shared/stores/waste-withdrawal-draft.store';
 import { useIsWasteWithdrawer } from '../../shared/stores/simulated-role.store';
+import { useWasteSidrepRejectionsStore } from '../../shared/stores/waste-sidrep-rejections.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
 import { WasteWithdrawalDraftNotice } from './components/WasteWithdrawalDraftNotice';
 import { WasteWithdrawalIntro } from './components/WasteWithdrawalIntro';
+import { WasteWithdrawalRejectedNotice } from './components/WasteWithdrawalRejectedNotice';
+import { resolveWasteWithdrawalRejectedNotice } from './wasteWithdrawalRejectedNotice';
 import { WasteWithdrawalTable } from './components/WasteWithdrawalTable';
 import { WasteWithdrawalToolbar } from './components/WasteWithdrawalToolbar';
 import { toIsoMonth } from './wasteMonthFilter';
@@ -23,7 +26,7 @@ import {
   type WasteWithdrawalFilters,
 } from './wasteWithdrawalFilters';
 import {
-  formatWasteDraftSavedAt,
+  formatWasteNoticeTimestamp,
   resolveWasteWithdrawalDraftProgress,
 } from './wasteWithdrawalDraft';
 import { resolveCarrierLabel } from './wasteWithdrawalForm';
@@ -133,6 +136,8 @@ export function WasteWithdrawalRequestPage() {
   const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
   const support = useWasteWithdrawalDraftStore((state) => state.support);
   const savedAt = useWasteWithdrawalDraftStore((state) => state.savedAt);
+  /** Rechazos enviados desde la bandeja de pendientes en esta sesión. */
+  const rejections = useWasteSidrepRejectionsStore((state) => state.rejections);
 
   /**
    * Borrador en curso, o `null`. El aviso del nodo `4278:15644` aparece SOLO cuando
@@ -154,6 +159,34 @@ export function WasteWithdrawalRequestPage() {
     [pendingRequests, today],
   );
   const rows = useMemo(() => filterWithdrawalRows(allRows, filters), [allRows, filters]);
+
+  /**
+   * Solicitudes que Medio Ambiente devolvió para corrección, o `null` si no hay ninguna.
+   *
+   * SON TODAS RESPEL porque pasan por SIDREP, que es el sistema de declaración de residuos
+   * peligrosos; ver la nota de `wasteWithdrawalRejectedNotice`.
+   *
+   * SE CUENTAN LAS DOS FUENTES, y es lo que hace que el aviso coincida con la tabla: las
+   * FILAS rechazadas del listado —que es lo que el propio aviso manda a mirar— más los
+   * rechazos enviados desde la bandeja de pendientes en esta sesión. Con sólo las segundas,
+   * la pantalla mostraría una fila "Rechazado" sin aviso arriba, que es justo lo que el nodo
+   * `4278:18063` dibuja junto.
+   *
+   * VA DESPUÉS DE `allRows` porque lo lee: declarado antes, la constante todavía no existe
+   * en el momento de evaluar el `useMemo`.
+   */
+  const rejectedNotice = useMemo(
+    () =>
+      resolveWasteWithdrawalRejectedNotice(
+        [
+          ...allRows.flatMap((row) => (row.rejectedAt ? [new Date(row.rejectedAt)] : [])),
+          ...Object.values(rejections).map((rejection) => rejection.rejectedAt),
+        ],
+        today,
+      ),
+    [allRows, rejections, today],
+  );
+
 
   /**
    * PAGINACIÓN REAL. El nodo `3765:40905` dice "Mostrando 1–10 de 11 datos" con dos
@@ -199,13 +232,27 @@ export function WasteWithdrawalRequestPage() {
                 14) y la barra en `y=244.5` (80 + 150.5 + 14). O sea entra en el
                 mismo `gap-[14px]` de la columna, sin geometría propia.
               */}
+              {/*
+                Aviso de rechazadas `4278:17632`, emplazado por `4278:17511` en el MISMO
+                lugar que el de borrador: entre la bajada y la barra de acciones, dentro del
+                `gap-[14px]` de la columna (el nodo lo pone en `y=80`, igual que aquél).
+
+                VA PRIMERO CUANDO APARECEN LOS DOS, y el diseño no dibuja ese caso: cada
+                nodo muestra su aviso solo. Se decidió por lo que pide cada uno —el rechazo
+                lo devolvió otra persona y hay que corregirlo; el borrador es trabajo propio
+                sin plazo— y queda anotado para confirmar con diseño, junto con la pregunta
+                de si en ese caso van dos tarjetas "Notificaciones del proceso" o una con dos
+                filas. Apilarlas es lo que no inventa nada: cada aviso queda como su nodo lo
+                dibuja.
+              */}
+              {rejectedNotice ? <WasteWithdrawalRejectedNotice notice={rejectedNotice} /> : null}
               {draftProgress ? (
                 <WasteWithdrawalDraftNotice
                   progress={draftProgress}
                   /* El retirador trae su EECC ya resuelta; sin ella, el id se
                      busca entre las opciones de muestra. */
                   carrierLabel={draft?.carrierLabel ?? resolveCarrierLabel(draft?.carrier ?? null)}
-                  savedAtLabel={savedAt ? formatWasteDraftSavedAt(savedAt, today) : ''}
+                  savedAtLabel={savedAt ? formatWasteNoticeTimestamp(savedAt, today) : ''}
                   onResume={() => navigate(draftProgress.route)}
                 />
               ) : null}
@@ -234,6 +281,20 @@ export function WasteWithdrawalRequestPage() {
                 pageSize={WASTE_WITHDRAWAL_PAGE_SIZE}
                 totalRows={rows.length}
                 onPageChange={setPage}
+                /*
+                  "Corregir" de la fila rechazada (nodo `4278:18538`) lleva AL MISMO LUGAR
+                  que el aviso de formulario inconcluso: al paso donde quedó el borrador, y
+                  al formulario base si no hay ninguno que retomar. Es la misma decisión ya
+                  escrita en `resolveWasteWithdrawalDraftProgress`, así que se reusa en vez
+                  de elegir una ruta propia que pudiera discrepar.
+
+                  SIN ENDPOINT NO PUEDE PRECARGAR LA SOLICITUD RECHAZADA: quien corrige una
+                  solicitud que este navegador no envió cae en el formulario vacío. Queda
+                  anotado; es el mismo límite que el resto del flujo.
+                */
+                onCorrect={() =>
+                  navigate(draftProgress?.route ?? '/waste/solicitud-retiro/nueva')
+                }
               />
             </div>
             {/*

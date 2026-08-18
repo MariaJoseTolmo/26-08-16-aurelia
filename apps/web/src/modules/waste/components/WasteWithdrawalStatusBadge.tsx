@@ -25,7 +25,16 @@ import { WastePill, type WastePillTone } from './WastePill';
  * NO es `WasteHazardBadge`: aquella es `rounded-[20px]`, lleva icono y usa
  * `gap-[5px]`. Son dos pastillas distintas del sistema de diseño.
  */
-export type WasteWithdrawalPillTone = Extract<WastePillTone, 'neutral' | 'teal' | 'amber'>;
+/**
+ * `red` entró con el estado "Rechazado" de la tabla de histórico: la pastilla es la misma
+ * caja y el tono ya existía en `WastePill` —el par de la franja de rechazo `4295:24658`—,
+ * así que restringir el tipo a los tres tonos dibujados en los nodos de retiros habría
+ * obligado a esa tabla a saltearse este componente para pintar la misma pastilla.
+ */
+export type WasteWithdrawalPillTone = Extract<
+  WastePillTone,
+  'neutral' | 'teal' | 'amber' | 'red'
+>;
 
 export function WasteWithdrawalPill({
   tone,

@@ -26,7 +26,19 @@ import type { WasteWithdrawableLot } from './wasteWithdrawableLots';
 export type WasteWithdrawalStatus = 'informational' | 'pending' | 'closed';
 
 export const WASTE_WITHDRAWAL_STATUS_LABELS: Record<WasteWithdrawalStatus, string> = {
-  informational: 'Informativo',
+  /*
+   * "RETIRO REGISTRADO" Y NO "INFORMATIVO", que es como lo escribía el nodo `3817:55580`.
+   * El nodo `4278:18063` —el que agrega la fila rechazada y la columna de acciones—
+   * reescribió las cuatro celdas de este estado, y el rótulo nuevo dice lo que el estado
+   * ES: el retiro no peligroso se registró de una, sin pasar por Medio Ambiente.
+   * "Informativo" describía para qué sirve la fila, no qué le pasó al retiro.
+   *
+   * TOCA TAMBIÉN EL FILTRO, que deriva sus alternativas de este record: el selector
+   * "Estado" y la pastilla de filtros activos pasan a decir "Retiro registrado". Es lo
+   * correcto —un filtro que ofrezca una palabra que la tabla ya no usa no encuentra nada
+   * a la vista— y es la razón por la que el rótulo vive acá y no en la pastilla.
+   */
+  informational: 'Retiro registrado',
   pending: 'Pendiente',
   closed: 'Cerrado',
 };
@@ -39,6 +51,28 @@ export const WASTE_WITHDRAWAL_STATUS_LABELS: Record<WasteWithdrawalStatus, strin
  * folio que mostrar, pero tampoco es que no aplique.
  */
 export const WASTE_WITHDRAWAL_FOLIO_PENDING_LABEL = 'A espera de aprobación';
+
+/**
+ * Texto de la celda FOLIO SIDREP de una solicitud RECHAZADA — nodo `4278:18460`.
+ *
+ * ES LA CELDA QUE EL AVISO `4278:17632` MANDA A MIRAR: "revisa la columna «Folio SIDREP»
+ * para identificar las solicitudes rechazadas". Ocupa el lugar del folio por lo mismo que
+ * "A espera de aprobación": no hay folio —se emite al aprobar, lo dice el modal
+ * `3087:17238`— pero tampoco es que no aplique.
+ *
+ * MISMA PALABRA QUE LA PASTILLA DE LA BANDEJA DE PENDIENTES
+ * (`WASTE_SIDREP_REQUEST_REJECTED_STATUS`, nodo `4295:24656`): es el mismo hecho visto
+ * desde otra tabla, y dos palabras para el mismo estado se leerían como dos estados.
+ */
+export const WASTE_WITHDRAWAL_FOLIO_REJECTED_LABEL = 'Rechazado';
+
+/**
+ * Rótulo de la columna ACCIONES y de su único control — nodo `4278:18538`.
+ *
+ * SÓLO LA FILA RECHAZADA LO TIENE. El nodo dibuja la columna con las diez filas y el link
+ * aparece en una sola: las demás no tienen nada que corregir, así que su celda va vacía.
+ */
+export const WASTE_WITHDRAWAL_CORRECTION_ACTION_LABEL = 'Corregir';
 
 export interface WasteWithdrawalRow {
   id: string;
@@ -62,6 +96,29 @@ export interface WasteWithdrawalRow {
    */
   sidrepFolio: string | null;
   status: WasteWithdrawalStatus;
+  /**
+   * Medio Ambiente devolvió la solicitud para corrección — nodo `4278:18063`.
+   *
+   * NO ES UN `WasteWithdrawalStatus`, y el nodo lo demuestra: en su fila rechazada la
+   * columna ESTADO sigue diciendo "Pendiente" y lo que cambia son las otras dos celdas —el
+   * folio pasa a la pastilla "Rechazado" y aparece el link "Corregir"—. Tiene sentido: la
+   * solicitud sigue pendiente de aprobación, lo que pasó es que volvió con observaciones.
+   * Sumarlo a la unión lo habría metido además en el selector "Estado", que ofrecería
+   * filtrar por un estado que la columna no dibuja.
+   *
+   * OPCIONAL PORQUE ES LA EXCEPCIÓN: una fila sin la marca no está rechazada, que es el
+   * caso de todas menos una. Exigirlo obligaría a escribir `rejected: false` en las once
+   * filas de muestra y en los dos caminos que crean filas locales, sin decir nada nuevo.
+   */
+  rejected?: boolean;
+  /**
+   * Instante del rechazo en ISO, para la línea "Hoy 16:54" del aviso `4278:17651`.
+   *
+   * VA EN LA FILA Y NO SÓLO EN EL STORE DE LA BANDEJA porque el aviso cuenta lo que la
+   * tabla muestra: una fila rechazada que el listado trae del servidor —o de las muestras—
+   * no pasó por el rechazo de esta sesión y el aviso igual tiene que poder fecharla.
+   */
+  rejectedAt?: string;
 }
 
 /**
@@ -88,6 +145,19 @@ export interface WasteWithdrawalRow {
  * los desborde.
  */
 const SAMPLE_ROWS = [
+  /*
+   * Fila RECHAZADA, la primera del nodo `4278:18063`: folio "Rechazado", estado
+   * "Pendiente" y el link "Corregir" en la columna de acciones.
+   *
+   * VA ARRIBA porque es la única fila de la tabla que le pide algo a alguien —corregir y
+   * reenviar— y porque es la que el aviso `4278:17632` manda a buscar; el resto son
+   * historia. Es también RESPEL, como toda solicitud que pasa por SIDREP.
+   *
+   * Va en las muestras y no sólo como resultado de un rechazo por lo mismo que la
+   * pendiente: el listado es compartido, así que siempre puede haber una solicitud
+   * devuelta que este navegador no rechazó.
+   */
+  { monthOffset: 0, day: 22, category: 'RESPEL Residuos peligrosos', wasteType: 'Envases contaminados con hidrocarburos/aceites/grasas', quantity: '18', unit: 'Unidad', recipient: 'Hidronor Chile S.A.', sidrepFolio: null, status: 'pending' as const, rejected: true, rejectedHour: 16, rejectedMinute: 54 },
   /*
    * Fila PENDIENTE. El nodo `3765:40905` muestra 11 filas con esta primera —folio
    * "A espera de aprobación" y estado "Pendiente"—, que es el estado en que queda
@@ -169,9 +239,26 @@ export function createWithdrawalRowFromLot({
 export function buildWasteWithdrawalRows(today: Date): WasteWithdrawalRow[] {
   // `monthOffset` y `day` se desestructuran afuera a propósito: son la receta del
   // dato, no parte de la fila, y el spread los arrastraría al modelo.
-  return SAMPLE_ROWS.map(({ monthOffset, day, ...row }, index) => ({
+  return SAMPLE_ROWS.map(({ monthOffset, day, rejectedHour, rejectedMinute, ...row }, index) => ({
     ...row,
     id: String(index + 1),
+    /*
+     * "Hoy 16:54" es lo que escribe el nodo `4278:17651`, y la hora es DATO DE MUESTRA como
+     * "XXXX" o "Nombre del destinatario": se fecha con la lectura de hoy de la vista para
+     * que el aviso diga "Hoy" —si se fijara un día, en cuanto pasara la fecha el aviso
+     * mostraría un rechazo viejo y el mock se leería como un bug.
+     */
+    ...(rejectedHour === undefined
+      ? {}
+      : {
+          rejectedAt: new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate(),
+            rejectedHour,
+            rejectedMinute,
+          ).toISOString(),
+        }),
     withdrawalDate: toIsoDate(new Date(today.getFullYear(), today.getMonth() + monthOffset, day)),
   }));
 }
