@@ -250,7 +250,7 @@ export function WasteFolioSupportModal({
   onDownload,
   isDownloading = false,
   downloadError = null,
-}: WasteFolioSupportModalProps) {
+}: WasteFolioSupportModalProps): ReactNode {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
