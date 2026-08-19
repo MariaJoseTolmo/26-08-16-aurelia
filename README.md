@@ -1,4 +1,4 @@
-# Aurelia
+# AurelIA
 
 Plataforma ambiental centralizada para gestión de controles críticos, inspecciones, incidentes, evidencias, flujos de aprobación, reportabilidad, alertas y asistencia con IA.
 
