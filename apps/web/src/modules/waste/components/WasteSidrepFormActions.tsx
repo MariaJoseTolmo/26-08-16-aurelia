@@ -33,6 +33,8 @@ interface WasteSidrepFormActionsProps {
   canContinue: boolean;
   onBack: () => void;
   onContinue?: () => void;
+  /** La corrección SIDREP oculta la acción secundaria y deja solo "Reenviar solicitud". */
+  showBack?: boolean;
   /**
    * Rótulo del primario. El paso 3 cierra con "Enviar solicitud" (nodo
    * `4278:21431`) en vez de "Continuar": ahí ya no se avanza, se firma.
@@ -50,6 +52,7 @@ export function WasteSidrepFormActions({
   canContinue,
   onBack,
   onContinue,
+  showBack = true,
   continueLabel = SIDREP_CONTINUE_LABEL,
   continueIcon,
 }: WasteSidrepFormActionsProps) {
@@ -58,7 +61,7 @@ export function WasteSidrepFormActions({
     <div className="w-full shrink-0 border-t border-solid border-[#e3e3e3] bg-white">
       <div className="flex w-full items-center justify-end px-[28px] pb-[14px] pt-[15px]">
         <div className="flex items-start gap-[10px]">
-          <WasteSecondaryActionButton label={SIDREP_BACK_LABEL} onClick={onBack} />
+          {showBack ? <WasteSecondaryActionButton label={SIDREP_BACK_LABEL} onClick={onBack} /> : null}
           <button
             type="button"
             disabled={!canContinue}
