@@ -19,7 +19,9 @@ export function useSprCycle(periodYear: number, periodMonth: number) {
   });
 
   const sprCycle: SprCycleResponse | null =
-    !query.isLoading && !query.isError && query.data && query.data.length > 0 ? query.data[0] : null;
+    !query.isLoading && !query.isError && query.data && query.data.length > 0
+      ? (query.data[0] ?? null)
+      : null;
 
   const missingCycle = !query.isLoading && !query.isError && Array.isArray(query.data) && query.data.length === 0;
 
