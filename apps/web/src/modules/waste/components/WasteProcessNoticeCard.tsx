@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { BellIcon } from '../../../shared/components/icons/BellIcon';
+import processNotificationsBellIcon from '../icons/figma-4278-18187-process-notifications-bell.svg';
 
 /**
  * Tarjeta "Notificaciones del proceso" de la vista de histórico — el CASCARÓN que
- * comparten los avisos de los nodos `4278:15644` (formulario inconcluso) y `4278:17632`
- * (solicitudes rechazadas).
+ * comparten los avisos de los nodos `4278:15644` (formulario inconcluso), `4278:17632`
+ * y `4278:18184` (solicitudes rechazadas).
  *
  * SE EXTRAJO CUANDO APARECIÓ EL SEGUNDO USO, no antes. Con el aviso de borrador solo, el
  * cascarón era una parte de ese componente; con el de rechazadas los dos nodos declaran la
@@ -42,7 +42,7 @@ import { BellIcon } from '../../../shared/components/icons/BellIcon';
  * el contenido del aviso, y eso lo trae cada consumidor.
  */
 
-/** Encabezado de los nodos `4278:15649` y `4278:17637`. */
+/** Encabezado de los nodos `4278:15649`, `4278:17637` y `4278:18185`. */
 export const WASTE_PROCESS_NOTICE_HEADING = 'Notificaciones del proceso';
 
 interface WasteProcessNoticeCardProps {
@@ -75,21 +75,21 @@ export function WasteProcessNoticeCard({
    * `overflow-clip` de los nodos.
    */
   const cardClassName =
-    'relative flex w-full items-stretch overflow-hidden rounded-[12px] border border-solid border-[#e3e3e3] bg-white text-left';
+    'relative flex w-full items-stretch overflow-hidden rounded-[12px] border border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)] text-left';
 
   const card = (
     <>
       <div className="relative flex w-[219px] shrink-0 flex-col justify-center p-[14px]">
         {aside}
 
-        {/* Punto de los nodos `4278:15673` y `4278:17661`. Ver la nota de arriba. */}
+        {/* Punto de los nodos `4278:15673`, `4278:17661` y `4278:18204`. */}
         <span
           aria-hidden="true"
-          className="absolute -right-[8px] top-[12.4px] size-[16px] rounded-[8px] bg-[#c4365a]"
+          className="absolute -right-[8px] top-[12.4px] size-[16px] rounded-[8px] bg-[var(--waste-notice-marker)]"
         />
       </div>
 
-      <div className="relative flex min-w-px flex-1 items-center gap-[12px] border-l-[1.5px] border-solid border-[#e3e3e3] bg-white py-[14px] pl-[15.5px] pr-[14px] drop-shadow-[0px_1px_2px_rgba(0,0,0,0.06)]">
+      <div className="relative flex min-w-px flex-1 items-center gap-[12px] border-l-[1.5px] border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)] py-[14px] pl-[15.5px] pr-[14px] drop-shadow-[0px_1px_2px_rgba(0,0,0,0.06)]">
         {children}
       </div>
     </>
@@ -97,7 +97,7 @@ export function WasteProcessNoticeCard({
 
   return (
     <section
-      className="w-full rounded-[9px] border border-solid border-[#e3e3e3] bg-white"
+      className="w-full rounded-[9px] border border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)]"
       data-name="Notificaciones del proceso"
     >
       {/*
@@ -106,10 +106,15 @@ export function WasteProcessNoticeCard({
         es el borde, que Figma dibuja HACIA ADENTRO. En Tailwind `border` ya lo aporta;
         sumarle `p-px` mete un segundo píxel por lado.
       */}
-      <div className="w-full border-b border-solid border-[#e3e3e3] px-[14px] pb-[11px] pt-[10px]">
+      <div className="w-full border-b border-solid border-[var(--waste-notice-border)] px-[14px] pb-[11px] pt-[10px]">
         <div className="flex items-center gap-[7px]">
-          <BellIcon className="block h-[12px] w-[15px] shrink-0 text-[#24588b]" />
-          <p className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[#001e39]">
+          <img
+            src={processNotificationsBellIcon}
+            alt=""
+            aria-hidden="true"
+            className="block h-[12px] w-[15px] shrink-0"
+          />
+          <p className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[var(--waste-notice-heading)]">
             {WASTE_PROCESS_NOTICE_HEADING}
           </p>
         </div>
@@ -125,7 +130,7 @@ export function WasteProcessNoticeCard({
              * mismo tono con el que `SprProcessStatusSection` marca sus filas accionables.
              * Un bloque que navega y no responde al puntero no se lee como clickeable.
              */
-            className={`${cardClassName} hover:bg-[#fafcff]`}
+            className={`${cardClassName} hover:bg-[var(--waste-notice-action-hover)]`}
             aria-label={actionLabel}
           >
             {card}
