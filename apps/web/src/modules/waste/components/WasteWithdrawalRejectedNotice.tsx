@@ -37,16 +37,16 @@ export function WasteWithdrawalRejectedNotice({ notice }: WasteWithdrawalRejecte
     <WasteProcessNoticeCard
       aside={
         <>
-          <p className="font-['Inter:Bold',sans-serif] text-[15px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title)]">
+          <p className="font-['Inter:Bold',sans-serif] text-[15px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title,#131313)]">
             {WASTE_WITHDRAWAL_REJECTED_NOTICE.label}
           </p>
-          <p className="font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[var(--waste-notice-rejected-foreground)]">
+          <p className="font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[var(--waste-notice-rejected-foreground,#570b1d)]">
             {notice.countLabel}
           </p>
         </>
       }
     >
-      <WasteProcessNoticeIcon background="bg-[var(--waste-notice-rejected-surface)]">
+      <WasteProcessNoticeIcon background="bg-[var(--waste-notice-rejected-surface,#ffd0db)]">
         <img
           src={rejectedRequestIcon}
           alt=""
@@ -56,7 +56,7 @@ export function WasteWithdrawalRejectedNotice({ notice }: WasteWithdrawalRejecte
       </WasteProcessNoticeIcon>
 
       <div className="flex min-w-px flex-1 flex-col items-start">
-        <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title)]">
+        <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title,#131313)]">
           {WASTE_WITHDRAWAL_REJECTED_NOTICE.processName}
         </p>
         {/*
@@ -65,7 +65,7 @@ export function WasteWithdrawalRejectedNotice({ notice }: WasteWithdrawalRejecte
           texto de dos líneas, pero son dos datos —qué pasó y cuándo— y la segunda línea no
           es un salto del párrafo sino otra cosa.
         */}
-        <div className="pt-[3px] font-['Inter:Regular',sans-serif] text-[11px] font-normal not-italic leading-[normal] text-[var(--waste-notice-muted)]">
+        <div className="pt-[3px] font-['Inter:Regular',sans-serif] text-[11px] font-normal not-italic leading-[normal] text-[var(--waste-notice-muted,#646464)]">
           <p>{WASTE_WITHDRAWAL_REJECTED_NOTICE.description}</p>
           <p>{notice.rejectedAtLabel}</p>
         </div>
