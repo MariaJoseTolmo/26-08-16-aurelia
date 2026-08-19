@@ -4,12 +4,14 @@ import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteRejectedBanner } from './components/WasteRejectedBanner';
 import { WasteSidrepDocumentsIntro } from './components/WasteSidrepDocumentsIntro';
 import { WasteSidrepFormActions } from './components/WasteSidrepFormActions';
 import { WasteSidrepRequiredDocsSection } from './components/WasteSidrepRequiredDocsSection';
 import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepVehiclePhotosSection } from './components/WasteSidrepVehiclePhotosSection';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
+import { pendingRequestRejectionQuote } from './wasteSidrepPendingFolios';
 import {
   createWasteSidrepSupportDocsValues,
   isWasteSidrepSupportDocsComplete,
@@ -17,6 +19,10 @@ import {
   type SidrepVehicleViewKey,
   type WasteSidrepSupportDocsValues,
 } from './wasteSidrepSupportDocs';
+import {
+  wasteWithdrawalCorrectionHeading,
+  WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+} from './wasteWithdrawalRows';
 
 /**
  * Paso 2 del flujo SIDREP, "Documentos de respaldo" — nodo Figma `3765:39693`, cuya
@@ -48,6 +54,7 @@ import {
 export function WasteSidrepSupportDocsPage() {
   const navigate = useNavigate();
   const draft = useWasteWithdrawalDraftStore((state) => state.draft);
+  const correction = useWasteWithdrawalDraftStore((state) => state.correction);
   const setSupport = useWasteWithdrawalDraftStore((state) => state.setSupport);
   const [values, setValues] = useState<WasteSidrepSupportDocsValues>(
     createWasteSidrepSupportDocsValues,
@@ -89,6 +96,14 @@ export function WasteSidrepSupportDocsPage() {
         header={<WarehouseHeader title={WASTE_WITHDRAWAL_FORM_TITLE} />}
         content={
           <div className="flex h-[calc(100vh-56px)] w-full flex-col bg-white" data-name="Main Content">
+            {correction ? (
+              <WasteRejectedBanner
+                heading={wasteWithdrawalCorrectionHeading(correction)}
+                reason={pendingRequestRejectionQuote(
+                  correction.rejectionReason ?? WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+                )}
+              />
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex w-full flex-col items-start gap-[16px] px-[28px] pb-[22px] pt-[20px]">
                 <WasteSidrepDocumentsIntro />
