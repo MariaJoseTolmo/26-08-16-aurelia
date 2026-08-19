@@ -1,4 +1,4 @@
-import { AlertCircleIcon } from '../../../shared/components/icons/AlertCircleIcon';
+import { WasteRejectedBanner } from './WasteRejectedBanner';
 
 /**
  * Franja de rechazo del panel de detalle de una solicitud — nodo `4295:24658`, la banda
@@ -49,33 +49,5 @@ export function WasteFolioRejectedBanner({
   reason,
   note,
 }: WasteFolioRejectedBannerProps) {
-  return (
-    <div
-      className="flex w-full items-start gap-[10px] border-b-2 border-solid border-[#bd3b5b] bg-[#ffd0db] px-[20px] pb-[12px] pt-[10px]"
-      data-name="Container"
-    >
-      {/*
-        La caja de 20 con el glifo de 16 centrado es literalmente lo que declara el nodo:
-        un frame "Image" de 20 × 16 con el dibujo dentro, de x=2 a x=18. Ver
-        `AlertCircleIcon`, que documenta la comparación token a token.
-      */}
-      <span className="flex h-[16px] w-[20px] shrink-0 items-center justify-center">
-        <AlertCircleIcon className="block size-[16px] text-[#570b1d]" />
-      </span>
-
-      <div className="flex min-w-px flex-1 flex-col items-start">
-        <p className="w-full font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] text-[#570b1d]">
-          {heading}
-        </p>
-        <div className="w-full pt-[3px] text-[11px] text-[#570b1d]">
-          <p className="font-['Inter:Italic',sans-serif] font-normal italic leading-[16.5px]">
-            {reason}
-          </p>
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold not-italic leading-[16.5px]">
-            {note}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  return <WasteRejectedBanner heading={heading} reason={reason} note={note} />;
 }
