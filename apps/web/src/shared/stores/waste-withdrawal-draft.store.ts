@@ -106,6 +106,16 @@ interface WasteWithdrawalDraftState {
    */
   pendingRequests: WasteWithdrawalRow[];
   /**
+   * Contexto visual de una solicitud devuelta que se está corrigiendo.
+   *
+   * Es estado temporal del formulario —no cache de servidor—: sólo conserva los tres
+   * textos que la banda `4278:19235` necesita mientras el usuario cruza los pasos.
+   */
+  correction: Pick<
+    WasteWithdrawalRow,
+    'rejectedAt' | 'rejectedByName' | 'rejectionReason' | 'requestNumber'
+  > | null;
+  /**
    * Qué acción cerró el retiro, para que el listado elija el texto del snackbar, o
    * `null` si no hay aviso pendiente.
    *
@@ -120,6 +130,13 @@ interface WasteWithdrawalDraftState {
   setSupport: (values: WasteSidrepSupportDocsValues) => void;
   setWeights: (weights: WeighingTicketAnalysisResponse | null) => void;
   setDirect: (values: WasteWithdrawalDirectValues) => void;
+  beginCorrection: (
+    values: WasteWithdrawalFormValues,
+    correction: Pick<
+      WasteWithdrawalRow,
+      'rejectedAt' | 'rejectedByName' | 'rejectionReason' | 'requestNumber'
+    >,
+  ) => void;
   clearDraft: () => void;
   /**
    * Cierra el envío: guarda la fila temporal, prende el aviso y descarta el
@@ -169,6 +186,7 @@ const CLEARED_DRAFT = {
   support: null,
   weights: null,
   direct: null,
+  correction: null,
   savedAt: null,
 } as const;
 
@@ -189,6 +207,7 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
       direct: null,
       savedAt: null,
       pendingRequests: [],
+      correction: null,
       submissionNotice: null,
       setDraft: (values) => set({ draft: values, savedAt: new Date().toISOString() }),
       setSidrep: (values) => set({ sidrep: values, savedAt: new Date().toISOString() }),
@@ -200,6 +219,13 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
        */
       setWeights: (weights) => set({ weights }),
       setDirect: (values) => set({ direct: values, savedAt: new Date().toISOString() }),
+      beginCorrection: (values, correction) =>
+        set({
+          ...CLEARED_DRAFT,
+          draft: values,
+          correction,
+          savedAt: new Date().toISOString(),
+        }),
       clearDraft: () => set({ ...CLEARED_DRAFT }),
       submitDraft: (row) =>
         set((state) => ({
@@ -219,8 +245,8 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
       /* Mismo prefijo que las claves de sesión (`aurelia_token`, `aurelia_user`). */
       name: 'aurelia_waste_withdrawal_draft',
       /**
-       * Versión del borrador guardado. SE SUBE CADA VEZ QUE CAMBIA LA FORMA de
-       * `WasteWithdrawalFormValues`.
+       * Versión del borrador guardado. SE SUBE CADA VEZ QUE CAMBIA DE FORMA
+       * INCOMPATIBLE `WasteWithdrawalFormValues`.
        *
        * 1 — el borrador suma `sector`, `carrierLabel` y el transportista del
        *     camino del retirador.
@@ -274,6 +300,7 @@ export const useWasteWithdrawalDraftStore = create<WasteWithdrawalDraftState>()(
           : null,
         weights: state.weights,
         direct: state.direct,
+        correction: state.correction,
         savedAt: state.savedAt,
       }),
     },
