@@ -1,13 +1,13 @@
-import { AlertCircleIcon } from '../../../shared/components/icons/AlertCircleIcon';
 import {
   WASTE_WITHDRAWAL_REJECTED_NOTICE,
   type WasteWithdrawalRejectedNoticeData,
 } from '../wasteWithdrawalRejectedNotice';
+import rejectedRequestIcon from '../icons/figma-4278-18197-rejected-request.svg';
 import { WasteProcessNoticeCard, WasteProcessNoticeIcon } from './WasteProcessNoticeCard';
 
 /**
- * Aviso "Rechazadas" — nodo Figma `4278:17632`, emplazado en la vista de histórico
- * (`4278:17511`) entre la bajada y la barra de acciones.
+ * Aviso "Rechazadas" — nodo Figma `4278:18184`, variante del nodo `4278:17632`,
+ * emplazado en la vista de histórico entre la bajada y la barra de acciones.
  *
  * EL CASCARÓN VIVE EN `WasteProcessNoticeCard`, compartido con el aviso de formulario
  * inconcluso. Acá queda lo propio de este nodo:
@@ -24,11 +24,9 @@ import { WasteProcessNoticeCard, WasteProcessNoticeIcon } from './WasteProcessNo
  * nodo: sus cajas de texto miden 18 y 23 de alto con el `leading` normal de Inter (1.21),
  * o sea 15px y 19px.
  *
- * EL GLIFO ES `AlertCircleIcon`, el mismo círculo con exclamación que la franja de rechazo
- * del panel de detalle. Se comparó el SVG que exporta este nodo (`4278:18058`, caja de
- * 22.5 × 18) contra el componente: es el MISMO path de 16 × 16, desplazado +3.25 en x y +1
- * en y, o sea el dibujo centrado con aire a los costados. Es la cuarta caja del mismo
- * glifo; ver la lista en `AlertCircleIcon`.
+ * EL GLIFO ES EL SVG EXPORTADO DEL NODO `4278:18197`, no un equivalente de una librería.
+ * Su caja de 22.5 × 18 conserva el dibujo de 16 × 16 centrado con 3.25px de aire lateral
+ * y 1px vertical, exactamente como lo entrega el design-context.
  */
 interface WasteWithdrawalRejectedNoticeProps {
   notice: WasteWithdrawalRejectedNoticeData;
@@ -39,21 +37,26 @@ export function WasteWithdrawalRejectedNotice({ notice }: WasteWithdrawalRejecte
     <WasteProcessNoticeCard
       aside={
         <>
-          <p className="font-['Inter:Bold',sans-serif] text-[15px] font-bold not-italic leading-[normal] text-[#131313]">
+          <p className="font-['Inter:Bold',sans-serif] text-[15px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title)]">
             {WASTE_WITHDRAWAL_REJECTED_NOTICE.label}
           </p>
-          <p className="font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[#570b1d]">
+          <p className="font-['Inter:Bold',sans-serif] text-[19px] font-bold not-italic leading-[normal] text-[var(--waste-notice-rejected-foreground)]">
             {notice.countLabel}
           </p>
         </>
       }
     >
-      <WasteProcessNoticeIcon background="bg-[#ffd0db]">
-        <AlertCircleIcon className="block size-[16px] shrink-0 text-[#570b1d]" />
+      <WasteProcessNoticeIcon background="bg-[var(--waste-notice-rejected-surface)]">
+        <img
+          src={rejectedRequestIcon}
+          alt=""
+          aria-hidden="true"
+          className="block h-[18px] w-[22.5px] shrink-0"
+        />
       </WasteProcessNoticeIcon>
 
       <div className="flex min-w-px flex-1 flex-col items-start">
-        <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13px] font-bold not-italic leading-[normal] text-[#131313]">
+        <p className="whitespace-nowrap font-['Inter:Bold',sans-serif] text-[13px] font-bold not-italic leading-[normal] text-[var(--waste-notice-title)]">
           {WASTE_WITHDRAWAL_REJECTED_NOTICE.processName}
         </p>
         {/*
@@ -62,7 +65,7 @@ export function WasteWithdrawalRejectedNotice({ notice }: WasteWithdrawalRejecte
           texto de dos líneas, pero son dos datos —qué pasó y cuándo— y la segunda línea no
           es un salto del párrafo sino otra cosa.
         */}
-        <div className="pt-[3px] font-['Inter:Regular',sans-serif] text-[11px] font-normal not-italic leading-[normal] text-[#646464]">
+        <div className="pt-[3px] font-['Inter:Regular',sans-serif] text-[11px] font-normal not-italic leading-[normal] text-[var(--waste-notice-muted)]">
           <p>{WASTE_WITHDRAWAL_REJECTED_NOTICE.description}</p>
           <p>{notice.rejectedAtLabel}</p>
         </div>
