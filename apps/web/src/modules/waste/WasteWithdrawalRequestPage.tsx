@@ -1,0 +1,322 @@
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AppSidebar } from '../../shared/layout/AppSidebar';
+import { Snackbar } from '../../shared/components/Snackbar';
+import {
+  useWasteWithdrawalDraftStore,
+  type WasteWithdrawalNoticeKind,
+} from '../../shared/stores/waste-withdrawal-draft.store';
+import { useIsWasteWithdrawer } from '../../shared/stores/simulated-role.store';
+import { useWasteSidrepRejectionsStore } from '../../shared/stores/waste-sidrep-rejections.store';
+import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
+import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteWithdrawalDraftNotice } from './components/WasteWithdrawalDraftNotice';
+import { WasteWithdrawalIntro } from './components/WasteWithdrawalIntro';
+import { WasteWithdrawalRejectedNotice } from './components/WasteWithdrawalRejectedNotice';
+import { resolveWasteWithdrawalRejectedNotice } from './wasteWithdrawalRejectedNotice';
+import { WasteWithdrawalTable } from './components/WasteWithdrawalTable';
+import { WasteWithdrawalToolbar } from './components/WasteWithdrawalToolbar';
+import { toIsoMonth } from './wasteMonthFilter';
+import {
+  buildWithdrawalFilterChips,
+  buildWithdrawalFilterOptions,
+  EMPTY_WASTE_WITHDRAWAL_FILTERS,
+  filterWithdrawalRows,
+  type WasteWithdrawalFilterKey,
+  type WasteWithdrawalFilters,
+} from './wasteWithdrawalFilters';
+import {
+  formatWasteNoticeTimestamp,
+  resolveWasteWithdrawalDraftProgress,
+} from './wasteWithdrawalDraft';
+import { resolveCarrierLabel } from './wasteWithdrawalForm';
+import { buildWasteWithdrawalRows } from './wasteWithdrawalRows';
+
+/**
+ * Vista "Solicitud de retiro" del módulo de residuos (nodo Figma `3765:38015`).
+ *
+ * También es la dueña de la ruta que habilita el sub-ítem "Solicitud de retiro"
+ * del sidebar: sin `to`, `findActiveModule` no resuelve el módulo activo y el
+ * sidecar contextual del nodo `3817:57726` nunca se renderiza con ese sub-ítem
+ * resaltado.
+ *
+ * Las tres piezas del nodo que ya existían se reutilizan tal cual:
+ *
+ *   `3817:57686`  → `AppSidebar` (barra de marca + sidebar contextual)
+ *   `3765:38124`  → `WarehouseHeader` (mismo título "Bodega de acopio - Plataforma 18")
+ *   `3765:38123`  → `DashboardFrameShell` (columna derecha `left-[220px] right-0`)
+ *
+ * El cuerpo sale de `3765:38496` (`Main Content`) y `3765:38498`: fondo
+ * `#f7f7f7` y contenido en `px-[22px] py-[18px]` con `gap-[14px]` entre
+ * bloques —la intro de `3765:38499` arranca en `x=22, y=18`, la barra de
+ * acciones de `3817:55645` en `y=80` (48 + 14) y la tabla de `3817:55311` en
+ * `y=132` (38 + 14)—. Es la misma geometría que "Ingresos a bodega".
+ *
+ * Es la dueña del estado de filtros, como `WarehouseIntakePage`. Un solo objeto
+ * `filters` alimenta las tres cosas que dependen de él —las pastillas de "Filtros
+ * activos", los controles de la fila de filtros de la tabla y las filas visibles—
+ * porque en el diseño son la misma cosa vista desde tres lugares, no tres juegos
+ * de filtros distintos.
+ */
+/** Filas por página del pie del nodo `3817:55609`. */
+const WASTE_WITHDRAWAL_PAGE_SIZE = 10;
+
+/** Texto del snackbar del nodo `3785:45722`, el del retiro PELIGROSO enviado. */
+export const WASTE_WITHDRAWAL_SUBMITTED_MESSAGE =
+  'Solicitud enviada a Medio ambiente. Se le notificará una vez que MA haya aprobado la solicitud.';
+
+/**
+ * Texto del snackbar del retiro NO peligroso registrado.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A CONFIRMAR CON DISEÑO: NO HAY NODO QUE LO DIBUJE
+ *
+ * No está inventado de cero —se arma con lo que afirma el nodo `3785:44737`, que es
+ * la tarjeta que dispara la acción: "se registra directamente con un N° de Registro
+ * Interno y alimenta el consolidado SINADER — sin pasar por revisión de Medio
+ * Ambiente"—, pero es copy que el diseño todavía no escribió para este lugar.
+ *
+ * NO PUEDE SER EL MISMO QUE EL DE ARRIBA: ese dice que la solicitud viajó a Medio
+ * ambiente y que van a notificar una aprobación, y este camino existe justamente
+ * porque no pasa por ahí.
+ *
+ * NO INCLUYE EL NÚMERO. El N° de Registro Interno lo emite el backend y no hay
+ * endpoint todavía; inventarle un formato ("RI-2026-00042") sería mostrarle al
+ * usuario un identificador que no existe y que además no podría buscar.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const WASTE_WITHDRAWAL_REGISTERED_MESSAGE =
+  'Retiro registrado con N° de Registro Interno. Alimenta el consolidado SINADER, sin revisión de Medio ambiente.';
+
+/** Texto del aviso según qué acción lo dejó pendiente. */
+const NOTICE_MESSAGE: Record<WasteWithdrawalNoticeKind, string> = {
+  sidrep: WASTE_WITHDRAWAL_SUBMITTED_MESSAGE,
+  direct: WASTE_WITHDRAWAL_REGISTERED_MESSAGE,
+};
+
+export function WasteWithdrawalRequestPage() {
+  /**
+   * `new Date()` es impuro en render: se resuelve una sola vez al montar, igual
+   * que en `WarehouseControlPage` y `WarehouseIntakePage`. La misma lectura de
+   * "hoy" decide el período por defecto, la aclaración "Mes actual" de la
+   * pastilla, los años que ofrece el selector y las fechas de las filas de
+   * muestra; con dos lecturas distintas podrían discrepar al cruzar la medianoche
+   * de fin de mes.
+   */
+  const [today] = useState(() => new Date());
+  const navigate = useNavigate();
+  const currentIsoMonth = useMemo(() => toIsoMonth(today), [today]);
+  /** El diseño arranca filtrado por el período en curso: pastilla "Mes actual [Nombre del mes]". */
+  const [filters, setFilters] = useState<WasteWithdrawalFilters>(() => ({
+    ...EMPTY_WASTE_WITHDRAWAL_FILTERS,
+    period: currentIsoMonth,
+  }));
+  const [page, setPage] = useState(1);
+  /**
+   * "Nueva solicitud" BIFURCA POR ROL — nodos `3765:38765` y `4217:7111`.
+   *
+   * El retirador de residuos arranca su solicitud eligiendo el SECTOR del que sale
+   * el retiro; el resto de los usuarios arranca eligiendo el RESIDUO. Son dos
+   * pantallas distintas, así que la decisión es de ruta y no de estado interno de
+   * la pantalla de destino.
+   *
+   * La bifurcación vive acá, en el único lugar que la necesita, y no en un guard
+   * de la ruta: las dos rutas siguen siendo alcanzables por URL. Es una simulación
+   * de rol, no un control de acceso — ver `shared/auth/simulated-role`.
+   */
+  const isWasteWithdrawer = useIsWasteWithdrawer();
+  const newRequestRoute = isWasteWithdrawer
+    ? '/waste/solicitud-retiro/nueva/sector'
+    : '/waste/solicitud-retiro/nueva';
+
+  const pendingRequests = useWasteWithdrawalDraftStore((state) => state.pendingRequests);
+  const submissionNotice = useWasteWithdrawalDraftStore((state) => state.submissionNotice);
+  const dismissSubmissionNotice = useWasteWithdrawalDraftStore((state) => state.dismissSubmissionNotice);
+  const draft = useWasteWithdrawalDraftStore((state) => state.draft);
+  const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
+  const support = useWasteWithdrawalDraftStore((state) => state.support);
+  const savedAt = useWasteWithdrawalDraftStore((state) => state.savedAt);
+  /** Rechazos enviados desde la bandeja de pendientes en esta sesión. */
+  const rejections = useWasteSidrepRejectionsStore((state) => state.rejections);
+
+  /**
+   * Borrador en curso, o `null`. El aviso del nodo `4278:15644` aparece SOLO cuando
+   * hay uno: una tarjeta de "formulario inconcluso" sin formulario que retomar sería
+   * ruido permanente en la vista.
+   */
+  const draftProgress = useMemo(
+    () => resolveWasteWithdrawalDraftProgress(draft, sidrep, support),
+    [draft, sidrep, support],
+  );
+
+  /**
+   * Las solicitudes recién enviadas van ARRIBA de las de muestra, como en el nodo
+   * `3765:40905`, y pasan por los mismos filtros: una fila temporal que ignorara el
+   * período aplicado aparecería en un mes al que no pertenece.
+   */
+  const allRows = useMemo(
+    () => [...pendingRequests, ...buildWasteWithdrawalRows(today)],
+    [pendingRequests, today],
+  );
+  const rows = useMemo(() => filterWithdrawalRows(allRows, filters), [allRows, filters]);
+
+  /**
+   * Solicitudes que Medio Ambiente devolvió para corrección, o `null` si no hay ninguna.
+   *
+   * SON TODAS RESPEL porque pasan por SIDREP, que es el sistema de declaración de residuos
+   * peligrosos; ver la nota de `wasteWithdrawalRejectedNotice`.
+   *
+   * SE CUENTAN LAS DOS FUENTES, y es lo que hace que el aviso coincida con la tabla: las
+   * FILAS rechazadas del listado —que es lo que el propio aviso manda a mirar— más los
+   * rechazos enviados desde la bandeja de pendientes en esta sesión. Con sólo las segundas,
+   * la pantalla mostraría una fila "Rechazado" sin aviso arriba, que es justo lo que el nodo
+   * `4278:18063` dibuja junto.
+   *
+   * VA DESPUÉS DE `allRows` porque lo lee: declarado antes, la constante todavía no existe
+   * en el momento de evaluar el `useMemo`.
+   */
+  const rejectedNotice = useMemo(
+    () =>
+      resolveWasteWithdrawalRejectedNotice(
+        [
+          ...allRows.flatMap((row) => (row.rejectedAt ? [new Date(row.rejectedAt)] : [])),
+          ...Object.values(rejections).map((rejection) => rejection.rejectedAt),
+        ],
+        today,
+      ),
+    [allRows, rejections, today],
+  );
+
+
+  /**
+   * PAGINACIÓN REAL. El nodo `3765:40905` dice "Mostrando 1–10 de 11 datos" con dos
+   * páginas, así que la tabla recibe la PÁGINA y no el total: antes se le pasaban
+   * todas las filas y el pie mentía en cuanto pasaban de diez.
+   */
+  const totalPages = Math.max(1, Math.ceil(rows.length / WASTE_WITHDRAWAL_PAGE_SIZE));
+  /* Filtrar puede dejar la página actual fuera de rango; ahí se muestra la última. */
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * WASTE_WITHDRAWAL_PAGE_SIZE, safePage * WASTE_WITHDRAWAL_PAGE_SIZE),
+    [rows, safePage],
+  );
+  const activeFilters = useMemo(
+    () => buildWithdrawalFilterChips(filters, currentIsoMonth),
+    [filters, currentIsoMonth],
+  );
+  /**
+   * Las alternativas salen del set COMPLETO, no de `rows`: si se derivaran de las
+   * filas ya filtradas, elegir un destinatario borraría del selector todos los demás.
+   */
+  const filterOptions = useMemo(() => buildWithdrawalFilterOptions(allRows), [allRows]);
+
+  function handleFilterChange(key: WasteWithdrawalFilterKey, value: string | null) {
+    // Cambiar un filtro vuelve a la primera página: la paginación anterior ya no
+    // aplica al conjunto nuevo. Es lo que hace `WarehouseIntakePage`.
+    setPage(1);
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  return (
+    <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Solicitud de retiro">
+      <AppSidebar />
+      <DashboardFrameShell
+        header={<WarehouseHeader />}
+        content={
+          <div className="h-[calc(100vh-56px)] w-full overflow-y-auto bg-[#f7f7f7]">
+            <div className="flex w-full flex-col items-start gap-[14px] px-[22px] py-[18px]">
+              <WasteWithdrawalIntro />
+              {/*
+                Entre la bajada y la barra de acciones, que es donde lo emplaza el
+                nodo `4278:14803`: la intro en `y=18`, el aviso en `y=80` (18 + 48 +
+                14) y la barra en `y=244.5` (80 + 150.5 + 14). O sea entra en el
+                mismo `gap-[14px]` de la columna, sin geometría propia.
+              */}
+              {/*
+                Aviso de rechazadas `4278:17632`, emplazado por `4278:17511` en el MISMO
+                lugar que el de borrador: entre la bajada y la barra de acciones, dentro del
+                `gap-[14px]` de la columna (el nodo lo pone en `y=80`, igual que aquél).
+
+                VA PRIMERO CUANDO APARECEN LOS DOS, y el diseño no dibuja ese caso: cada
+                nodo muestra su aviso solo. Se decidió por lo que pide cada uno —el rechazo
+                lo devolvió otra persona y hay que corregirlo; el borrador es trabajo propio
+                sin plazo— y queda anotado para confirmar con diseño, junto con la pregunta
+                de si en ese caso van dos tarjetas "Notificaciones del proceso" o una con dos
+                filas. Apilarlas es lo que no inventa nada: cada aviso queda como su nodo lo
+                dibuja.
+              */}
+              {rejectedNotice ? <WasteWithdrawalRejectedNotice notice={rejectedNotice} /> : null}
+              {draftProgress ? (
+                <WasteWithdrawalDraftNotice
+                  progress={draftProgress}
+                  /* El retirador trae su EECC ya resuelta; sin ella, el id se
+                     busca entre las opciones de muestra. */
+                  carrierLabel={draft?.carrierLabel ?? resolveCarrierLabel(draft?.carrier ?? null)}
+                  savedAtLabel={savedAt ? formatWasteNoticeTimestamp(savedAt, today) : ''}
+                  onResume={() => navigate(draftProgress.route)}
+                />
+              ) : null}
+              <WasteWithdrawalToolbar
+                activeFilters={activeFilters}
+                period={filters.period}
+                today={today}
+                onFilterChange={handleFilterChange}
+                /*
+                 * Sin endpoint de retiros en `waste-warehouse-export.service` no
+                 * hay nada que descargar. El botón se dibuja igual —está en el
+                 * nodo— pero bloqueado: un menú cuyas opciones no hacen nada
+                 * engaña más que un control deshabilitado.
+                 */
+                exportDisabled
+                onNewRequest={() => navigate(newRequestRoute)}
+              />
+              <WasteWithdrawalTable
+                rows={pageRows}
+                filters={filters}
+                options={filterOptions}
+                onFilterChange={handleFilterChange}
+                today={today}
+                page={safePage}
+                totalPages={totalPages}
+                pageSize={WASTE_WITHDRAWAL_PAGE_SIZE}
+                totalRows={rows.length}
+                onPageChange={setPage}
+                /*
+                  "Corregir" de la fila rechazada (nodo `4278:18538`) lleva AL MISMO LUGAR
+                  que el aviso de formulario inconcluso: al paso donde quedó el borrador, y
+                  al formulario base si no hay ninguno que retomar. Es la misma decisión ya
+                  escrita en `resolveWasteWithdrawalDraftProgress`, así que se reusa en vez
+                  de elegir una ruta propia que pudiera discrepar.
+
+                  SIN ENDPOINT NO PUEDE PRECARGAR LA SOLICITUD RECHAZADA: quien corrige una
+                  solicitud que este navegador no envió cae en el formulario vacío. Queda
+                  anotado; es el mismo límite que el resto del flujo.
+                */
+                onCorrect={() =>
+                  navigate(draftProgress?.route ?? '/waste/solicitud-retiro/nueva')
+                }
+              />
+            </div>
+            {/*
+              Snackbar del nodo `3785:45722`. Se emplaza al pie de la COLUMNA de
+              contenido y no de la ventana: en el nodo es hijo de `3765:41003`
+              (1060 × 801), a 24px del borde inferior. Va `fixed` con
+              `left-[220px]` —el ancho del sidebar— para que quede sobre esa columna
+              y no se mueva con el scroll de la tabla.
+
+              El nodo lo pone en `x=183.5` sobre 1060, que no es el centro exacto
+              (serían 163.5): es una colocación a mano. Se centra, que a la medida de
+              diseño son 20px de diferencia y aguanta cualquier ancho de ventana.
+            */}
+            <Snackbar
+              open={submissionNotice !== null}
+              message={submissionNotice ? NOTICE_MESSAGE[submissionNotice] : ''}
+              onClose={dismissSubmissionNotice}
+              className="fixed bottom-[24px] left-[220px] right-0 z-[90] mx-auto w-[733px] max-w-[calc(100vw-260px)]"
+            />
+          </div>
+        }
+      />
+    </div>
+  );
+}

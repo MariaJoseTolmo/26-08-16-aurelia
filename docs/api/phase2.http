@@ -1,0 +1,160 @@
+### Aurelia API — Phase 2 transversal collection
+### VS Code REST Client
+
+@baseUrl = http://localhost:3000
+@fileId = 00000000-0000-0000-0000-000000000001
+@evidenceId = 00000000-0000-0000-0000-000000000002
+@entityId = 00000000-0000-0000-0000-000000000003
+@workflowDefinitionId = 00000000-0000-0000-0000-000000000004
+@workflowInstanceId = 00000000-0000-0000-0000-000000000005
+@workflowStepId = 00000000-0000-0000-0000-000000000006
+
+# ──────────────────────────────────────────────
+# Files
+# ──────────────────────────────────────────────
+
+### Upload file
+POST {{baseUrl}}/api/files/upload
+Content-Type: multipart/form-data; boundary=Boundary
+
+--Boundary
+Content-Disposition: form-data; name="file"; filename="sample.txt"
+Content-Type: text/plain
+
+Archivo de prueba Aurelia
+--Boundary--
+
+### Get file metadata
+GET {{baseUrl}}/api/files/{{fileId}}
+
+# ──────────────────────────────────────────────
+# Evidences
+# ──────────────────────────────────────────────
+
+### Create evidence
+POST {{baseUrl}}/api/evidences
+Content-Type: application/json
+
+{
+  "title": "Evidencia de prueba",
+  "description": "Evidencia transversal para validar Fase 2",
+  "evidenceType": "photo",
+  "fileId": "{{fileId}}",
+  "latitude": -33.4489,
+  "longitude": -70.6693
+}
+
+### List evidences
+GET {{baseUrl}}/api/evidences
+
+### List evidences by entity
+GET {{baseUrl}}/api/evidences?entityType=inspection&entityId={{entityId}}
+
+### Link evidence to entity
+POST {{baseUrl}}/api/evidences/{{evidenceId}}/link
+Content-Type: application/json
+
+{
+  "entityType": "inspection",
+  "entityId": "{{entityId}}"
+}
+
+### Validate evidence
+PATCH {{baseUrl}}/api/evidences/{{evidenceId}}/validate
+Content-Type: application/json
+
+{
+  "status": "validated",
+  "validationNotes": "Evidencia revisada correctamente"
+}
+
+# ──────────────────────────────────────────────
+# Comments
+# ──────────────────────────────────────────────
+
+### Create comment
+POST {{baseUrl}}/api/comments
+Content-Type: application/json
+
+{
+  "entityType": "inspection",
+  "entityId": "{{entityId}}",
+  "body": "Comentario de prueba para entidad transversal",
+  "isInternal": true
+}
+
+### List comments by entity
+GET {{baseUrl}}/api/comments?entityType=inspection&entityId={{entityId}}
+
+# ──────────────────────────────────────────────
+# Audit
+# ──────────────────────────────────────────────
+
+### List audit logs
+GET {{baseUrl}}/api/audit
+
+### List audit logs by entity
+GET {{baseUrl}}/api/audit?entityType=inspection&entityId={{entityId}}
+
+# ──────────────────────────────────────────────
+# Workflows
+# ──────────────────────────────────────────────
+
+### List workflow definitions
+GET {{baseUrl}}/api/workflows/definitions
+
+### Create workflow definition
+POST {{baseUrl}}/api/workflows/definitions
+Content-Type: application/json
+
+{
+  "code": "WF-TEST-INSPECTION",
+  "name": "Workflow de prueba inspección",
+  "description": "Workflow temporal para validar creación manual",
+  "entityType": "inspection",
+  "isActive": true,
+  "steps": [
+    {
+      "stepOrder": 1,
+      "code": "REVIEW",
+      "name": "Revisión",
+      "slaHours": 24
+    }
+  ]
+}
+
+### Start workflow instance
+POST {{baseUrl}}/api/workflows/start
+Content-Type: application/json
+
+{
+  "workflowDefinitionId": "{{workflowDefinitionId}}",
+  "entityType": "inspection",
+  "entityId": "{{entityId}}"
+}
+
+### Start workflow with mismatched entity type should return 400
+POST {{baseUrl}}/api/workflows/start
+Content-Type: application/json
+
+{
+  "workflowDefinitionId": "{{workflowDefinitionId}}",
+  "entityType": "incident",
+  "entityId": "{{entityId}}"
+}
+
+### Advance workflow step
+POST {{baseUrl}}/api/workflows/{{workflowInstanceId}}/advance
+Content-Type: application/json
+
+{
+  "stepId": "{{workflowStepId}}",
+  "action": "approve",
+  "notes": "Paso aprobado"
+}
+
+### List workflow instances
+GET {{baseUrl}}/api/workflows
+
+### List workflow instances by entity
+GET {{baseUrl}}/api/workflows?entityType=inspection&entityId={{entityId}}

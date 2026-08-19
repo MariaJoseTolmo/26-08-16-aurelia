@@ -1,0 +1,244 @@
+### Aurelia API — Phase 5 incidents
+
+@baseUrl = http://localhost:3000
+@incidentTypeId = replace-with-incident-type-id
+@incidentLevelId = replace-with-incident-level-id
+@incidentId = replace-with-incident-id
+@immediateActionId = replace-with-immediate-action-id
+@investigationId = replace-with-investigation-id
+@actionPlanId = replace-with-action-plan-id
+@evidenceId = replace-with-evidence-id
+
+# ──────────────────────────────────────────────
+# Catalogs
+# ──────────────────────────────────────────────
+
+### List incident types
+GET {{baseUrl}}/api/incidents/types
+
+### List incident levels
+GET {{baseUrl}}/api/incidents/levels
+
+### Dashboard summary
+GET {{baseUrl}}/api/incidents/dashboard/summary
+
+# ──────────────────────────────────────────────
+# Incidents
+# ──────────────────────────────────────────────
+
+### Create incident
+POST {{baseUrl}}/api/incidents
+Content-Type: application/json
+
+{
+  "incidentTypeId": "{{incidentTypeId}}",
+  "incidentLevelId": "{{incidentLevelId}}",
+  "title": "Derrame menor en área de prueba",
+  "description": "Registro de prueba para validar el flujo de incidentes fase 5B.",
+  "occurredAt": "2026-06-24T01:00:00.000Z",
+  "immediateResponseSummary": "Se aisló el área y se contuvo el evento.",
+  "environmentalImpactSummary": "Sin impacto ambiental observable al momento del reporte."
+}
+
+### List incidents
+GET {{baseUrl}}/api/incidents
+
+### List incidents by status
+GET {{baseUrl}}/api/incidents?status=reported
+
+### Get incident detail
+GET {{baseUrl}}/api/incidents/{{incidentId}}
+
+### Update incident
+PATCH {{baseUrl}}/api/incidents/{{incidentId}}
+Content-Type: application/json
+
+{
+  "title": "Derrame menor en área de prueba actualizado",
+  "environmentalImpactSummary": "Evento controlado y sin impacto ambiental observable."
+}
+
+### Update incident status
+PATCH {{baseUrl}}/api/incidents/{{incidentId}}/status
+Content-Type: application/json
+
+{
+  "status": "under_review",
+  "comment": "Pasa a revisión ambiental."
+}
+
+### Close incident
+POST {{baseUrl}}/api/incidents/{{incidentId}}/close
+Content-Type: application/json
+
+{
+  "comment": "Incidente cerrado luego de completar acciones y validación."
+}
+
+# ──────────────────────────────────────────────
+# Flash Report
+# ──────────────────────────────────────────────
+
+### Create or update flash report
+POST {{baseUrl}}/api/incidents/{{incidentId}}/flash-report
+Content-Type: application/json
+
+{
+  "summary": "Flash Report de prueba para incidente ambiental controlado.",
+  "immediateCauses": "Falla operacional durante una maniobra de prueba.",
+  "affectedComponents": "Área operacional de prueba.",
+  "potentialImpact": "Potencial afectación localizada si no se contenía oportunamente.",
+  "reporterName": "Usuario de prueba"
+}
+
+### Get flash report
+GET {{baseUrl}}/api/incidents/{{incidentId}}/flash-report
+
+# ──────────────────────────────────────────────
+# Immediate actions
+# ──────────────────────────────────────────────
+
+### List immediate actions
+GET {{baseUrl}}/api/incidents/{{incidentId}}/immediate-actions
+
+### Create immediate action
+POST {{baseUrl}}/api/incidents/{{incidentId}}/immediate-actions
+Content-Type: application/json
+
+{
+  "description": "Aislar el área y contener el derrame.",
+  "status": "completed",
+  "performedAt": "2026-06-24T01:20:00.000Z"
+}
+
+### Update immediate action
+PATCH {{baseUrl}}/api/incidents/immediate-actions/{{immediateActionId}}
+Content-Type: application/json
+
+{
+  "status": "completed"
+}
+
+# ──────────────────────────────────────────────
+# Investigations
+# ──────────────────────────────────────────────
+
+### List investigations
+GET {{baseUrl}}/api/incidents/{{incidentId}}/investigations
+
+### Create investigation
+POST {{baseUrl}}/api/incidents/{{incidentId}}/investigations
+Content-Type: application/json
+
+{
+  "method": "five_why",
+  "title": "Investigación causa raíz derrame menor",
+  "summary": "Investigación inicial para identificar causa raíz."
+}
+
+### Update investigation
+PATCH {{baseUrl}}/api/incidents/investigations/{{investigationId}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "summary": "Investigación completada con causa raíz documentada.",
+  "completedAt": "2026-06-24T03:00:00.000Z"
+}
+
+### Upsert five why analysis
+POST {{baseUrl}}/api/incidents/investigations/{{investigationId}}/five-why
+Content-Type: application/json
+
+{
+  "problemStatement": "Se observó material fuera de contención primaria.",
+  "why1": "Porque una maniobra generó pérdida de contención.",
+  "why2": "Porque el acople no quedó completamente asegurado.",
+  "why3": "Porque no se verificó el cierre antes de iniciar la maniobra.",
+  "why4": "Porque el checklist operativo no exigía esa confirmación.",
+  "why5": "Porque el procedimiento no estaba actualizado.",
+  "rootCause": "Procedimiento incompleto para verificación de acoples."
+}
+
+### Upsert PEEPO analysis
+POST {{baseUrl}}/api/incidents/investigations/{{investigationId}}/peepo
+Content-Type: application/json
+
+{
+  "people": "Operador sin recordatorio formal del paso crítico.",
+  "environment": "Área operativa con condiciones normales.",
+  "equipment": "Acople sin daño visible.",
+  "procedures": "Procedimiento requiere actualización.",
+  "organization": "Falta reforzar verificación previa a maniobra."
+}
+
+# ──────────────────────────────────────────────
+# Action plans
+# ──────────────────────────────────────────────
+
+### List action plans
+GET {{baseUrl}}/api/incidents/{{incidentId}}/action-plans
+
+### Create action plan
+POST {{baseUrl}}/api/incidents/{{incidentId}}/action-plans
+Content-Type: application/json
+
+{
+  "investigationId": "{{investigationId}}",
+  "title": "Actualizar procedimiento de maniobra",
+  "description": "Agregar verificación explícita de acoples antes de iniciar la maniobra.",
+  "dueAt": "2026-07-01T12:00:00.000Z"
+}
+
+### Update action plan
+PATCH {{baseUrl}}/api/incidents/action-plans/{{actionPlanId}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "completedAt": "2026-06-25T12:00:00.000Z"
+}
+
+# ──────────────────────────────────────────────
+# Evidences, comments and export
+# ──────────────────────────────────────────────
+
+### Create evidence for incident
+POST {{baseUrl}}/api/evidences
+Content-Type: application/json
+
+{
+  "title": "Evidencia incidente prueba",
+  "description": "Evidencia creada para vincular a un incidente.",
+  "evidenceType": "photo",
+  "capturedAt": "2026-06-24T01:30:00.000Z"
+}
+
+### Link evidence to incident
+POST {{baseUrl}}/api/incidents/{{incidentId}}/evidences/{{evidenceId}}/link
+Content-Type: application/json
+
+{
+  "relationType": "incident_evidence"
+}
+
+### List incident evidences
+GET {{baseUrl}}/api/incidents/{{incidentId}}/evidences
+
+### Create incident comment
+POST {{baseUrl}}/api/incidents/{{incidentId}}/comments
+Content-Type: application/json
+
+{
+  "body": "Comentario de seguimiento del incidente.",
+  "isInternal": false
+}
+
+### List incident comments
+GET {{baseUrl}}/api/incidents/{{incidentId}}/comments
+
+### Export incident payload
+GET {{baseUrl}}/api/incidents/{{incidentId}}/export
+
+### Export incident PDF base
+GET {{baseUrl}}/api/incidents/{{incidentId}}/export/pdf

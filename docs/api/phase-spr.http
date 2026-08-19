@@ -1,0 +1,138 @@
+### Aurelia API — SPR
+
+@baseUrl = http://localhost:3000
+@parameterId = REPLACE_WITH_PARAMETER_ID
+@recordId = REPLACE_WITH_RECORD_ID
+@evidenceId = REPLACE_WITH_EVIDENCE_ID
+
+# ──────────────────────────────────────────────
+# Catalogs
+# ──────────────────────────────────────────────
+
+### List SPR measure groups
+GET {{baseUrl}}/api/spr/groups
+
+### List SPR measure groups alias
+GET {{baseUrl}}/api/spr/measure-groups
+
+### List SPR units
+GET {{baseUrl}}/api/spr/units
+
+### List SPR parameters
+GET {{baseUrl}}/api/spr/parameters
+
+### List SPR assignments
+GET {{baseUrl}}/api/spr/assignments
+
+# ──────────────────────────────────────────────
+# Monthly records
+# ──────────────────────────────────────────────
+
+### Create monthly record
+POST {{baseUrl}}/api/spr/monthly-records
+Content-Type: application/json
+
+{
+  "parameterId": "{{parameterId}}",
+  "periodYear": 2026,
+  "periodMonth": 6,
+  "numericValue": 123.45,
+  "notes": "Registro mensual SPR de prueba"
+}
+
+### List monthly records
+GET {{baseUrl}}/api/spr/monthly-records
+
+### List monthly records by period
+GET {{baseUrl}}/api/spr/monthly-records?periodYear=2026&periodMonth=6
+
+### Get monthly record by id
+GET {{baseUrl}}/api/spr/monthly-records/{{recordId}}
+
+### Update monthly record value
+PATCH {{baseUrl}}/api/spr/monthly-records/{{recordId}}
+Content-Type: application/json
+
+{
+  "numericValue": 150.75,
+  "notes": "Valor actualizado"
+}
+
+# ──────────────────────────────────────────────
+# Evidences and comments
+# ──────────────────────────────────────────────
+
+### Create evidence
+POST {{baseUrl}}/api/evidences
+Content-Type: application/json
+
+{
+  "title": "Respaldo SPR",
+  "description": "Evidencia documental del registro mensual",
+  "evidenceType": "supporting_document",
+  "capturedAt": "2026-06-24T12:00:00.000Z"
+}
+
+### Link evidence to monthly record
+POST {{baseUrl}}/api/spr/monthly-records/{{recordId}}/evidences/{{evidenceId}}/link
+Content-Type: application/json
+
+{
+  "relationType": "sox_support"
+}
+
+### List monthly record evidences
+GET {{baseUrl}}/api/spr/monthly-records/{{recordId}}/evidences
+
+### Create monthly record comment
+POST {{baseUrl}}/api/spr/monthly-records/{{recordId}}/comments
+Content-Type: application/json
+
+{
+  "body": "Comentario de revisión SPR",
+  "isInternal": false
+}
+
+### List monthly record comments
+GET {{baseUrl}}/api/spr/monthly-records/{{recordId}}/comments
+
+# ──────────────────────────────────────────────
+# Validation flow
+# ──────────────────────────────────────────────
+
+### Submit monthly record
+POST {{baseUrl}}/api/spr/monthly-records/{{recordId}}/submit
+Content-Type: application/json
+
+{
+  "notes": "Enviado para revisión",
+  "comments": "Registro listo para validación"
+}
+
+### Approve monthly record
+POST {{baseUrl}}/api/spr/monthly-records/{{recordId}}/approve
+Content-Type: application/json
+
+{
+  "comments": "Aprobado"
+}
+
+### Reject monthly record
+POST {{baseUrl}}/api/spr/monthly-records/{{recordId}}/reject
+Content-Type: application/json
+
+{
+  "comments": "Devuelto por falta de respaldo"
+}
+
+### List monthly record approvals
+GET {{baseUrl}}/api/spr/monthly-records/{{recordId}}/approvals
+
+### Legacy status update endpoint
+PATCH {{baseUrl}}/api/spr/monthly-records/{{recordId}}/status
+Content-Type: application/json
+
+{
+  "status": "submitted",
+  "notes": "Enviado para revisión"
+}

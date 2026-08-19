@@ -1,0 +1,155 @@
+### Aurelia API — Phase 4 inspections collection
+### VS Code REST Client
+
+@baseUrl = http://localhost:3000
+@inspectionTypeId = 00000000-0000-0000-0000-000000000001
+@templateId = 00000000-0000-0000-0000-000000000002
+@inspectionId = 00000000-0000-0000-0000-000000000003
+@checklistItemId = 00000000-0000-0000-0000-000000000004
+@findingId = 00000000-0000-0000-0000-000000000005
+@followupId = 00000000-0000-0000-0000-000000000006
+@evidenceId = 00000000-0000-0000-0000-000000000007
+
+### List inspection types
+GET {{baseUrl}}/api/inspections/types
+
+### List checklist templates
+GET {{baseUrl}}/api/inspections/templates
+
+### Dashboard summary
+GET {{baseUrl}}/api/inspections/dashboard/summary
+
+### Create inspection
+POST {{baseUrl}}/api/inspections
+Content-Type: application/json
+
+{
+  "inspectionTypeId": "{{inspectionTypeId}}",
+  "templateId": "{{templateId}}",
+  "title": "Inspeccion de prueba",
+  "description": "Registro MVP para validar Fase 4",
+  "scheduledAt": "2026-06-24T14:00:00.000Z",
+  "latitude": -33.4489,
+  "longitude": -70.6693,
+  "notes": "Creada desde REST Client"
+}
+
+### List inspections
+GET {{baseUrl}}/api/inspections
+
+### List inspections by status
+GET {{baseUrl}}/api/inspections?status=draft
+
+### Get inspection detail
+GET {{baseUrl}}/api/inspections/{{inspectionId}}
+
+### Update inspection
+PATCH {{baseUrl}}/api/inspections/{{inspectionId}}
+Content-Type: application/json
+
+{
+  "status": "in_progress",
+  "startedAt": "2026-06-24T14:10:00.000Z",
+  "reason": "Inicio de ejecucion"
+}
+
+### Update inspection status only
+PATCH {{baseUrl}}/api/inspections/{{inspectionId}}/status
+Content-Type: application/json
+
+{
+  "status": "submitted",
+  "comment": "Inspeccion enviada a revision"
+}
+
+### Upsert checklist answer
+POST {{baseUrl}}/api/inspections/{{inspectionId}}/answers
+Content-Type: application/json
+
+{
+  "checklistItemId": "{{checklistItemId}}",
+  "answerValue": "compliant",
+  "answerText": "Respuesta de prueba",
+  "answeredAt": "2026-06-24T14:20:00.000Z",
+  "notes": "Respuesta registrada desde REST Client"
+}
+
+### List findings for inspection
+GET {{baseUrl}}/api/inspections/{{inspectionId}}/findings
+
+### Create finding
+POST {{baseUrl}}/api/inspections/{{inspectionId}}/findings
+Content-Type: application/json
+
+{
+  "checklistItemId": "{{checklistItemId}}",
+  "title": "Residuo fuera de lugar",
+  "description": "Se observa residuo fuera del punto definido",
+  "severity": "medium",
+  "dueAt": "2026-06-30T18:00:00.000Z"
+}
+
+### Update finding
+PATCH {{baseUrl}}/api/inspections/findings/{{findingId}}
+Content-Type: application/json
+
+{
+  "status": "closed",
+  "reason": "Accion correctiva verificada"
+}
+
+### Create followup
+POST {{baseUrl}}/api/inspections/findings/{{findingId}}/followups
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "description": "Se retira residuo y se verifica orden del area",
+  "performedAt": "2026-06-25T15:00:00.000Z"
+}
+
+### Update followup
+PATCH {{baseUrl}}/api/inspections/followups/{{followupId}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "description": "Seguimiento actualizado desde REST Client"
+}
+
+### Close inspection
+POST {{baseUrl}}/api/inspections/{{inspectionId}}/close
+Content-Type: application/json
+
+{
+  "reason": "Todos los hallazgos fueron cerrados"
+}
+
+### List inspection evidences
+GET {{baseUrl}}/api/inspections/{{inspectionId}}/evidences
+
+### Link existing evidence to inspection
+POST {{baseUrl}}/api/inspections/{{inspectionId}}/evidences/{{evidenceId}}/link
+Content-Type: application/json
+
+{
+  "relationType": "inspection_evidence"
+}
+
+### List inspection comments
+GET {{baseUrl}}/api/inspections/{{inspectionId}}/comments
+
+### Create inspection comment
+POST {{baseUrl}}/api/inspections/{{inspectionId}}/comments
+Content-Type: application/json
+
+{
+  "body": "Comentario de prueba asociado a la inspeccion",
+  "isInternal": false
+}
+
+### Export inspection payload
+GET {{baseUrl}}/api/inspections/{{inspectionId}}/export
+
+### Export inspection PDF
+GET {{baseUrl}}/api/inspections/{{inspectionId}}/export/pdf

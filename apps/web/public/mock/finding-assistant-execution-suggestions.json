@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "defaultText": "Se ejecutó la medida correctiva solicitada: {{proposedCorrectiveAction}}. Se verificó el estado posterior de la condición detectada y se adjunta evidencia fotográfica de cierre para revisión del Admin GF HSE.",
+  "rules": [
+    {
+      "matchSeverity": ["Crítico", "Critico", "Grave", "Alto"],
+      "text": "Se implementó la medida correctiva prioritaria indicada para controlar la condición detectada en {{areaLabel}}: {{proposedCorrectiveAction}}. Se verificó el estado posterior y se adjunta evidencia fotográfica para revisión del Admin GF HSE."
+    },
+    {
+      "matchSeverity": ["Moderado", "Moderada", "Medio"],
+      "text": "Se ejecutó la acción correctiva indicada para regularizar la observación en {{areaLabel}}. La intervención tomó como referencia la medida solicitada: {{proposedCorrectiveAction}}, y se adjunta evidencia fotográfica de respaldo."
+    },
+    {
+      "matchSeverity": ["Menor", "Bajo", "Baja"],
+      "text": "Se corrigió la condición observada en {{areaLabel}} aplicando la medida solicitada: {{proposedCorrectiveAction}}. La evidencia posterior queda disponible para validación del equipo Admin GF HSE."
+    }
+  ]
+}

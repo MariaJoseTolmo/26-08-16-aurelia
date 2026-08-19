@@ -1,0 +1,274 @@
+### Aurelia API — Phase 1 collection (VS Code REST Client)
+### https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+@baseUrl = http://localhost:3000
+
+# ──────────────────────────────────────────────
+# Health
+# ──────────────────────────────────────────────
+
+### Health check
+GET {{baseUrl}}/api/health
+
+# ──────────────────────────────────────────────
+# Me (placeholder — no auth in Phase 1)
+# ──────────────────────────────────────────────
+
+### Get current user (placeholder)
+GET {{baseUrl}}/api/me
+
+# ──────────────────────────────────────────────
+# Companies
+# ──────────────────────────────────────────────
+
+### List companies
+GET {{baseUrl}}/api/organization/companies
+
+### Create company
+# @name createCompany
+POST {{baseUrl}}/api/organization/companies
+Content-Type: application/json
+
+{
+  "name": "Contratista Ejemplo",
+  "code": "CTR-001",
+  "taxId": "76543210-9",
+  "companyType": "contractor",
+  "isContractor": true
+}
+
+### Create company — duplicate (expect 409)
+POST {{baseUrl}}/api/organization/companies
+Content-Type: application/json
+
+{
+  "name": "Contratista Ejemplo",
+  "code": "CTR-001",
+  "isContractor": true
+}
+
+# ──────────────────────────────────────────────
+# Business Units
+# ──────────────────────────────────────────────
+
+### List business units
+GET {{baseUrl}}/api/organization/business-units
+
+### Create business unit
+# @name createBU
+POST {{baseUrl}}/api/organization/business-units
+Content-Type: application/json
+
+{
+  "code": "BU-002",
+  "name": "Unidad Norte",
+  "description": "Operaciones zona norte"
+}
+
+### Create business unit — duplicate code (expect 409)
+POST {{baseUrl}}/api/organization/business-units
+Content-Type: application/json
+
+{
+  "code": "BU-002",
+  "name": "Duplicada"
+}
+
+# ──────────────────────────────────────────────
+# Gerencias
+# ──────────────────────────────────────────────
+
+### List gerencias
+GET {{baseUrl}}/api/organization/gerencias
+
+### Create gerencia (standalone, no BU)
+POST {{baseUrl}}/api/organization/gerencias
+Content-Type: application/json
+
+{
+  "code": "GER-001",
+  "name": "Gerencia de Operaciones"
+}
+
+### Create gerencia — duplicate code (expect 409)
+POST {{baseUrl}}/api/organization/gerencias
+Content-Type: application/json
+
+{
+  "code": "GER-001",
+  "name": "Duplicada"
+}
+
+# ──────────────────────────────────────────────
+# Areas
+# ──────────────────────────────────────────────
+
+### List areas
+GET {{baseUrl}}/api/organization/areas
+
+### Create area
+POST {{baseUrl}}/api/organization/areas
+Content-Type: application/json
+
+{
+  "code": "AREA-001",
+  "name": "Área de Mantención"
+}
+
+### Create area — duplicate code (expect 409)
+POST {{baseUrl}}/api/organization/areas
+Content-Type: application/json
+
+{
+  "code": "AREA-001",
+  "name": "Duplicada"
+}
+
+# ──────────────────────────────────────────────
+# Sectors
+# ──────────────────────────────────────────────
+
+### List sectors
+GET {{baseUrl}}/api/organization/sectors
+
+### Create sector
+POST {{baseUrl}}/api/organization/sectors
+Content-Type: application/json
+
+{
+  "code": "SEC-001",
+  "name": "Sector A"
+}
+
+# ──────────────────────────────────────────────
+# Locations
+# ──────────────────────────────────────────────
+
+### List locations
+GET {{baseUrl}}/api/organization/locations
+
+### Create location
+POST {{baseUrl}}/api/organization/locations
+Content-Type: application/json
+
+{
+  "name": "Bodega Principal",
+  "code": "LOC-001",
+  "latitude": -33.4569,
+  "longitude": -70.6483,
+  "altitudeM": 520.0,
+  "macrozone": "Zona Centro"
+}
+
+# ──────────────────────────────────────────────
+# Users
+# ──────────────────────────────────────────────
+
+### List users
+GET {{baseUrl}}/api/users
+
+### Create user
+# @name createUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "juan.perez@aurelia.local",
+  "firstName": "Juan",
+  "lastName": "Pérez",
+  "position": "Inspector de campo",
+  "phone": "+56912345678"
+}
+
+### Create user — duplicate email (expect 409)
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "juan.perez@aurelia.local",
+  "firstName": "Juan",
+  "lastName": "Duplicado"
+}
+
+### Get user by id
+# Replace with a real UUID from the createUser response
+GET {{baseUrl}}/api/users/00000000-0000-0000-0000-000000000000
+
+# ──────────────────────────────────────────────
+# User assignments (replace UUIDs as needed)
+# ──────────────────────────────────────────────
+
+@userId = 00000000-0000-0000-0000-000000000000
+@roleId = 00000000-0000-0000-0000-000000000001
+@companyId = 00000000-0000-0000-0000-000000000002
+@areaId = 00000000-0000-0000-0000-000000000003
+
+### Assign role to user
+POST {{baseUrl}}/api/users/{{userId}}/roles
+Content-Type: application/json
+
+{
+  "roleId": "{{roleId}}"
+}
+
+### Assign company to user
+POST {{baseUrl}}/api/users/{{userId}}/companies
+Content-Type: application/json
+
+{
+  "companyId": "{{companyId}}"
+}
+
+### Assign area to user
+POST {{baseUrl}}/api/users/{{userId}}/areas
+Content-Type: application/json
+
+{
+  "areaId": "{{areaId}}"
+}
+
+# ──────────────────────────────────────────────
+# Roles
+# ──────────────────────────────────────────────
+
+### List roles
+GET {{baseUrl}}/api/roles
+
+### Create role
+POST {{baseUrl}}/api/roles
+Content-Type: application/json
+
+{
+  "code": "OPERATOR",
+  "name": "Operador",
+  "description": "Rol de operador de planta"
+}
+
+# ──────────────────────────────────────────────
+# Permissions
+# ──────────────────────────────────────────────
+
+### List permissions
+GET {{baseUrl}}/api/permissions
+
+### Create permission
+POST {{baseUrl}}/api/permissions
+Content-Type: application/json
+
+{
+  "code": "inspections:read",
+  "name": "Ver inspecciones",
+  "module": "inspections",
+  "action": "read"
+}
+
+### Assign permission to role
+@permissionRoleId = 00000000-0000-0000-0000-000000000004
+@permissionId = 00000000-0000-0000-0000-000000000005
+
+POST {{baseUrl}}/api/roles/{{permissionRoleId}}/permissions
+Content-Type: application/json
+
+{
+  "permissionId": "{{permissionId}}"
+}

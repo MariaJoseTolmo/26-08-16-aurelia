@@ -1,0 +1,929 @@
+erDiagram
+    BUSINESS_UNITS ||--o{ AREAS : contains
+    AREAS ||--o{ DEPARTMENTS : contains
+    AREAS ||--o{ SECTORS : contains
+    SECTORS ||--o{ LOCATIONS : contains
+    COMPANIES ||--o{ USERS : employs
+    AREAS ||--o{ USERS : assigns
+    DEPARTMENTS ||--o{ USERS : assigns
+
+    USERS ||--o{ USER_ROLES : has
+    ROLES ||--o{ USER_ROLES : assigned
+    ROLES ||--o{ ROLE_PERMISSIONS : has
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : granted
+
+    USERS ||--o{ FILES : uploads
+    FILES ||--o{ EVIDENCES : supports
+    EVIDENCES ||--o{ EVIDENCE_LINKS : links
+
+    MUES ||--o{ CRITICAL_CONTROLS : contains
+    CRITICAL_CONTROLS ||--o{ CONTROL_VERIFICATION_ITEMS : verifies
+    MUES ||--o{ CONTROL_AREA_ASSIGNMENTS : assigned_to
+    CRITICAL_CONTROLS ||--o{ CONTROL_AREA_ASSIGNMENTS : assigned_to
+    AREAS ||--o{ CONTROL_AREA_ASSIGNMENTS : responsible
+    USERS ||--o{ CONTROL_AREA_ASSIGNMENTS : responsible
+    MUES ||--o{ CONTROL_SELF_ASSESSMENTS : assessed
+    CRITICAL_CONTROLS ||--o{ CONTROL_SELF_ASSESSMENTS : assessed
+    CONTROL_SELF_ASSESSMENTS ||--o{ CONTROL_SELF_ASSESSMENT_ANSWERS : contains
+    CONTROL_VERIFICATION_ITEMS ||--o{ CONTROL_SELF_ASSESSMENT_ANSWERS : answered
+
+    INSPECTION_TYPES ||--o{ INSPECTIONS : classifies
+    BUSINESS_UNITS ||--o{ INSPECTIONS : scopes
+    AREAS ||--o{ INSPECTIONS : scopes
+    DEPARTMENTS ||--o{ INSPECTIONS : scopes
+    SECTORS ||--o{ INSPECTIONS : scopes
+    LOCATIONS ||--o{ INSPECTIONS : located_at
+    COMPANIES ||--o{ INSPECTIONS : inspected
+    USERS ||--o{ INSPECTIONS : performs
+    INSPECTIONS ||--o{ INSPECTION_CHECKLIST_ANSWERS : contains
+    INSPECTION_CHECKLIST_ITEMS ||--o{ INSPECTION_CHECKLIST_ANSWERS : answered
+    INSPECTION_CHECKLIST_TEMPLATES ||--o{ INSPECTION_CHECKLIST_SECTIONS : contains
+    INSPECTION_CHECKLIST_SECTIONS ||--o{ INSPECTION_CHECKLIST_ITEMS : contains
+    INSPECTIONS ||--o{ INSPECTION_FINDINGS : generates
+    INSPECTION_FINDINGS ||--o{ INSPECTION_FOLLOWUPS : follows
+    INSPECTIONS ||--o{ INSPECTION_EXPORTS : exports
+    FILES ||--o{ INSPECTION_EXPORTS : stores
+
+    INCIDENT_TYPES ||--o{ INCIDENTS : classifies
+    BUSINESS_UNITS ||--o{ INCIDENTS : scopes
+    AREAS ||--o{ INCIDENTS : scopes
+    DEPARTMENTS ||--o{ INCIDENTS : scopes
+    SECTORS ||--o{ INCIDENTS : scopes
+    LOCATIONS ||--o{ INCIDENTS : located_at
+    COMPANIES ||--o{ INCIDENTS : involved
+    USERS ||--o{ INCIDENTS : reports
+    INCIDENTS ||--o{ INCIDENT_INVOLVED_PEOPLE : involves
+    INCIDENTS ||--o{ INCIDENT_IMMEDIATE_ACTIONS : mitigates
+    INCIDENTS ||--|| INCIDENT_FLASH_REPORTS : has
+    INCIDENTS ||--o{ INCIDENT_VALIDATIONS : validates
+    INCIDENTS ||--o{ INCIDENT_INVESTIGATIONS : investigates
+    INCIDENT_INVESTIGATIONS ||--o{ INCIDENT_INVESTIGATION_TEAM : includes
+    USERS ||--o{ INCIDENT_INVESTIGATION_TEAM : participates
+    INCIDENT_INVESTIGATIONS ||--|| INCIDENT_PEEPO_ANALYSIS : analyzes
+    INCIDENT_INVESTIGATIONS ||--o{ INCIDENT_TIMELINE_EVENTS : contains
+    INCIDENT_INVESTIGATIONS ||--o| INCIDENT_FIVE_WHY_ANALYSIS : contains
+    INCIDENTS ||--o{ INCIDENT_ACTION_PLANS : resolves
+    INCIDENTS ||--o{ INCIDENT_DISSEMINATIONS : disseminates
+
+    SPR_MEASURE_GROUPS ||--o{ SPR_PARAMETERS : groups
+    SPR_UNITS ||--o{ SPR_PARAMETERS : measures
+    SPR_PARAMETERS ||--o{ SPR_PARAMETER_AREA_ASSIGNMENTS : assigned_to
+    AREAS ||--o{ SPR_PARAMETER_AREA_ASSIGNMENTS : responsible
+    USERS ||--o{ SPR_PARAMETER_AREA_ASSIGNMENTS : responsible
+    SPR_PARAMETERS ||--o{ SPR_MONTHLY_RECORDS : records
+    AREAS ||--o{ SPR_MONTHLY_RECORDS : reports
+    SPR_PARAMETERS ||--o{ SPR_CONSOLIDATION_RULES : consolidates
+
+    EMISSION_SOURCE_TYPES ||--o{ EMISSION_SOURCES : classifies
+    AREAS ||--o{ EMISSION_SOURCES : responsible
+    DEPARTMENTS ||--o{ EMISSION_SOURCES : responsible
+    COMPANIES ||--o{ EMISSION_SOURCES : owner
+    EMISSION_SOURCES ||--o{ EMISSION_ACTIVITY_LEVELS : reports
+    EMISSION_ACTIVITY_LEVELS ||--o{ EMISSION_STOPPAGES : includes
+    EMISSION_SOURCE_TYPES ||--o{ EMISSION_FACTORS : uses
+    POLLUTANTS ||--o{ EMISSION_FACTORS : measured
+    EMISSION_ACTIVITY_LEVELS ||--o{ EMISSION_CALCULATIONS : calculates
+    POLLUTANTS ||--o{ EMISSION_CALCULATIONS : emitted
+    POLLUTANTS ||--o{ GREEN_TAX_THRESHOLDS : limits
+
+    WORKFLOW_INSTANCES ||--o{ WORKFLOW_STEPS : contains
+    WORKFLOW_INSTANCES ||--o{ WORKFLOW_TRANSITIONS : changes
+    USERS ||--o{ WORKFLOW_TRANSITIONS : performs
+
+    NOTIFICATIONS ||--o{ NOTIFICATION_RECIPIENTS : sends_to
+    USERS ||--o{ NOTIFICATION_RECIPIENTS : receives
+
+    USERS ||--o{ AUDIT_LOGS : performs
+    USERS ||--o{ COMMENTS : writes
+    FILES ||--o{ REPORT_EXPORTS : stores
+    USERS ||--o{ REPORT_EXPORTS : generates
+    USERS ||--o{ AI_SUGGESTIONS : reviews
+
+    BUSINESS_UNITS {
+        uuid id PK
+        string code UK
+        string name
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    AREAS {
+        uuid id PK
+        uuid business_unit_id FK
+        string code UK
+        string name
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DEPARTMENTS {
+        uuid id PK
+        uuid area_id FK
+        string code
+        string name
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SECTORS {
+        uuid id PK
+        uuid area_id FK
+        string code
+        string name
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    LOCATIONS {
+        uuid id PK
+        uuid sector_id FK
+        string name
+        decimal latitude
+        decimal longitude
+        decimal altitude
+        jsonb geofence_geojson
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    COMPANIES {
+        uuid id PK
+        string name
+        string tax_id
+        string company_type
+        boolean is_contractor
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    USERS {
+        uuid id PK
+        uuid company_id FK
+        uuid area_id FK
+        uuid department_id FK
+        string email UK
+        string full_name
+        string position
+        string phone
+        boolean is_active
+        timestamp last_login_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ROLES {
+        uuid id PK
+        string code UK
+        string name
+        string description
+        boolean is_system
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PERMISSIONS {
+        uuid id PK
+        string code UK
+        string module
+        string action
+        string description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    USER_ROLES {
+        uuid id PK
+        uuid user_id FK
+        uuid role_id FK
+        uuid business_unit_id FK
+        uuid area_id FK
+        uuid company_id FK
+        timestamp created_at
+    }
+
+    ROLE_PERMISSIONS {
+        uuid id PK
+        uuid role_id FK
+        uuid permission_id FK
+        timestamp created_at
+    }
+
+    FILES {
+        uuid id PK
+        string storage_provider
+        string container_name
+        string blob_path
+        string original_filename
+        string mime_type
+        bigint file_size_bytes
+        string checksum
+        uuid uploaded_by_user_id FK
+        timestamp uploaded_at
+        timestamp created_at
+    }
+
+    EVIDENCES {
+        uuid id PK
+        uuid file_id FK
+        string evidence_type
+        string title
+        text description
+        timestamp captured_at
+        decimal captured_latitude
+        decimal captured_longitude
+        string source
+        uuid created_by_user_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EVIDENCE_LINKS {
+        uuid id PK
+        uuid evidence_id FK
+        string entity_type
+        uuid entity_id
+        string relation_type
+        timestamp created_at
+    }
+
+    MUES {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        string predominant_control_type
+        text expected_main_evidence
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CRITICAL_CONTROLS {
+        uuid id PK
+        uuid mue_id FK
+        string code
+        string name
+        text description
+        string control_type
+        text objective
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTROL_VERIFICATION_ITEMS {
+        uuid id PK
+        uuid critical_control_id FK
+        string code
+        text question
+        text requirement_text
+        text expected_evidence
+        int sort_order
+        boolean is_required
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTROL_AREA_ASSIGNMENTS {
+        uuid id PK
+        uuid mue_id FK
+        uuid critical_control_id FK
+        uuid area_id FK
+        uuid department_id FK
+        uuid company_id FK
+        uuid responsible_user_id FK
+        string responsible_name_snapshot
+        boolean is_primary
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTROL_SELF_ASSESSMENTS {
+        uuid id PK
+        uuid mue_id FK
+        uuid critical_control_id FK
+        uuid area_id FK
+        uuid department_id FK
+        int period_year
+        int period_month
+        string status
+        uuid created_by_user_id FK
+        uuid submitted_by_user_id FK
+        uuid validated_by_user_id FK
+        timestamp submitted_at
+        timestamp validated_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CONTROL_SELF_ASSESSMENT_ANSWERS {
+        uuid id PK
+        uuid assessment_id FK
+        uuid verification_item_id FK
+        string answer
+        text comment
+        string risk_level
+        boolean action_required
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_TYPES {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTIONS {
+        uuid id PK
+        string inspection_code UK
+        uuid inspection_type_id FK
+        uuid business_unit_id FK
+        uuid area_id FK
+        uuid department_id FK
+        uuid sector_id FK
+        uuid location_id FK
+        uuid company_id FK
+        uuid inspector_user_id FK
+        date inspection_date
+        string status
+        timestamp closed_at
+        int closure_days
+        decimal closed_percentage
+        decimal pending_percentage
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_CHECKLIST_TEMPLATES {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        int version
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_CHECKLIST_SECTIONS {
+        uuid id PK
+        uuid template_id FK
+        string name
+        text description
+        int sort_order
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_CHECKLIST_ITEMS {
+        uuid id PK
+        uuid template_section_id FK
+        string code
+        text question
+        text requirement_text
+        text expected_evidence
+        int sort_order
+        boolean is_required
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_CHECKLIST_ANSWERS {
+        uuid id PK
+        uuid inspection_id FK
+        uuid checklist_item_id FK
+        string answer
+        text comment
+        uuid created_by_user_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_FINDINGS {
+        uuid id PK
+        uuid inspection_id FK
+        string finding_code
+        text description_deviation
+        text corrective_measure
+        string risk_criticality
+        uuid responsible_user_id FK
+        uuid responsible_company_id FK
+        timestamp sla_due_at
+        string status
+        timestamp closed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_FOLLOWUPS {
+        uuid id PK
+        uuid finding_id FK
+        int followup_number
+        date followup_date
+        text observation
+        string status
+        uuid created_by_user_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INSPECTION_EXPORTS {
+        uuid id PK
+        uuid inspection_id FK
+        uuid file_id FK
+        string export_type
+        uuid generated_by_user_id FK
+        timestamp generated_at
+        timestamp created_at
+    }
+
+    INCIDENT_TYPES {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENTS {
+        uuid id PK
+        string incident_code UK
+        uuid business_unit_id FK
+        uuid area_id FK
+        uuid department_id FK
+        uuid sector_id FK
+        uuid location_id FK
+        uuid company_id FK
+        uuid reported_by_user_id FK
+        uuid incident_type_id FK
+        int incident_level
+        timestamp event_occurred_at
+        timestamp detected_at
+        timestamp reported_at
+        timestamp sla_due_at
+        string status
+        string title
+        text description
+        boolean is_spie
+        boolean requires_icam
+        boolean requires_five_why
+        boolean is_tsf_related
+        boolean is_cyanide_related
+        timestamp closed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_INVOLVED_PEOPLE {
+        uuid id PK
+        uuid incident_id FK
+        string full_name
+        string position
+        int age
+        int seniority_months
+        uuid company_id FK
+        string involvement_type
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_IMMEDIATE_ACTIONS {
+        uuid id PK
+        uuid incident_id FK
+        text action_description
+        uuid performed_by_user_id FK
+        timestamp performed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_FLASH_REPORTS {
+        uuid id PK
+        uuid incident_id FK
+        string reference_code
+        text summary
+        text initial_damage_description
+        text immediate_actions_summary
+        uuid pdf_file_id FK
+        string status
+        uuid submitted_by_user_id FK
+        uuid validated_by_user_id FK
+        timestamp submitted_at
+        timestamp validated_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_VALIDATIONS {
+        uuid id PK
+        uuid incident_id FK
+        string validation_type
+        string status
+        text comment
+        uuid validated_by_user_id FK
+        timestamp validated_at
+        timestamp created_at
+    }
+
+    INCIDENT_INVESTIGATIONS {
+        uuid id PK
+        uuid incident_id FK
+        string investigation_type
+        string status
+        timestamp started_at
+        timestamp completed_at
+        uuid lead_user_id FK
+        text summary
+        text root_cause
+        text conclusions
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_INVESTIGATION_TEAM {
+        uuid id PK
+        uuid investigation_id FK
+        uuid user_id FK
+        string role_in_investigation
+        timestamp created_at
+    }
+
+    INCIDENT_PEEPO_ANALYSIS {
+        uuid id PK
+        uuid investigation_id FK
+        text people_analysis
+        text equipment_analysis
+        text environment_analysis
+        text procedures_analysis
+        text organization_analysis
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_TIMELINE_EVENTS {
+        uuid id PK
+        uuid investigation_id FK
+        int event_order
+        timestamp event_at
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_FIVE_WHY_ANALYSIS {
+        uuid id PK
+        uuid investigation_id FK
+        text why_1
+        text why_2
+        text why_3
+        text why_4
+        text why_5
+        text root_cause
+        text conclusion
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_ACTION_PLANS {
+        uuid id PK
+        uuid incident_id FK
+        uuid investigation_id FK
+        text action_description
+        uuid responsible_user_id FK
+        uuid responsible_company_id FK
+        timestamp due_at
+        string status
+        timestamp completed_at
+        uuid validated_by_user_id FK
+        timestamp validated_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_DISSEMINATIONS {
+        uuid id PK
+        uuid incident_id FK
+        string recipient_group
+        uuid sent_by_user_id FK
+        timestamp sent_at
+        string channel
+        timestamp created_at
+    }
+
+    SPR_MEASURE_GROUPS {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SPR_UNITS {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SPR_PARAMETERS {
+        uuid id PK
+        uuid measure_group_id FK
+        uuid unit_id FK
+        string code
+        string company_code
+        string name
+        text description
+        boolean is_sox
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SPR_PARAMETER_AREA_ASSIGNMENTS {
+        uuid id PK
+        uuid parameter_id FK
+        uuid area_id FK
+        uuid department_id FK
+        uuid responsible_user_id FK
+        boolean is_primary
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SPR_MONTHLY_RECORDS {
+        uuid id PK
+        uuid parameter_id FK
+        uuid area_id FK
+        uuid department_id FK
+        int period_year
+        int period_month
+        decimal value
+        text source_information
+        string status
+        uuid submitted_by_user_id FK
+        uuid approved_by_user_id FK
+        timestamp submitted_at
+        timestamp approved_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SPR_CONSOLIDATION_RULES {
+        uuid id PK
+        uuid parameter_id FK
+        string rule_type
+        text expression
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_SOURCE_TYPES {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_SOURCES {
+        uuid id PK
+        string rfp_identifier UK
+        string internal_tag
+        string serial_number
+        uuid source_type_id FK
+        uuid area_id FK
+        uuid department_id FK
+        uuid company_id FK
+        string category
+        decimal installed_power_kw
+        decimal thermal_power_mwt
+        decimal nominal_consumption_lh
+        decimal thermal_efficiency_percentage
+        decimal abatement_efficiency_percentage
+        string operational_status
+        string macrozone
+        decimal latitude
+        decimal longitude
+        decimal altitude
+        string brand
+        string model
+        int manufacture_year
+        decimal useful_life_hours
+        decimal chimney_inner_diameter
+        decimal chimney_outer_diameter
+        decimal chimney_height
+        decimal gas_speed
+        decimal gas_temperature
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_ACTIVITY_LEVELS {
+        uuid id PK
+        uuid emission_source_id FK
+        int period_year
+        int period_month
+        int quarter
+        decimal fuel_consumption_liters
+        decimal operating_hours
+        decimal processed_tons
+        uuid reported_by_user_id FK
+        string status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_STOPPAGES {
+        uuid id PK
+        uuid emission_source_id FK
+        uuid activity_level_id FK
+        date start_date
+        date end_date
+        text reason
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    POLLUTANTS {
+        uuid id PK
+        string code UK
+        string name
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_FACTORS {
+        uuid id PK
+        uuid source_type_id FK
+        uuid pollutant_id FK
+        string unit
+        decimal value
+        date valid_from
+        date valid_to
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EMISSION_CALCULATIONS {
+        uuid id PK
+        uuid activity_level_id FK
+        uuid pollutant_id FK
+        uuid emission_factor_id FK
+        decimal calculated_value_ton
+        text calculation_formula
+        timestamp calculated_at
+        timestamp created_at
+    }
+
+    GREEN_TAX_THRESHOLDS {
+        uuid id PK
+        uuid pollutant_id FK
+        string threshold_type
+        decimal threshold_value
+        string unit
+        date valid_from
+        date valid_to
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    WORKFLOW_INSTANCES {
+        uuid id PK
+        string entity_type
+        uuid entity_id
+        string workflow_type
+        string current_status
+        uuid started_by_user_id FK
+        timestamp started_at
+        timestamp completed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    WORKFLOW_STEPS {
+        uuid id PK
+        uuid workflow_instance_id FK
+        int step_order
+        string step_code
+        string step_name
+        uuid assigned_role_id FK
+        uuid assigned_user_id FK
+        string status
+        timestamp started_at
+        timestamp completed_at
+        timestamp due_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    WORKFLOW_TRANSITIONS {
+        uuid id PK
+        uuid workflow_instance_id FK
+        string from_status
+        string to_status
+        string action
+        text comment
+        uuid performed_by_user_id FK
+        timestamp performed_at
+    }
+
+    NOTIFICATIONS {
+        uuid id PK
+        string notification_type
+        string entity_type
+        uuid entity_id
+        string subject
+        text body
+        string channel
+        string status
+        timestamp scheduled_at
+        timestamp sent_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    NOTIFICATION_RECIPIENTS {
+        uuid id PK
+        uuid notification_id FK
+        uuid user_id FK
+        string email
+        string recipient_type
+        string status
+        timestamp sent_at
+        timestamp created_at
+    }
+
+    AUDIT_LOGS {
+        uuid id PK
+        string entity_type
+        uuid entity_id
+        string action
+        jsonb old_value_json
+        jsonb new_value_json
+        uuid performed_by_user_id FK
+        timestamp performed_at
+        string ip_address
+        text user_agent
+        timestamp created_at
+    }
+
+    COMMENTS {
+        uuid id PK
+        string entity_type
+        uuid entity_id
+        string comment_type
+        text body
+        uuid created_by_user_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    REPORT_EXPORTS {
+        uuid id PK
+        string report_type
+        string entity_type
+        uuid entity_id
+        uuid file_id FK
+        jsonb filters_json
+        uuid generated_by_user_id FK
+        timestamp generated_at
+        timestamp created_at
+    }
+
+    AI_SUGGESTIONS {
+        uuid id PK
+        string entity_type
+        uuid entity_id
+        string suggestion_type
+        jsonb suggested_value
+        decimal confidence_score
+        string model_name
+        string model_version
+        string status
+        uuid reviewed_by_user_id FK
+        timestamp reviewed_at
+        timestamp created_at
+        timestamp updated_at
+    }

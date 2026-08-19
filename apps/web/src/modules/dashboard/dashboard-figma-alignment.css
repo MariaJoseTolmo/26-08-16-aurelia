@@ -1,0 +1,154 @@
+[data-name="Dashboard inspecciones"] {
+  min-height: 100vh;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-name="Dashboard inspecciones"] [data-name="chart-area"] {
+  height: 200px;
+}
+
+[data-name="Dashboard inspecciones"] [data-name="x-labels"] {
+  height: 20px;
+}
+
+[data-name="Dashboard inspecciones"] [data-name="legend"],
+[data-name="Dashboard inspecciones"] [data-name="legend-cerradas"],
+[data-name="Dashboard inspecciones"] [data-name="legend-abiertas"] {
+  align-items: center;
+}
+
+[data-name="Dashboard inspecciones"] [data-name="tooltip-2026"] {
+  background: rgba(33, 48, 64, 0.92);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(12, 31, 56, 0.18);
+}
+
+div[class*="bg-[#f7f7f7]"] > div[class*="pt-[16px]"] > div[class*="shadow-[0px_1px_4px"] {
+  margin-top: 12px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.relative > div.absolute {
+  top: 30px;
+  width: 248px;
+  padding: 12px;
+  border: 1px solid #d1d1d1;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.relative:not(:focus-within) > div.absolute {
+  display: none;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.relative button svg {
+  width: 18px;
+  height: 18px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.relative button svg rect {
+  fill: #646464;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.relative button svg path {
+  stroke: #ffffff;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:first-child button:first-child {
+  gap: 4px;
+  font-size: 13px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:first-child button:first-child span {
+  font-size: 10px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:first-child > div {
+  gap: 8px;
+  padding-right: 0;
+  font-size: 18px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:first-child > div button {
+  width: 22px;
+  height: 22px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:nth-child(2) {
+  margin-top: 14px;
+  font-size: 11px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:nth-child(3) {
+  margin-top: 10px;
+  row-gap: 5px;
+  font-size: 13px;
+  line-height: 26px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:nth-child(3) button {
+  width: 26px;
+  height: 26px;
+}
+
+table thead tr:nth-child(2) td:nth-child(2) div.absolute > div:last-child {
+  margin-top: 12px;
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 13px;
+}
+
+aside[aria-label="Navegación lateral"] > div:first-of-type {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  scrollbar-width: thin;
+}
+
+aside[aria-label="Navegación lateral"] > div:first-of-type::-webkit-scrollbar {
+  width: 4px;
+}
+
+aside[aria-label="Navegación lateral"] > div:first-of-type::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aside[aria-label="Navegación lateral"] > div:first-of-type::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+button[class*="bg-[#c8a064]"][class*="min-w-0"][class*="gap-[8px]"] {
+  color: #ffffff !important;
+}
+
+button[class*="bg-[#c8a064]"][class*="min-w-0"][class*="gap-[8px]"] svg path {
+  stroke: #ffffff !important;
+}
+
+div[class*="z-[1200]"][class*="bg-black/40"][class*="w-[360px]"] {
+  right: 32px !important;
+  left: auto !important;
+  width: 344px !important;
+  max-width: calc(100vw - 52px) !important;
+  transform: none !important;
+}
+
+div[class*="z-[1200]"][class*="bg-black/40"] > div {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+div[class*="z-[1200]"][class*="bg-black/40"] div[class*="mt-[8px]"][class*="flex"][class*="gap-[8px]"] {
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+}
+
+div[class*="z-[1200]"][class*="bg-black/40"] div[class*="mt-[8px]"][class*="flex"][class*="gap-[8px]"] > div {
+  min-width: 0;
+}
+
+div[class*="z-[1200]"][class*="bg-black/40"] input[type="number"] {
+  min-width: 0;
+  width: 100%;
+}

@@ -1,0 +1,9 @@
+aside[aria-label="Notificaciones"] article:not(:has(button[aria-label="Eliminar notificación"])) {
+  order: -1;
+  background: #fefcf7 !important;
+}
+
+aside[aria-label="Notificaciones"] article:has(button[aria-label="Eliminar notificación"]) {
+  order: 0;
+  background: #ffffff !important;
+}

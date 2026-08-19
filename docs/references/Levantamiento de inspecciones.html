@@ -1,0 +1,766 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<script src="https://kit.fontawesome.com/9e0db650ed.js" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#001E39;--nav-dark:#002659;
+  --gold:#C8A064;--gold-dark:#8E6E3E;--gold-hover:#D4AE7A;
+  --teal:#00B398;--teal-surf:#C5FFF6;--teal-txt:#006153;
+  --blue-link:#24588B;--blue-surf:#E6F3FF;--blue-txt:#0D3862;
+  --success:#6CC24A;--success-surf:#E0FFD3;--success-txt:#2A5C16;
+  --warn-surf:#FFEAB8;--warn-txt:#463100;
+  --danger:#BD3B5B;--danger-surf:#FFD0DB;--danger-txt:#570B1D;
+  --ocre-surf:#FFE1CD;--ocre-txt:#532A0E;
+  --white:#FFFFFF;--surface:#F4F6F9;--border:#E3E3E3;--border-mid:#D1D1D1;
+  --ph:#ACACAC;--muted:#646464;--body:#333333;--primary:#131313;
+  --ok:#3A9B3A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:#18181B;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+
+.phone{width:360px;height:800px;background:var(--surface);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 0 8px #1C1C1C,0 0 0 9px #333,0 40px 100px rgba(0,0,0,.85);position:relative;flex-shrink:0}
+.ph{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:12px;height:12px;background:#000;border-radius:50%;z-index:100}
+.stat{background:#002659;height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 16px;flex-shrink:0}
+.st{font-size:12px;font-weight:600;color:rgba(255,255,255,.9)}
+.si{display:flex;align-items:center;gap:5px}
+.si i{font-size:11px;color:rgba(255,255,255,.85)}
+.sbw{display:flex;align-items:flex-end;gap:1.5px;height:11px}
+.sb{width:3px;background:rgba(255,255,255,.85);border-radius:1px}
+
+.tab{background:var(--nav-dark);height:56px;display:flex;align-items:center;padding:0 4px;gap:4px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.ib{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-size:18px;background:transparent;border:none;flex-shrink:0;cursor:pointer}
+.abt{flex:1;min-width:0;padding:0 4px}
+.abm{font-size:14px;font-weight:600;color:var(--white)}
+.abs2{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px;display:flex;align-items:center;gap:4px}
+.aav{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:2px;position:relative}
+.adot{width:10px;height:10px;border-radius:50%;background:var(--teal);border:2px solid var(--nav-dark);position:absolute;bottom:1px;right:1px}
+
+.pb{background:var(--nav-dark);padding:7px 16px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
+.psteps{display:flex;gap:3px;margin-bottom:5px}
+.pd{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:background .4s}
+.pd.done{background:var(--gold)}
+.pd.active{background:rgba(200,160,100,.5)}
+.plbl{font-size:10px;color:rgba(255,255,255,.45);display:flex;justify-content:space-between}
+.plbl span{font-weight:600;color:rgba(255,255,255,.7)}
+
+.chat{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 12px 8px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.chat::-webkit-scrollbar{width:3px}
+.chat::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:2px}
+
+/* BURBUJAS */
+.ma{display:flex;align-items:flex-end;gap:7px}
+.av2{width:26px;height:26px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center}
+.av2 i{font-size:10px;color:var(--navy)}
+.ba{max-width:85%;background:var(--white);border:1px solid var(--border);border-radius:16px 16px 16px 4px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ba p{font-size:13px;color:var(--primary);line-height:1.5}
+.btime{font-size:10px;color:var(--ph);margin-top:4px}
+.mu{display:flex;justify-content:flex-end}
+.bu{max-width:78%;background:var(--nav-dark);border-radius:16px 16px 4px 16px;padding:10px 12px}
+.bu p{font-size:13px;color:var(--white);line-height:1.5}
+.bu .btime{color:rgba(255,255,255,.38)}
+
+.typing-wrap{display:flex;align-items:flex-end;gap:7px}
+.typing-dots{display:flex;gap:4px;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:16px 16px 16px 4px}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--ph);animation:bounce .9s infinite}
+.tdot:nth-child(2){animation-delay:.15s}
+.tdot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+
+/* CHIPS */
+.chips{margin-left:33px;display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 12px;border-radius:20px;border:1.5px solid var(--border-mid);background:var(--white);font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .12s;user-select:none}
+.chip:hover{border-color:var(--gold);color:var(--gold-dark)}
+.chip.sg{background:var(--gold);border-color:var(--gold);color:var(--navy);pointer-events:none}
+.chip.sn{background:var(--nav-dark);border-color:var(--nav-dark);color:var(--white);pointer-events:none}
+
+/* QUICK OPTS */
+.qo{display:flex;flex-direction:column;gap:5px;margin-left:33px}
+.qopt{background:var(--white);border:1.5px solid var(--border-mid);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--blue-link);cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:fit-content;transition:all .12s;user-select:none}
+.qopt:hover{border-color:var(--gold);color:var(--gold-dark)}
+.qopt.sel{background:var(--nav-dark);border-color:var(--nav-dark);color:var(--white);pointer-events:none}
+.qopt.tok{background:var(--teal);border-color:var(--teal);color:var(--white)}
+.qopt.tok:hover{background:#009E88}
+.qopt.dis{opacity:.45;pointer-events:none}
+
+/* PROPUESTA IA */
+.prop{background:var(--white);border:1.5px solid var(--gold);border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(200,160,100,.15);margin-left:33px}
+.phdr{background:linear-gradient(135deg,#FDF3E3,#FAE8C8);padding:8px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(200,160,100,.2)}
+.phdr span{font-size:11px;font-weight:700;color:var(--gold-dark)}
+.pbdy{padding:10px 12px}
+.plb{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.ptx{font-size:12px;color:var(--primary);line-height:1.5;font-weight:500}
+.pmt{font-size:10px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:5px;padding-top:6px;border-top:1px solid var(--border)}
+.pac{display:flex;gap:6px;padding:8px 12px 10px}
+.bok{flex:1;height:36px;border-radius:8px;border:none;background:var(--teal);color:var(--white);font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.bok:hover{background:#009E88}
+.bok:disabled{opacity:.5;cursor:not-allowed}
+.bed{height:36px;padding:0 12px;border-radius:8px;border:1.5px solid var(--border-mid);background:var(--white);color:var(--body);font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.bed:hover{border-color:var(--gold);color:var(--gold-dark)}
+.bed:disabled{opacity:.5;cursor:not-allowed}
+
+/* FOTO CARD */
+.foto-card{background:var(--white);border:1.5px dashed var(--border-mid);border-radius:12px;overflow:hidden;margin-left:33px}
+.fo-body{padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.fo-ico{width:40px;height:40px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)}
+.fo-title{font-size:12px;font-weight:700;color:var(--body)}
+.fo-sub{font-size:10px;color:var(--ph);text-align:center}
+.fo-opts{display:flex;gap:8px;width:100%}
+.fo-opt{flex:1;height:34px;border-radius:8px;border:1.5px solid var(--border-mid);background:var(--surface);font-family:Inter,sans-serif;font-size:11px;font-weight:600;color:var(--body);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
+.fo-opt:hover{border-color:var(--gold);color:var(--gold-dark);background:#FDF8F1}
+
+/* CRITICIDAD */
+.crit-sec{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-left:33px}
+.crit-shdr{background:var(--surface);padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)}
+.crit-sbdy{padding:10px 12px}
+.crit-chips{display:flex;flex-wrap:wrap;gap:5px}
+.cc{padding:5px 9px;border-radius:8px;border:1.5px solid var(--border-mid);background:var(--surface);font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .12s}
+.cc:hover{border-color:var(--gold);color:var(--gold-dark)}
+.cc.sel{background:var(--warn-surf);border-color:#E8C86A;color:var(--warn-txt)}
+.cc.dis{pointer-events:none;opacity:.5}
+.nivel-box{border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+
+/* SLA */
+.sla-sec{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-left:33px}
+.sla-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+.sla-qs{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+.sla-q{padding:5px 10px;border-radius:6px;border:1px solid var(--border-mid);background:var(--surface);font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .12s}
+.sla-q:hover{border-color:var(--gold);color:var(--gold-dark)}
+.sla-q.sel{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+.sla-row{display:flex;align-items:center;gap:8px}
+.sla-inp{width:55px;height:30px;border:1.5px solid var(--border-mid);border-radius:7px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;color:var(--primary);text-align:center;outline:none;background:var(--white)}
+.sla-inp:focus{border-color:var(--gold)}
+
+/* OBS LIST */
+.obs-list{display:flex;flex-direction:column;gap:6px}
+.oc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:9px 12px;display:flex;align-items:flex-start;gap:8px}
+.on{font-size:10px;font-weight:700;color:var(--blue-txt);background:var(--blue-surf);padding:2px 7px;border-radius:5px;flex-shrink:0;margin-top:1px}
+.od{font-size:12px;color:var(--primary);line-height:1.4;flex:1;font-weight:500}
+.oacts{display:flex;gap:4px;flex-shrink:0}
+.oab{width:24px;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted)}
+.oab.del:hover{border-color:var(--danger);color:var(--danger-txt);background:var(--danger-surf)}
+
+/* PERSONAL */
+.pers-list{margin-left:33px;display:flex;flex-direction:column;gap:5px}
+.pi{background:var(--white);border:1.5px solid var(--border-mid);border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .12s}
+.pi:hover{border-color:var(--gold)}
+.pi.sel{border-color:var(--teal);background:var(--teal-surf)}
+.pav{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.pnm{font-size:12px;font-weight:700;color:var(--primary)}
+.pro{font-size:10px;color:var(--muted);margin-top:1px}
+.pia-tag{font-size:9px;font-weight:700;color:var(--gold-dark);background:#FDF3E3;padding:1px 5px;border-radius:3px;flex-shrink:0}
+.pck{width:20px;height:20px;border-radius:50%;border:2px solid var(--border-mid);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.pi.sel .pck{border-color:var(--teal);background:var(--teal);color:var(--white);font-size:9px}
+
+/* RESUMEN */
+.res-card{background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.res-hdr{background:var(--navy);padding:7px 12px;display:flex;align-items:center;justify-content:space-between}
+.res-hdr span{font-size:11px;font-weight:700;color:var(--white)}
+.res-row{display:flex;padding:7px 12px;border-bottom:1px solid var(--border)}
+.res-row:last-child{border-bottom:none}
+.rk{font-size:10px;color:var(--muted);font-weight:500;min-width:80px;flex-shrink:0}
+.rv{font-size:11px;font-weight:600;color:var(--primary);flex:1}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700}
+.bg{background:var(--success-surf);color:var(--success-txt)}
+.br{background:var(--danger-surf);color:var(--danger-txt)}
+.bw{background:var(--warn-surf);color:var(--warn-txt)}
+.bt{background:var(--teal-surf);color:var(--teal-txt)}
+.bo{background:var(--ocre-surf);color:var(--ocre-txt)}
+
+/* DONE */
+.done-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px}
+.done-circle{width:72px;height:72px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(58,155,58,.3);animation:popIn .4s ease}
+@keyframes popIn{0%{transform:scale(0)}80%{transform:scale(1.1)}100%{transform:scale(1)}}
+
+/* INPUT */
+.ia{background:var(--white);border-top:1px solid var(--border);padding:8px 12px 6px;flex-shrink:0}
+.ir{display:flex;align-items:center;gap:8px}
+.ci{flex:1;min-height:40px;max-height:80px;padding:10px 14px;border:1.5px solid var(--border-mid);border-radius:20px;font-family:Inter,sans-serif;font-size:13px;color:var(--primary);background:var(--surface);outline:none;resize:none;line-height:1.4}
+.ci:focus{border-color:var(--gold)}
+.ci::placeholder{color:var(--ph)}
+.btn-voice{width:38px;height:38px;border-radius:50%;border:none;background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0}
+.btn-voice:hover{background:var(--navy);color:var(--white)}
+.btn-send{width:38px;height:38px;border-radius:50%;border:none;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;flex-shrink:0}
+.btn-send:hover{background:var(--gold-hover)}
+.gb{height:18px;display:flex;align-items:center;justify-content:center;background:var(--white)}
+.gp{width:120px;height:4px;background:#D1D1D1;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="ph"></div>
+  <div class="stat">
+    <span id="clock">9:41</span>
+    <div class="si"><div class="sbw"><div class="sb" style="height:4px"></div><div class="sb" style="height:6px"></div><div class="sb" style="height:8px"></div><div class="sb" style="height:10px"></div></div><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-full"></i></div>
+  </div>
+  <div class="tab">
+    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding-left:8px">
+      <div style="position:relative;flex-shrink:0"><div class="aav"><i class="fa-solid fa-sparkles" style="font-size:14px;color:var(--navy)"></i></div><div class="adot"></div></div>
+      <div class="abt"><div class="abm">AurelIA</div><div class="abs2" id="agSub"><span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block"></span>Activo</div></div>
+    </div>
+    <button class="ib" style="color:rgba(255,255,255,.6);font-size:15px"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+  </div>
+  <div class="pb">
+    <div class="psteps" id="psteps"><div class="pd active"></div><div class="pd"></div><div class="pd"></div><div class="pd"></div><div class="pd"></div><div class="pd"></div><div class="pd"></div></div>
+    <div class="plbl"><span id="stepLbl">Paso 1 · Identificación</span><span id="stepPct">14%</span></div>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="ia" id="inputArea">
+    <div class="ir">
+      <button class="btn-voice"><i class="fa-solid fa-microphone"></i></button>
+      <textarea class="ci" id="msgInput" placeholder="Escribe aquí o usa los controles…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+      <button class="btn-send" onclick="sendMsg()"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+  <div class="gb"><div class="gp"></div></div>
+</div>
+
+<script>
+/* ════════════════════════════════
+   ESTADO
+════════════════════════════════ */
+const S = {
+  step:0, area:null, sector:null, tipo:null,
+  observaciones:[], obs:{},
+  empresa:null, personal:[], personalSel:[],
+  probSel:null, consSel:null, slaSel:7,
+  waiting:null, busy:false
+};
+
+const AREAS = {
+  'Mina':['Sector Norte','Plataforma 2','Sector Sur','Acceso principal'],
+  'Planta Procesos':['Módulo C','Módulo A','Lixiviación','PTAS'],
+  'Exploraciones':['Campaña Norte','Campaña Este'],
+  'Mantención':['Talleres','Bodega repuestos'],
+  'Servicios Generales':['Campamento Antiguo','Comedor','Acceso faena'],
+  'Sustaining':['Sector Sustaining'],
+  'Medio Ambiente':['PTAS','Depósito relaves']
+};
+
+const PROBS = ['1 · Muy improbable','2 · Improbable','3 · Posible','4 · Probable','5 · Casi seguro'];
+const CONS  = ['1 · Insignificante','2 · Menor','3 · Moderado','4 · Mayor','5 · Catastrófico'];
+
+const SLABLS = ['Paso 1 · Identificación','Paso 2 · Observación','Paso 3 · Medida y criticidad','Paso 4 · Más observaciones','Paso 5 · Empresa y personal','Paso 6 · Resumen','Completado'];
+const SLABPTS = ['14%','28%','42%','57%','71%','86%','100%'];
+
+/* UTILIDADES */
+const chat = ()=>document.getElementById('chat');
+function scroll(){setTimeout(()=>{const c=chat();c.scrollTop=c.scrollHeight},80)}
+function nowStr(){const n=new Date();return n.getHours()+':'+(n.getMinutes()<10?'0':'')+n.getMinutes()}
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+
+function setStep(n){
+  S.step=n;
+  const dots=document.getElementById('psteps').children;
+  for(let i=0;i<dots.length;i++) dots[i].className='pd'+(i<n?' done':i===n?' active':'');
+  document.getElementById('stepLbl').textContent=SLABLS[Math.min(n,6)];
+  document.getElementById('stepPct').textContent=SLABPTS[Math.min(n,6)];
+}
+
+/* BURBUJAS */
+function addAgent(html){
+  const d=document.createElement('div');
+  d.className='ma';
+  d.innerHTML=`<div class="av2"><i class="fa-solid fa-sparkles"></i></div><div class="ba"><p>${html}</p><div class="btime">${nowStr()}</div></div>`;
+  chat().appendChild(d);scroll();return d;
+}
+function addUser(txt){
+  const d=document.createElement('div');
+  d.className='mu';
+  d.innerHTML=`<div class="bu"><p>${txt}</p><div class="btime">${nowStr()}</div></div>`;
+  chat().appendChild(d);scroll();
+}
+function addWidget(html){
+  const d=document.createElement('div');
+  d.innerHTML=html;chat().appendChild(d);scroll();return d;
+}
+function showTyping(){
+  const d=document.createElement('div');
+  d.className='typing-wrap';d.id='typing';
+  d.innerHTML=`<div class="av2"><i class="fa-solid fa-sparkles"></i></div><div class="typing-dots"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;
+  chat().appendChild(d);scroll();
+}
+function hideTyping(){const t=document.getElementById('typing');if(t)t.remove()}
+
+/* RELOJ */
+setInterval(()=>{const n=new Date();document.getElementById('clock').textContent=n.getHours()+':'+(n.getMinutes()<10?'0':'')+n.getMinutes()},1000);
+
+/* ════════════════════════════════
+   API — con timeout y fallback local
+════════════════════════════════ */
+
+/* Medidas de fallback por tipo de hallazgo */
+const FALLBACK_MEDIDAS = [
+  "Corregir la condición identificada antes del próximo turno. Registrar evidencia fotográfica y notificar al supervisor de área.",
+  "Implementar medida correctiva inmediata conforme a normativa NCh vigente. Verificar con inspector antes del cierre.",
+  "Aislar el área afectada y ejecutar las correcciones requeridas. Subir foto Después para aprobación del Admin GF.",
+  "Coordinar con el equipo técnico la corrección del hallazgo. SLA según criticidad asignada.",
+];
+
+async function callIA(prompt, fallbackIndex=0){
+  const ctrl = new AbortController();
+  const timeout = setTimeout(()=>ctrl.abort(), 12000); // 12s timeout
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal: ctrl.signal,
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:300,
+        system:`Eres AurelIA, asistente de inspecciones de Gold Fields Salares Norte. Responde en español, conciso, sin markdown. Máximo 2 oraciones. No uses asteriscos ni listas.`,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    clearTimeout(timeout);
+    if(!res.ok) throw new Error('API error');
+    const data = await res.json();
+    return data.content?.[0]?.text || FALLBACK_MEDIDAS[fallbackIndex % FALLBACK_MEDIDAS.length];
+  } catch(e){
+    clearTimeout(timeout);
+    console.warn('IA fallback usado:', e.message);
+    return FALLBACK_MEDIDAS[fallbackIndex % FALLBACK_MEDIDAS.length];
+  }
+}
+
+/* ════════════════════════════════
+   FLUJO
+════════════════════════════════ */
+async function init(){
+  await delay(500);
+  showTyping();await delay(1000);hideTyping();
+  addAgent(`¡Hola, <strong>Karen Opazo</strong>! 👋 Soy AurelIA. Voy a ayudarte a registrar esta inspección. ¿En qué <strong>área</strong> estás hoy?`);
+  addWidget(`<div class="chips" id="areaChips">${Object.keys(AREAS).map(a=>`<div class="chip" onclick="selArea('${a}')">${a}</div>`).join('')}</div>`);
+}
+
+async function selArea(a){
+  if(S.busy) return;
+  document.querySelectorAll('#areaChips .chip').forEach(c=>{c.className='chip'+(c.textContent===a?' sg':'');c.onclick=null});
+  S.area=a;addUser(a);
+  await delay(300);showTyping();await delay(800);hideTyping();
+  addAgent(`<strong>${a} ✓</strong> — ¿En qué sector?`);
+  addWidget(`<div class="chips" id="secChips">${AREAS[a].map(s=>`<div class="chip" onclick="selSec('${s}')">${s}</div>`).join('')}</div>`);
+}
+
+async function selSec(s){
+  if(S.busy) return;
+  document.querySelectorAll('#secChips .chip').forEach(c=>{c.className='chip'+(c.textContent===s?' sg':'');c.onclick=null});
+  S.sector=s;addUser(s);
+  await delay(300);showTyping();await delay(800);hideTyping();
+  addAgent(`<strong>${S.area} · ${s} ✓</strong> — ¿Tipo de inspección?`);
+  addWidget(`<div class="qo" id="tipoOpts"><div class="qopt" onclick="selTipo('Hallazgo')"><i class="fa-solid fa-magnifying-glass" style="font-size:10px"></i>Hallazgo</div><div class="qopt" onclick="selTipo('Checklist normativo')"><i class="fa-solid fa-clipboard-check" style="font-size:10px"></i>Checklist normativo</div></div>`);
+}
+
+async function selTipo(t){
+  if(S.busy) return;
+  document.querySelectorAll('#tipoOpts .qopt').forEach(q=>{q.className='qopt'+(q.textContent.trim()===t?' sel':'');q.onclick=null});
+  S.tipo=t;addUser(t);setStep(1);
+  await iniciarObs();
+}
+
+/* ── OBSERVACIÓN ── */
+function resetObs(){S.obs={desc:null,medida:null,origen:null,foto:false,prob:null,cons:null,nivel:null,sla:7}}
+
+async function iniciarObs(){
+  resetObs();
+  const n=S.observaciones.length+1;
+  await delay(300);showTyping();await delay(800);hideTyping();
+  addAgent(`Cuéntame la condición subestándar que detectaste en <strong>${S.area} · ${S.sector}</strong>.`);
+  S.waiting='desc';
+}
+
+async function handleDesc(txt){
+  S.obs.desc=txt;S.waiting=null;setStep(1);
+  await delay(200);showTyping();await delay(600);hideTyping();
+  addAgent(`Entendido. Adjunta una foto del hallazgo:`);
+  addWidget(`<div class="foto-card" id="fotoCard">
+    <div class="fo-body">
+      <div class="fo-ico"><i class="fa-solid fa-camera-retro"></i></div>
+      <div class="fo-title">Adjuntar fotografía del hallazgo</div>
+      <div class="fo-sub">Fecha, hora y GPS se registran automáticamente</div>
+      <div class="fo-opts">
+        <button class="fo-opt" onclick="confirmarFoto()"><i class="fa-solid fa-camera" style="font-size:11px"></i>Tomar foto</button>
+        <button class="fo-opt" onclick="confirmarFoto()"><i class="fa-solid fa-image" style="font-size:11px"></i>Desde galería</button>
+      </div>
+    </div>
+  </div>`);
+}
+
+async function confirmarFoto(){
+  if(S.busy) return;
+  S.busy=true;
+  // Deshabilitar botones foto inmediatamente
+  document.querySelectorAll('#fotoCard .fo-opt').forEach(b=>{b.disabled=true;b.style.opacity='.5'});
+  const fc=document.getElementById('fotoCard');
+  if(fc) fc.innerHTML=`<div style="padding:10px 12px;background:var(--success-surf);border-radius:12px;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-circle-check" style="color:var(--success-txt);font-size:16px"></i><div><div style="font-size:12px;font-weight:700;color:var(--success-txt)">Foto adjunta ✓</div><div style="font-size:10px;color:var(--success-txt)">IMG_${Date.now()}.jpg · GPS ✓ · ${nowStr()}</div></div></div>`;
+  S.obs.foto=true;
+  setStep(2);
+
+  // Llamar IA para proponer medida — con fallback si falla
+  showTyping();
+  document.getElementById('agSub').innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block"></span>Buscando en historial…`;
+  
+  const medidaPropuesta = await callIA(
+    `Inspector reporta en ${S.area} · ${S.sector}: "${S.obs.desc}". Propón una medida correctiva breve y específica para este tipo de hallazgo en minería. Sin asteriscos. Máximo 2 oraciones.`,
+    S.observaciones.length
+  );
+
+  hideTyping();
+  document.getElementById('agSub').innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block"></span>Activo`;
+  S.obs.medidaIA=medidaPropuesta;
+  S.busy=false;
+
+  addAgent(`Foto recibida ✓. Analicé el historial de <strong>${S.area}</strong> — te propongo:`);
+  addWidget(`<div class="prop" id="propCard">
+    <div class="phdr"><i class="fa-solid fa-sparkles" style="font-size:11px;color:var(--gold-dark)"></i><span>Medida sugerida por AurelIA</span></div>
+    <div class="pbdy">
+      <div class="plb">Medida correctiva</div>
+      <div class="ptx" id="propTxt">${medidaPropuesta}</div>
+      <div class="pmt"><i class="fa-solid fa-chart-line" style="font-size:9px;color:var(--teal)"></i>Basada en historial 2023–2026 · Gold Fields Salares Norte</div>
+    </div>
+    <div class="pac">
+      <button class="bed" id="btnEdit" onclick="editarMedida()"><i class="fa-solid fa-pen" style="font-size:10px"></i>Editar</button>
+      <button class="bok" id="btnAcept" onclick="aceptarMedida()"><i class="fa-solid fa-check" style="font-size:10px"></i>Aceptar</button>
+    </div>
+  </div>`);
+  addAgent(`O escribe tu propia medida en el campo de texto.`);
+  S.waiting='medida';
+}
+
+function aceptarMedida(){
+  const b1=document.getElementById('btnEdit'),b2=document.getElementById('btnAcept');
+  if(b1){b1.disabled=true}if(b2){b2.disabled=true}
+  S.obs.medida=S.obs.medidaIA;S.obs.origen='ia';
+  S.waiting=null;
+  addUser('✓ Medida aceptada');
+  pedirCriticidad();
+}
+
+function editarMedida(){
+  const b1=document.getElementById('btnEdit'),b2=document.getElementById('btnAcept');
+  if(b1){b1.disabled=true}if(b2){b2.disabled=true}
+  S.waiting='medida-manual';
+  addAgent(`Escribe tu medida correctiva:`);
+}
+
+async function pedirCriticidad(){
+  S.waiting=null;
+  await delay(300);showTyping();await delay(700);hideTyping();
+  addAgent(`Definamos la <strong>criticidad</strong>. Selecciona la <strong>Probabilidad</strong>:`);
+  addWidget(`<div class="crit-sec" id="critCard">
+    <div class="crit-shdr">Probabilidad · ¿Qué tan probable es que ocurra?</div>
+    <div class="crit-sbdy"><div class="crit-chips" id="probChips">${PROBS.map((p,i)=>`<div class="cc" onclick="selProb(${i+1},'${p}')">${p}</div>`).join('')}</div></div>
+    <div id="consSec" style="display:none">
+      <div class="crit-shdr">Consecuencia · ¿Qué tan grave sería el impacto?</div>
+      <div class="crit-sbdy"><div class="crit-chips" id="consChips">${CONS.map((c,i)=>`<div class="cc" onclick="selCons(${i+1},'${c}')">${c}</div>`).join('')}</div><div id="nivelRes"></div></div>
+    </div>
+  </div>`);
+}
+
+function selProb(val,lbl){
+  document.querySelectorAll('#probChips .cc').forEach(c=>{c.className='cc'+(c.textContent===lbl?' sel':' dis');c.onclick=null});
+  S.probSel=val;S.obs.prob=val;
+  document.getElementById('consSec').style.display='';
+  scroll();
+}
+
+function selCons(val,lbl){
+  document.querySelectorAll('#consChips .cc').forEach(c=>{c.className='cc'+(c.textContent===lbl?' sel':' dis');c.onclick=null});
+  S.consSel=val;S.obs.cons=val;
+  const niv=calcNivel(S.probSel,val);
+  S.obs.nivel=niv;
+  const colMap={Bajo:{bg:'var(--success-surf)',bc:'#A8DFA0',tc:'var(--success-txt)'},Medio:{bg:'var(--warn-surf)',bc:'#E8C86A',tc:'var(--warn-txt)'},Alto:{bg:'var(--ocre-surf)',bc:'#E8A06A',tc:'var(--ocre-txt)'},Crítico:{bg:'var(--danger-surf)',bc:'#E090A8',tc:'var(--danger-txt)'}};
+  const col=colMap[niv];
+  document.getElementById('nivelRes').innerHTML=`<div class="nivel-box" style="background:${col.bg};border:1.5px solid ${col.bc}"><div><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:${col.tc};margin-bottom:2px">Nivel · P${S.probSel}×C${val}</div><div style="font-size:20px;font-weight:700;color:${col.tc}">${niv}</div></div><div style="text-align:right"><div style="font-size:9px;color:${col.tc};margin-bottom:2px">SLA sugerido</div><div style="font-size:14px;font-weight:700;color:${col.tc}">${slaLbl(niv)}</div></div></div>`;
+  scroll();
+  setTimeout(()=>pedirSLA(niv),500);
+}
+
+function calcNivel(p,c){const s=(p-1)+(c-1);if(s<=1)return 'Bajo';if(s<=3)return 'Medio';if(s<=5)return 'Alto';return 'Crítico'}
+function slaLbl(n){return{Bajo:'14 días',Medio:'7 días',Alto:'3 días',Crítico:'1 día'}[n]}
+function slaN(n){return{Bajo:14,Medio:7,Alto:3,Crítico:1}[n]}
+function colorNivel(n){return{Bajo:'bg',Medio:'bw',Alto:'bo',Crítico:'br'}[n]||'bw'}
+
+async function pedirSLA(niv){
+  const def=slaN(niv);S.slaSel=def;S.obs.sla=def;
+  await delay(300);
+  addAgent(`SLA sugerido: <strong>${slaLbl(niv)}</strong>. Confirma o ajusta:`);
+  addWidget(`<div class="sla-sec" id="slaSec">
+    <div class="sla-lbl">SLA · Días hábiles para resolver</div>
+    <div class="sla-qs">${[1,3,7,14].map(d=>`<div class="sla-q${d===def?' sel':''}" onclick="selSLA(${d})">${d} día${d>1?'s':''}</div>`).join('')}</div>
+    <div class="sla-row"><input type="number" class="sla-inp" id="slaInp" value="${def}" min="1" oninput="S.slaSel=+this.value;S.obs.sla=+this.value"><span style="font-size:11px;color:var(--muted)">días personalizados</span></div>
+  </div>`);
+  addWidget(`<div class="qo"><div class="qopt tok" id="btnGuardar" onclick="guardarObs()"><i class="fa-solid fa-floppy-disk" style="font-size:10px"></i>Guardar observación ${S.observaciones.length+1}</div></div>`);
+}
+
+function selSLA(d){
+  document.querySelectorAll('#slaSec .sla-q').forEach(q=>q.className='sla-q'+(q.textContent.trim().startsWith(d+' ')||q.textContent.trim()===d+'d'?' sel':''));
+  document.getElementById('slaInp').value=d;S.slaSel=d;S.obs.sla=d;
+}
+
+async function guardarObs(){
+  const btn=document.getElementById('btnGuardar');if(btn){btn.onclick=null;btn.className='qopt tok dis'}
+  S.observaciones.push({
+    num:S.observaciones.length+1,
+    desc:S.obs.desc,medida:S.obs.medida,origen:S.obs.origen,
+    prob:S.obs.prob,cons:S.obs.cons,nivel:S.obs.nivel,sla:S.obs.sla
+  });
+  addUser(`✓ Observación ${S.observaciones.length} guardada`);
+  setStep(3);
+  await mostrarListaObs();
+}
+
+async function mostrarListaObs(){
+  await delay(300);showTyping();await delay(700);hideTyping();
+  addAgent(`Llevas <strong>${S.observaciones.length} observación${S.observaciones.length>1?'es':''}</strong>. Revisa antes de continuar:`);
+  renderListaObs();
+  await delay(200);
+  addAgent(`¿Agregar otra observación o continuamos con la empresa?`);
+  addWidget(`<div class="qo" id="obsDecision">
+    <div class="qopt" onclick="agregarOtra()"><i class="fa-solid fa-plus" style="font-size:10px"></i>Agregar otra observación</div>
+    <div class="qopt tok" onclick="continuarEmpresa()"><i class="fa-solid fa-arrow-right" style="font-size:10px"></i>Continuar con empresa</div>
+  </div>`);
+}
+
+function renderListaObs(){
+  const html=S.observaciones.map(o=>`<div class="oc">
+    <span class="on">Obs. ${o.num}</span>
+    <div style="flex:1">
+      <div class="od">${o.desc.length>48?o.desc.substring(0,48)+'…':o.desc}</div>
+      <div style="margin-top:4px;display:flex;gap:5px;align-items:center">
+        <span class="badge ${colorNivel(o.nivel)}">${o.nivel||'?'} · ${o.sla}d</span>
+        ${o.origen==='ia'?`<span style="font-size:9px;color:var(--gold-dark);background:#FDF3E3;padding:1px 5px;border-radius:3px"><i class="fa-solid fa-sparkles" style="font-size:7px"></i>IA</span>`:`<span style="font-size:9px;color:var(--muted);background:var(--surface);padding:1px 5px;border-radius:3px">Manual</span>`}
+        <span style="font-size:10px;color:var(--success-txt)"><i class="fa-solid fa-camera" style="font-size:8px"></i>✓</span>
+      </div>
+    </div>
+    <div class="oacts"><button class="oab del" onclick="eliminarObs(${o.num})"><i class="fa-solid fa-trash"></i></button></div>
+  </div>`).join('');
+  addWidget(`<div class="obs-list" id="listaObs">${html}</div>`);
+}
+
+function eliminarObs(num){
+  S.observaciones=S.observaciones.filter(o=>o.num!==num);
+  S.observaciones.forEach((o,i)=>o.num=i+1);
+  const el=document.getElementById('listaObs');
+  if(el) el.innerHTML=S.observaciones.map(o=>`<div class="oc">
+    <span class="on">Obs. ${o.num}</span>
+    <div style="flex:1"><div class="od">${o.desc.length>48?o.desc.substring(0,48)+'…':o.desc}</div>
+    <div style="margin-top:4px;display:flex;gap:5px"><span class="badge ${colorNivel(o.nivel)}">${o.nivel||'?'} · ${o.sla}d</span></div></div>
+    <div class="oacts"><button class="oab del" onclick="eliminarObs(${o.num})"><i class="fa-solid fa-trash"></i></button></div>
+  </div>`).join('');
+}
+
+async function agregarOtra(){
+  document.querySelectorAll('#obsDecision .qopt').forEach(q=>{q.onclick=null;q.className='qopt dis'});
+  setStep(1);await iniciarObs();
+}
+
+async function continuarEmpresa(){
+  document.querySelectorAll('#obsDecision .qopt').forEach(q=>{q.onclick=null;q.className='qopt dis'});
+  setStep(4);await pedirEmpresa();
+}
+
+/* ── EMPRESA ── */
+const EMPRESAS_POOL=['SOMACOR','STRACON','GARDE CORPS','AGGREKO','RESITER','ATLAS COPCO','NEWREST','ENAEX'];
+const PERSONAL_DB={
+  'SOMACOR':[{ini:'MP',n:'Miguel Pizarro',r:'Supervisor Mina',col:'#C8A064',tc:'#001E39',ia:true},{ini:'RG',n:'Roberto González',r:'Técnico Mina',col:'#00B398',tc:'#fff',ia:true},{ini:'CL',n:'Carlos López',r:'Operador',col:'#24588B',tc:'#fff',ia:false},{ini:'PS',n:'Patricia Soto',r:'Técnico HSE',col:'#532A0E',tc:'#fff',ia:false}],
+  'STRACON':[{ini:'JR',n:'Jorge Rojas',r:'Supervisor',col:'#C8A064',tc:'#001E39',ia:true},{ini:'AM',n:'Ana Morales',r:'Técnico',col:'#00B398',tc:'#fff',ia:false}],
+  'GARDE CORPS':[{ini:'RM',n:'Rodrigo Méndez',r:'Supervisor',col:'#C8A064',tc:'#001E39',ia:true},{ini:'LV',n:'Luis Vargas',r:'Operador',col:'#24588B',tc:'#fff',ia:false}],
+  'AGGREKO':[{ini:'CR',n:'Carlos Rojas',r:'Técnico',col:'#C8A064',tc:'#001E39',ia:true},{ini:'MF',n:'María Fuentes',r:'HSE',col:'#00B398',tc:'#fff',ia:false}],
+  'RESITER':[{ini:'DP',n:'Diego Pérez',r:'Supervisor',col:'#C8A064',tc:'#001E39',ia:true},{ini:'VL',n:'Verónica Luna',r:'Operadora',col:'#532A0E',tc:'#fff',ia:false}],
+};
+
+async function pedirEmpresa(){
+  S.busy=true;
+  await delay(300);showTyping();
+  document.getElementById('agSub').innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block"></span>Consultando historial…`;
+  
+  // Elegir empresa con IA o fallback
+  const empResp = await callIA(
+    `Para resolver ${S.observaciones.length} observaciones en ${S.area} · ${S.sector}, ¿qué empresa contratista recomendarías de: ${EMPRESAS_POOL.join(', ')}? Di solo el nombre exacto de la empresa y una breve justificación en 1 oración.`,0
+  );
+  
+  hideTyping();
+  document.getElementById('agSub').innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block"></span>Activo`;
+  
+  // Detectar empresa en la respuesta
+  const empEncontrada = EMPRESAS_POOL.find(e=>empResp.toUpperCase().includes(e.toUpperCase())) || 'SOMACOR';
+  S.empresa = empEncontrada;
+  S.busy=false;
+
+  addAgent(`Basándome en el historial de <strong>${S.area} · ${S.sector}</strong>, te propongo:`);
+  addWidget(`<div class="prop" id="empCard">
+    <div class="phdr"><i class="fa-solid fa-sparkles" style="font-size:11px;color:var(--gold-dark)"></i><span>Empresa sugerida por AurelIA</span></div>
+    <div class="pbdy">
+      <div class="plb">Empresa responsable</div>
+      <div class="ptx" style="font-size:15px;font-weight:700">${empEncontrada}</div>
+      <div class="pmt"><i class="fa-solid fa-chart-line" style="font-size:9px;color:var(--teal)"></i>${empResp.substring(0,120)}</div>
+    </div>
+    <div class="pac">
+      <button class="bed" id="btnOtraEmp" onclick="elegirOtraEmp()"><i class="fa-solid fa-list" style="font-size:10px"></i>Elegir otra</button>
+      <button class="bok" id="btnConfEmp" onclick="confirmarEmp()"><i class="fa-solid fa-check" style="font-size:10px"></i>Confirmar ${empEncontrada}</button>
+    </div>
+  </div>`);
+}
+
+function elegirOtraEmp(){
+  document.getElementById('btnOtraEmp').disabled=true;document.getElementById('btnConfEmp').disabled=true;
+  addAgent(`Selecciona la empresa:`);
+  addWidget(`<div class="chips" id="empChips">${EMPRESAS_POOL.map(e=>`<div class="chip" onclick="selEmp('${e}')">${e}</div>`).join('')}</div>`);
+}
+
+function selEmp(e){
+  document.querySelectorAll('#empChips .chip').forEach(c=>{c.className='chip'+(c.textContent===e?' sg':'');c.onclick=null});
+  S.empresa=e;addUser(e);setTimeout(confirmarEmp,300);
+}
+
+async function confirmarEmp(){
+  const b1=document.getElementById('btnOtraEmp'),b2=document.getElementById('btnConfEmp');
+  if(b1)b1.disabled=true;if(b2)b2.disabled=true;
+  addUser(`✓ ${S.empresa} confirmada`);
+  await pedirPersonal();
+}
+
+async function pedirPersonal(){
+  await delay(300);showTyping();await delay(900);hideTyping();
+  const pool = PERSONAL_DB[S.empresa] || [{ini:'RP',n:'Responsable Principal',r:'Supervisor',col:'#C8A064',tc:'#001E39',ia:true}];
+  S.personal=pool;S.personalSel=pool.filter(p=>p.ia).map(p=>p.n);
+
+  addAgent(`Para <strong>${S.empresa} en ${S.area}</strong>, sugiero este personal. Selecciona uno o más:`);
+  addWidget(`<div class="pers-list" id="persList">${pool.map(p=>`
+    <div class="pi ${S.personalSel.includes(p.n)?'sel':''}" onclick="togglePers('${p.n}',this)">
+      <div class="pav" style="background:${p.col};color:${p.tc}">${p.ini}</div>
+      <div style="flex:1"><div class="pnm">${p.n}</div><div class="pro">${S.empresa} · ${p.r}</div></div>
+      ${p.ia?`<div class="pia-tag"><i class="fa-solid fa-sparkles" style="font-size:7px"></i> Sugerido</div>`:''}
+      <div class="pck">${S.personalSel.includes(p.n)?'<i class="fa-solid fa-check"></i>':''}</div>
+    </div>`).join('')}`);
+  addWidget(`<div class="qo"><div class="qopt tok" onclick="confirmarPersonal()"><i class="fa-solid fa-arrow-right" style="font-size:10px"></i>Confirmar y ver resumen</div></div>`);
+}
+
+function togglePers(nombre,el){
+  if(S.personalSel.includes(nombre)){S.personalSel=S.personalSel.filter(n=>n!==nombre);el.classList.remove('sel');el.querySelector('.pck').innerHTML=''}
+  else{S.personalSel.push(nombre);el.classList.add('sel');el.querySelector('.pck').innerHTML='<i class="fa-solid fa-check"></i>'}
+}
+
+async function confirmarPersonal(){
+  setStep(5);
+  addUser(`✓ Personal: ${S.personalSel.join(', ')}`);
+  await mostrarResumen();
+}
+
+/* ── RESUMEN ── */
+async function mostrarResumen(){
+  await delay(300);showTyping();await delay(800);hideTyping();
+  addAgent(`¡Listo! Revisa el resumen antes de guardar:`);
+
+  const obsHTML = S.observaciones.map(o=>`<div style="border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <span style="font-size:10px;font-weight:700;color:var(--blue-txt);background:var(--blue-surf);padding:2px 6px;border-radius:4px">Obs. ${o.num}</span>
+      <div style="display:flex;gap:4px"><span class="badge ${colorNivel(o.nivel)}">${o.nivel}</span><span class="badge" style="background:${o.origen==='ia'?'#FDF3E3':'var(--surface)'};color:${o.origen==='ia'?'var(--gold-dark)':'var(--muted)'}">${o.origen==='ia'?'IA':'Manual'}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--primary);font-weight:500;margin-bottom:3px">${o.desc.length>55?o.desc.substring(0,55)+'…':o.desc}</div>
+    <div style="font-size:10px;color:var(--muted)">SLA: ${o.sla} días · P${o.prob}×C${o.cons}</div>
+  </div>`).join('');
+
+  addWidget(`
+    <div class="res-card">
+      <div class="res-hdr"><span>Datos generales</span><span class="badge bt">${S.tipo}</span></div>
+      <div class="res-row"><span class="rk">Inspector</span><span class="rv">Karen Opazo S.</span></div>
+      <div class="res-row"><span class="rk">Área · Sector</span><span class="rv">${S.area} · ${S.sector}</span></div>
+      <div class="res-row"><span class="rk">Empresa EECC</span><span class="rv">${S.empresa}</span></div>
+      <div class="res-row"><span class="rk">Responsables</span><span class="rv">${S.personalSel.join(' · ')}</span></div>
+    </div>
+    <div class="res-card">
+      <div class="res-hdr"><span>${S.observaciones.length} Observaciones</span></div>
+      <div style="padding:8px 12px">${obsHTML}</div>
+    </div>`);
+
+  addAgent(`¿Todo correcto?`);
+  addWidget(`<div class="qo"><div class="qopt" onclick="addAgent('¿Qué deseas modificar?');S.waiting='modificar'"><i class="fa-solid fa-pen" style="font-size:10px"></i>Modificar algo</div></div>`);
+
+  document.getElementById('inputArea').innerHTML=`<div style="padding:4px 0 0">
+    <button onclick="guardarInspeccion()" style="width:100%;height:48px;border-radius:14px;border:none;background:var(--ok);color:#fff;font-family:Inter,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><i class="fa-solid fa-check"></i>Guardar inspección</button>
+  </div><div style="height:4px"></div>`;
+  setStep(5);scroll();
+}
+
+/* ── GUARDAR ── */
+async function guardarInspeccion(){
+  setStep(6);
+  const c=chat();c.innerHTML='';
+  document.getElementById('inputArea').innerHTML='';
+
+  c.innerHTML=`<div class="done-screen">
+    <div class="done-circle"><i class="fa-solid fa-check" style="font-size:30px;color:#fff"></i></div>
+    <div style="font-size:20px;font-weight:700;color:var(--ok)">¡Inspección guardada!</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.6;max-width:280px">Registrada con <strong style="color:var(--primary)">${S.observaciones.length} observación${S.observaciones.length>1?'es':''}</strong> en <strong style="color:var(--primary)">${S.area} · ${S.sector}</strong>.</div>
+    <div style="background:var(--teal-surf);border:1.5px solid var(--teal);border-radius:12px;padding:14px 16px;width:100%;max-width:300px;text-align:left">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa-solid fa-bell" style="font-size:14px;color:#fff"></i></div>
+        <div style="font-size:12px;font-weight:700;color:var(--teal-txt)">EECC notificada</div>
+      </div>
+      <div style="font-size:12px;color:var(--teal-txt);line-height:1.5"><strong>${S.empresa}</strong> ha sido notificada. <strong>${S.personalSel.join(' y ')}</strong> recibirán los hallazgos para gestionar su resolución dentro de los plazos definidos.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;max-width:300px">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--primary)">${S.observaciones.length}</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Observaciones</div></div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--danger-txt)">${S.observaciones.filter(o=>o.nivel==='Crítico').length}</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Críticas</div></div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:700;color:var(--ok)">${S.empresa.substring(0,6)}.</div><div style="font-size:9px;color:var(--muted);margin-top:2px">EECC</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--ph);text-align:center">AurelIA · Gold Fields Salares Norte · ${nowStr()}</div>
+  </div>`;
+
+  document.getElementById('inputArea').innerHTML=`<div style="display:flex;gap:10px;padding:4px 0 0">
+    <button onclick="resetAll()" style="flex:1;height:48px;border-radius:14px;border:2px solid var(--gold);background:#fff;color:var(--gold);font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px"><i class="fa-solid fa-arrows-rotate"></i>Misma área</button>
+    <button onclick="resetAll()" style="flex:1;height:48px;border-radius:14px;border:none;background:var(--gold);color:var(--navy);font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px"><i class="fa-solid fa-plus"></i>Nueva insp.</button>
+  </div><div style="height:4px"></div>`;
+  scroll();
+}
+
+/* ── RESET ── */
+function resetAll(){
+  Object.assign(S,{step:0,area:null,sector:null,tipo:null,observaciones:[],obs:{},empresa:null,personal:[],personalSel:[],probSel:null,consSel:null,slaSel:7,waiting:null,busy:false});
+  chat().innerHTML='';
+  document.getElementById('inputArea').innerHTML=`<div class="ir">
+    <button class="btn-voice"><i class="fa-solid fa-microphone"></i></button>
+    <textarea class="ci" id="msgInput" placeholder="Escribe aquí o usa los controles…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+    <button class="btn-send" onclick="sendMsg()"><i class="fa-solid fa-paper-plane"></i></button>
+  </div><div style="height:4px"></div>`;
+  setStep(0);
+  init();
+}
+
+/* ── ENVIAR TEXTO ── */
+async function sendMsg(){
+  if(S.busy) return;
+  const inp=document.getElementById('msgInput');
+  if(!inp) return;
+  const txt=inp.value.trim();if(!txt) return;
+  inp.value='';inp.style.height='auto';
+  addUser(txt);
+
+  if(S.waiting==='desc'){S.waiting=null;await handleDesc(txt)}
+  else if(S.waiting==='medida'||S.waiting==='medida-manual'){
+    S.waiting=null;S.obs.medida=txt;S.obs.origen='manual';
+    addAgent(`Medida registrada ✓`);await pedirCriticidad();
+  } else {
+    showTyping();
+    const r=await callIA(`Contexto inspección: ${S.area||'?'} · ${S.sector||'?'}. El inspector dice: "${txt}". Responde brevemente y retoma el flujo.`,0);
+    hideTyping();addAgent(r);
+  }
+}
+
+/* INICIO */
+init();
+</script>
+</body>
+</html>
