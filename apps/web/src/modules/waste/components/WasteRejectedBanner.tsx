@@ -23,19 +23,19 @@ type WasteRejectedBannerProps = {
 export function WasteRejectedBanner({ heading, reason, note }: WasteRejectedBannerProps) {
   return (
     <div
-      className="flex w-full items-start gap-[10px] border-b-2 border-solid border-[var(--waste-notice-rejected-border)] bg-[var(--waste-notice-rejected-surface)] px-[20px] pb-[12px] pt-[10px]"
+      className="flex w-full items-start gap-[10px] border-b-2 border-solid border-[color:var(--waste-notice-rejected-border,#bd3b5b)] bg-[var(--waste-notice-rejected-surface,#ffd0db)] px-[20px] pb-[12px] pt-[10px]"
       data-name="Formulario rechazado"
       role="status"
     >
       <span className="flex h-[16px] w-[20px] shrink-0 items-center justify-center">
-        <AlertCircleIcon className="block size-[16px] text-[var(--waste-notice-rejected-foreground)]" />
+        <AlertCircleIcon className="block size-[16px] text-[var(--waste-notice-rejected-foreground,#570b1d)]" />
       </span>
 
       <div className="flex min-w-0 flex-1 flex-col items-start">
-        <p className="w-full font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] text-[var(--waste-notice-rejected-foreground)]">
+        <p className="w-full font-['Inter:Bold',sans-serif] text-[12px] font-bold not-italic leading-[normal] text-[var(--waste-notice-rejected-foreground,#570b1d)]">
           {heading}
         </p>
-        <div className="w-full pt-[3px] text-[11px] text-[var(--waste-notice-rejected-foreground)]">
+        <div className="w-full pt-[3px] text-[11px] text-[var(--waste-notice-rejected-foreground,#570b1d)]">
           <p className="font-['Inter:Italic',sans-serif] font-normal italic leading-[16.5px]">
             {reason}
           </p>
