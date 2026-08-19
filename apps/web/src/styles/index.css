@@ -39,6 +39,15 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --waste-notice-surface: #ffffff;
+  --waste-notice-border: #e3e3e3;
+  --waste-notice-heading: #001e39;
+  --waste-notice-title: #131313;
+  --waste-notice-muted: #646464;
+  --waste-notice-marker: #c4365a;
+  --waste-notice-action-hover: #fafcff;
+  --waste-notice-rejected-surface: #ffd0db;
+  --waste-notice-rejected-foreground: #570b1d;
 }
 
 .dark {
