@@ -4,6 +4,7 @@ import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteRejectedBanner } from './components/WasteRejectedBanner';
 import {
   WasteSidrepAttachedDocsSection,
   type SidrepAttachedDoc,
@@ -17,8 +18,13 @@ import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepSendIcon } from './icons/WasteSidrepDocumentsIcons';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
 import { resolveDisposalSiteLabel } from './wasteSidrepForm';
+import { pendingRequestRejectionQuote } from './wasteSidrepPendingFolios';
 import { SIDREP_REQUIRED_DOCS, SIDREP_VEHICLE_VIEWS } from './wasteSidrepSupportDocs';
-import { createWithdrawalRowFromLot } from './wasteWithdrawalRows';
+import {
+  createWithdrawalRowFromLot,
+  wasteWithdrawalCorrectionHeading,
+  WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+} from './wasteWithdrawalRows';
 
 /**
  * Paso 3 del flujo SIDREP, "Revisión y envío" — nodo Figma `3765:35418`, cuya
@@ -75,6 +81,7 @@ export function WasteSidrepReviewPage() {
   const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
   const support = useWasteWithdrawalDraftStore((state) => state.support);
   const weights = useWasteWithdrawalDraftStore((state) => state.weights);
+  const correction = useWasteWithdrawalDraftStore((state) => state.correction);
   const submitDraft = useWasteWithdrawalDraftStore((state) => state.submitDraft);
   const navigate = useNavigate();
   /** Ver la nota de `handleSubmit`: el guard es el que redirige después de enviar. */
@@ -141,6 +148,14 @@ export function WasteSidrepReviewPage() {
         header={<WarehouseHeader title={WASTE_WITHDRAWAL_FORM_TITLE} />}
         content={
           <div className="flex h-[calc(100vh-56px)] w-full flex-col bg-white" data-name="Main Content">
+            {correction ? (
+              <WasteRejectedBanner
+                heading={wasteWithdrawalCorrectionHeading(correction)}
+                reason={pendingRequestRejectionQuote(
+                  correction.rejectionReason ?? WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+                )}
+              />
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex w-full flex-col items-start gap-[16px] px-[28px] pb-[22px] pt-[20px]">
                 <WasteSidrepDocumentsIntro />
