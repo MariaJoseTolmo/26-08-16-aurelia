@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { WasteWithdrawalModalCloseIcon, WasteWithdrawalSectionIcon } from '../icons/WasteWithdrawalFormIcons';
 import { filterWithdrawableLots, type WasteWithdrawableLot } from '../wasteWithdrawableLots';
@@ -93,7 +93,7 @@ export function WasteWithdrawalLotPickerModal({
   selectedLotId = null,
   onClose,
   onConfirm,
-}: WasteWithdrawalLotPickerModalProps) {
+}: WasteWithdrawalLotPickerModalProps): ReactNode {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(selectedLotId);
   const searchRef = useRef<HTMLInputElement>(null);
