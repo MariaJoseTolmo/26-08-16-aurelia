@@ -11,6 +11,7 @@ import { WasteSidrepFormActions } from './components/WasteSidrepFormActions';
 import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepTransportSection } from './components/WasteSidrepTransportSection';
 import { WasteSidrepWeightSection } from './components/WasteSidrepWeightSection';
+import { WasteRejectedBanner } from './components/WasteRejectedBanner';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
 import type { WasteWithdrawableLot } from './wasteWithdrawableLots';
 import {
@@ -21,6 +22,11 @@ import {
   type WasteSidrepFormValues,
 } from './wasteSidrepForm';
 import type { WasteWithdrawalFormValues } from './wasteWithdrawalForm';
+import { pendingRequestRejectionQuote } from './wasteSidrepPendingFolios';
+import {
+  wasteWithdrawalCorrectionHeading,
+  WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+} from './wasteWithdrawalRows';
 
 /**
  * Paso 1 del flujo SIDREP, "Datos del traslado" — nodos Figma `3765:39262` (sin
@@ -81,6 +87,7 @@ function WasteSidrepDocumentsForm({
   const navigate = useNavigate();
   const setSidrep = useWasteWithdrawalDraftStore((state) => state.setSidrep);
   const setWeights = useWasteWithdrawalDraftStore((state) => state.setWeights);
+  const correction = useWasteWithdrawalDraftStore((state) => state.correction);
   const [values, setValues] = useState<WasteSidrepFormValues>(createWasteSidrepFormValues);
 
   /**
@@ -141,6 +148,14 @@ function WasteSidrepDocumentsForm({
         header={<WarehouseHeader title={WASTE_WITHDRAWAL_FORM_TITLE} />}
         content={
           <div className="flex h-[calc(100vh-56px)] w-full flex-col bg-white" data-name="Main Content">
+            {correction ? (
+              <WasteRejectedBanner
+                heading={wasteWithdrawalCorrectionHeading(correction)}
+                reason={pendingRequestRejectionQuote(
+                  correction.rejectionReason ?? WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+                )}
+              />
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex w-full flex-col items-start gap-[16px] px-[28px] pb-[22px] pt-[20px]">
                 <WasteSidrepDocumentsIntro />
