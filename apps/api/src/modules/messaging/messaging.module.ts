@@ -5,6 +5,7 @@ import { InspectionRejectionEmailTemplateService } from './inspection-rejection-
 import { MessagingService } from './messaging.service';
 import { EMAIL_TRANSPORT, EmailTransport } from './messaging.types';
 import { SmtpEmailTransport } from './smtp-email.transport';
+import { WasteSidrepRequestApprovedEmailTemplateService } from './waste-sidrep-request-approved-email-template.service';
 import { WasteSidrepRequestCorrectedEmailTemplateService } from './waste-sidrep-request-corrected-email-template.service';
 import { WasteSidrepRequestRejectedEmailTemplateService } from './waste-sidrep-request-rejected-email-template.service';
 import { WasteSinaderReportEmailTemplateService } from './waste-sinader-report-email-template.service';
@@ -26,6 +27,7 @@ export class MessagingModule {
       providers: [
         EmailTemplateService,
         InspectionRejectionEmailTemplateService,
+        WasteSidrepRequestApprovedEmailTemplateService,
         WasteSidrepRequestCorrectedEmailTemplateService,
         WasteSidrepRequestRejectedEmailTemplateService,
         WasteSinaderReportEmailTemplateService,
@@ -39,6 +41,7 @@ export class MessagingModule {
       exports: [
         EmailTemplateService,
         InspectionRejectionEmailTemplateService,
+        WasteSidrepRequestApprovedEmailTemplateService,
         WasteSidrepRequestCorrectedEmailTemplateService,
         WasteSidrepRequestRejectedEmailTemplateService,
         WasteSinaderReportEmailTemplateService,
