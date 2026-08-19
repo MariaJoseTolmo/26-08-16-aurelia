@@ -73,9 +73,13 @@ export function WasteProcessNoticeCard({
    * `overflow-hidden` porque la columna derecha lleva fondo blanco y llega al borde: sin
    * recorte, sus esquinas cuadradas se asoman por fuera del `rounded-[12px]`. Es el
    * `overflow-clip` de los nodos.
+   *
+   * Los `var()` llevan el valor de Figma como fallback porque `styles/index.css` todavía
+   * no forma parte del entrypoint de la app. Así el componente consume el token cuando
+   * esté disponible y no cae al `currentColor` negro del borde mientras tanto.
    */
   const cardClassName =
-    'relative flex w-full items-stretch overflow-hidden rounded-[12px] border border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)] text-left';
+    'relative flex w-full items-stretch overflow-hidden rounded-[12px] border border-solid border-[color:var(--waste-notice-border,#e3e3e3)] bg-[var(--waste-notice-surface,#fff)] text-left';
 
   const card = (
     <>
@@ -85,11 +89,11 @@ export function WasteProcessNoticeCard({
         {/* Punto de los nodos `4278:15673`, `4278:17661` y `4278:18204`. */}
         <span
           aria-hidden="true"
-          className="absolute -right-[8px] top-[12.4px] size-[16px] rounded-[8px] bg-[var(--waste-notice-marker)]"
+          className="absolute -right-[8px] top-[11.4px] size-[16px] rounded-[8px] bg-[var(--waste-notice-marker,#c4365a)]"
         />
       </div>
 
-      <div className="relative flex min-w-px flex-1 items-center gap-[12px] border-l-[1.5px] border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)] py-[14px] pl-[15.5px] pr-[14px] drop-shadow-[0px_1px_2px_rgba(0,0,0,0.06)]">
+      <div className="relative flex min-w-px flex-1 items-center gap-[12px] border-l-[1.5px] border-solid border-[color:var(--waste-notice-border,#e3e3e3)] bg-[var(--waste-notice-surface,#fff)] py-[14px] pl-[15.5px] pr-[14px] drop-shadow-[0px_1px_2px_rgba(0,0,0,0.06)]">
         {children}
       </div>
     </>
@@ -97,7 +101,7 @@ export function WasteProcessNoticeCard({
 
   return (
     <section
-      className="w-full rounded-[9px] border border-solid border-[var(--waste-notice-border)] bg-[var(--waste-notice-surface)]"
+      className="w-full rounded-[9px] border border-solid border-[color:var(--waste-notice-border,#e3e3e3)] bg-[var(--waste-notice-surface,#fff)]"
       data-name="Notificaciones del proceso"
     >
       {/*
@@ -106,7 +110,7 @@ export function WasteProcessNoticeCard({
         es el borde, que Figma dibuja HACIA ADENTRO. En Tailwind `border` ya lo aporta;
         sumarle `p-px` mete un segundo píxel por lado.
       */}
-      <div className="w-full border-b border-solid border-[var(--waste-notice-border)] px-[14px] pb-[11px] pt-[10px]">
+      <div className="w-full border-b border-solid border-[color:var(--waste-notice-border,#e3e3e3)] px-[14px] pb-[11px] pt-[10px]">
         <div className="flex items-center gap-[7px]">
           <img
             src={processNotificationsBellIcon}
@@ -114,7 +118,7 @@ export function WasteProcessNoticeCard({
             aria-hidden="true"
             className="block h-[12px] w-[15px] shrink-0"
           />
-          <p className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[var(--waste-notice-heading)]">
+          <p className="whitespace-nowrap font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold not-italic leading-[normal] text-[var(--waste-notice-heading,#001e39)]">
             {WASTE_PROCESS_NOTICE_HEADING}
           </p>
         </div>
@@ -130,7 +134,7 @@ export function WasteProcessNoticeCard({
              * mismo tono con el que `SprProcessStatusSection` marca sus filas accionables.
              * Un bloque que navega y no responde al puntero no se lee como clickeable.
              */
-            className={`${cardClassName} hover:bg-[var(--waste-notice-action-hover)]`}
+            className={`${cardClassName} hover:bg-[var(--waste-notice-action-hover,#fafcff)]`}
             aria-label={actionLabel}
           >
             {card}

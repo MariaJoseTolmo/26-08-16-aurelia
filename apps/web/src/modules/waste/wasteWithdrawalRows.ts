@@ -74,6 +74,10 @@ export const WASTE_WITHDRAWAL_FOLIO_REJECTED_LABEL = 'Rechazado';
  */
 export const WASTE_WITHDRAWAL_CORRECTION_ACTION_LABEL = 'Corregir';
 
+/** Motivo de respaldo mientras la API de retiros todavía no expone la observación. */
+export const WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON =
+  'Solicitud devuelta por Medio ambiente para corregir los antecedentes informados';
+
 export interface WasteWithdrawalRow {
   id: string;
   /**
@@ -119,6 +123,12 @@ export interface WasteWithdrawalRow {
    * no pasó por el rechazo de esta sesión y el aviso igual tiene que poder fecharla.
    */
   rejectedAt?: string;
+  /** Número que enlaza la fila con el rechazo emitido en la bandeja SIDREP. */
+  requestNumber?: string;
+  /** Nombre de quien devolvió la solicitud; forma parte del titular del nodo `4278:19235`. */
+  rejectedByName?: string;
+  /** Observación visible en la cita de la banda de corrección. */
+  rejectionReason?: string;
 }
 
 /**
@@ -157,7 +167,24 @@ const SAMPLE_ROWS = [
    * pendiente: el listado es compartido, así que siempre puede haber una solicitud
    * devuelta que este navegador no rechazó.
    */
-  { monthOffset: 0, day: 22, category: 'RESPEL Residuos peligrosos', wasteType: 'Envases contaminados con hidrocarburos/aceites/grasas', quantity: '18', unit: 'Unidad', recipient: 'Hidronor Chile S.A.', sidrepFolio: null, status: 'pending' as const, rejected: true, rejectedHour: 16, rejectedMinute: 54 },
+  {
+    monthOffset: 0,
+    day: 22,
+    category: 'RESPEL Residuos peligrosos',
+    wasteType: 'Envases contaminados con hidrocarburos/aceites/grasas',
+    quantity: '18',
+    unit: 'Unidad',
+    recipient: 'Hidronor Chile S.A.',
+    sidrepFolio: null,
+    status: 'pending' as const,
+    rejected: true,
+    rejectedHour: 16,
+    rejectedMinute: 54,
+    requestNumber: 'SR-2026-0847',
+    rejectedByName: 'Francisco Villalobos R.',
+    rejectionReason:
+      'La fotografía frontal del camión está demasiado borrosa. Por favor asegurese de que la patente se vea nítida',
+  },
   /*
    * Fila PENDIENTE. El nodo `3765:40905` muestra 11 filas con esta primera —folio
    * "A espera de aprobación" y estado "Pendiente"—, que es el estado en que queda
@@ -261,4 +288,23 @@ export function buildWasteWithdrawalRows(today: Date): WasteWithdrawalRow[] {
         }),
     withdrawalDate: toIsoDate(new Date(today.getFullYear(), today.getMonth() + monthOffset, day)),
   }));
+}
+
+const TWO_DIGITS = (value: number): string => String(value).padStart(2, '0');
+
+/** Titular dinámico con la forma exacta del nodo Figma `4278:19235`. */
+export function wasteWithdrawalCorrectionHeading(
+  correction: Pick<WasteWithdrawalRow, 'rejectedAt' | 'rejectedByName'>,
+): string {
+  const rejectedAt = correction.rejectedAt ? new Date(correction.rejectedAt) : null;
+  const hasValidDate = rejectedAt !== null && !Number.isNaN(rejectedAt.getTime());
+  const actor = correction.rejectedByName?.trim();
+  const prefix = actor ? `Formulario rechazado por ${actor}.` : 'Formulario rechazado.';
+
+  if (!hasValidDate) return prefix;
+
+  const date = `${TWO_DIGITS(rejectedAt.getDate())}-${TWO_DIGITS(rejectedAt.getMonth() + 1)}-${rejectedAt.getFullYear()}`;
+  const time = `${TWO_DIGITS(rejectedAt.getHours())}:${TWO_DIGITS(rejectedAt.getMinutes())}`;
+
+  return `${prefix} · ${date} · ${time}`;
 }

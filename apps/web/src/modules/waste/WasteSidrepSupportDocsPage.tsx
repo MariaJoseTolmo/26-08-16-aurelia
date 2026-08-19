@@ -4,12 +4,20 @@ import { AppSidebar } from '../../shared/layout/AppSidebar';
 import { useWasteWithdrawalDraftStore } from '../../shared/stores/waste-withdrawal-draft.store';
 import { DashboardFrameShell } from '../dashboard/components/DashboardSections';
 import { WarehouseHeader } from './components/WarehouseHeader';
+import { WasteRejectedBanner } from './components/WasteRejectedBanner';
 import { WasteSidrepDocumentsIntro } from './components/WasteSidrepDocumentsIntro';
 import { WasteSidrepFormActions } from './components/WasteSidrepFormActions';
 import { WasteSidrepRequiredDocsSection } from './components/WasteSidrepRequiredDocsSection';
+import {
+  SIDREP_RESUBMIT_LABEL,
+  WasteSidrepResubmitModal,
+} from './components/WasteSidrepResubmitModal';
 import { WasteSidrepSummaryCard } from './components/WasteSidrepSummaryCard';
 import { WasteSidrepVehiclePhotosSection } from './components/WasteSidrepVehiclePhotosSection';
+import { WasteSidrepSendIcon } from './icons/WasteSidrepDocumentsIcons';
 import { WASTE_WITHDRAWAL_FORM_TITLE } from './WasteWithdrawalFormPage';
+import { resolveDisposalSiteLabel } from './wasteSidrepForm';
+import { pendingRequestRejectionQuote } from './wasteSidrepPendingFolios';
 import {
   createWasteSidrepSupportDocsValues,
   isWasteSidrepSupportDocsComplete,
@@ -17,6 +25,11 @@ import {
   type SidrepVehicleViewKey,
   type WasteSidrepSupportDocsValues,
 } from './wasteSidrepSupportDocs';
+import {
+  createWithdrawalRowFromLot,
+  wasteWithdrawalCorrectionHeading,
+  WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+} from './wasteWithdrawalRows';
 
 /**
  * Paso 2 del flujo SIDREP, "Documentos de respaldo" — nodo Figma `3765:39693`, cuya
@@ -48,14 +61,28 @@ import {
 export function WasteSidrepSupportDocsPage() {
   const navigate = useNavigate();
   const draft = useWasteWithdrawalDraftStore((state) => state.draft);
+  const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
+  const correction = useWasteWithdrawalDraftStore((state) => state.correction);
   const setSupport = useWasteWithdrawalDraftStore((state) => state.setSupport);
+  const submitDraft = useWasteWithdrawalDraftStore((state) => state.submitDraft);
   const [values, setValues] = useState<WasteSidrepSupportDocsValues>(
     createWasteSidrepSupportDocsValues,
   );
+  const [resubmitOpen, setResubmitOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [today] = useState(() => new Date());
 
   /* Sin borrador no hay resumen que mostrar: se vuelve al inicio del flujo. */
-  if (!draft?.lot) return <Navigate to="/waste/solicitud-retiro/nueva" replace />;
+  if (submitted || !draft?.lot) {
+    return (
+      <Navigate
+        to={submitted ? '/waste/solicitud-retiro' : '/waste/solicitud-retiro/nueva'}
+        replace
+      />
+    );
+  }
 
+  const lot = draft.lot;
   const canContinue = isWasteSidrepSupportDocsComplete(values);
 
   function handleDocChange(key: SidrepRequiredDocKey, file: File | null) {
@@ -82,6 +109,26 @@ export function WasteSidrepSupportDocsPage() {
     navigate('/waste/solicitud-retiro/nueva/sidrep/revision');
   }
 
+  /**
+   * La corrección se cierra desde este paso, como muestran `4278:20038` y el modal
+   * `4278:20635`. La solicitud nueva conserva su paso 3 de revisión sin cambios.
+   */
+  function handleResubmit() {
+    if (!sidrep) return;
+
+    setSupport(values);
+    submitDraft(
+      createWithdrawalRowFromLot({
+        lot,
+        quantity: draft.quantity,
+        recipient: resolveDisposalSiteLabel(sidrep.disposalSite),
+        status: 'pending',
+        today,
+      }),
+    );
+    setSubmitted(true);
+  }
+
   return (
     <div className="relative h-screen w-full overflow-hidden" data-name="Residuos - Documentos de respaldo">
       <AppSidebar />
@@ -89,11 +136,19 @@ export function WasteSidrepSupportDocsPage() {
         header={<WarehouseHeader title={WASTE_WITHDRAWAL_FORM_TITLE} />}
         content={
           <div className="flex h-[calc(100vh-56px)] w-full flex-col bg-white" data-name="Main Content">
+            {correction ? (
+              <WasteRejectedBanner
+                heading={wasteWithdrawalCorrectionHeading(correction)}
+                reason={pendingRequestRejectionQuote(
+                  correction.rejectionReason ?? WASTE_WITHDRAWAL_REJECTION_FALLBACK_REASON,
+                )}
+              />
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex w-full flex-col items-start gap-[16px] px-[28px] pb-[22px] pt-[20px]">
                 <WasteSidrepDocumentsIntro />
                 <WasteSidrepSummaryCard
-                  lot={draft.lot}
+                  lot={lot}
                   quantity={draft.quantity}
                   carrier={draft.carrier}
                   carrierLabel={draft.carrierLabel ?? null}
@@ -115,15 +170,29 @@ export function WasteSidrepSupportDocsPage() {
             */}
             <WasteSidrepFormActions
               canContinue={canContinue}
+              showBack={!correction}
+              {...(correction
+                ? {
+                    continueLabel: SIDREP_RESUBMIT_LABEL,
+                    continueIcon: (className: string) => (
+                      <WasteSidrepSendIcon className={className} />
+                    ),
+                  }
+                : {})}
               /* Mismo criterio que el paso 1: "Volver a selección de residuo" es
                  `/nueva/sector` para el retirador y `/nueva` para el resto. */
               onBack={() =>
                 navigate(draft.sector ? '/waste/solicitud-retiro/nueva/sector' : '/waste/solicitud-retiro/nueva')
               }
-              onContinue={handleContinue}
+              onContinue={correction ? () => setResubmitOpen(true) : handleContinue}
             />
           </div>
         }
+      />
+      <WasteSidrepResubmitModal
+        open={Boolean(correction && resubmitOpen)}
+        onClose={() => setResubmitOpen(false)}
+        onConfirm={handleResubmit}
       />
     </div>
   );

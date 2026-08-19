@@ -24,7 +24,7 @@
     "test:waste": "ts-node src/test/api-waste-foundation-smoke.ts",
     "test:waste-folio-support-pdf": "ts-node src/test/api-waste-folio-support-pdf-smoke.ts",
     "test:roles": "ts-node src/test/api-functional-roles-smoke.ts",
-    "test:mail": "ts-node src/test/api-messaging-template-smoke.ts && ts-node src/test/api-inspection-rejection-email-template-smoke.ts && ts-node src/test/api-inspection-rejection-email-service-smoke.ts && ts-node src/test/api-smtp-config-smoke.ts && ts-node src/test/api-smtp-email-smoke.ts && ts-node src/test/api-mobile-sync-assignment-email-smoke.ts && ts-node src/test/api-waste-sinader-report-email-template-smoke.ts && ts-node src/test/api-waste-sidrep-request-corrected-email-template-smoke.ts && ts-node src/test/api-waste-sidrep-request-rejected-email-template-smoke.ts",
+    "test:mail": "ts-node src/test/api-messaging-template-smoke.ts && ts-node src/test/api-inspection-rejection-email-template-smoke.ts && ts-node src/test/api-inspection-rejection-email-service-smoke.ts && ts-node src/test/api-smtp-config-smoke.ts && ts-node src/test/api-smtp-email-smoke.ts && ts-node src/test/api-mobile-sync-assignment-email-smoke.ts && ts-node src/test/api-waste-sinader-report-email-template-smoke.ts && ts-node src/test/api-waste-sidrep-request-corrected-email-template-smoke.ts && ts-node src/test/api-waste-sidrep-request-rejected-email-template-smoke.ts && ts-node src/test/api-waste-sidrep-request-approved-email-template-smoke.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "pnpm run typeorm migration:generate ./src/database/migrations/Migration -d ./src/database/data-source.ts",
     "migration:create": "pnpm run typeorm migration:create ./src/database/migrations/Migration",

@@ -29,8 +29,9 @@ import {
   formatWasteNoticeTimestamp,
   resolveWasteWithdrawalDraftProgress,
 } from './wasteWithdrawalDraft';
-import { resolveCarrierLabel } from './wasteWithdrawalForm';
-import { buildWasteWithdrawalRows } from './wasteWithdrawalRows';
+import { resolveCarrierLabel, WASTE_CARRIER_OPTIONS } from './wasteWithdrawalForm';
+import { buildWasteWithdrawableLots } from './wasteWithdrawableLots';
+import { buildWasteWithdrawalRows, type WasteWithdrawalRow } from './wasteWithdrawalRows';
 
 /**
  * Vista "Solicitud de retiro" del módulo de residuos (nodo Figma `3765:38015`).
@@ -136,6 +137,7 @@ export function WasteWithdrawalRequestPage() {
   const sidrep = useWasteWithdrawalDraftStore((state) => state.sidrep);
   const support = useWasteWithdrawalDraftStore((state) => state.support);
   const savedAt = useWasteWithdrawalDraftStore((state) => state.savedAt);
+  const beginCorrection = useWasteWithdrawalDraftStore((state) => state.beginCorrection);
   /** Rechazos enviados desde la bandeja de pendientes en esta sesión. */
   const rejections = useWasteSidrepRejectionsStore((state) => state.rejections);
 
@@ -159,6 +161,7 @@ export function WasteWithdrawalRequestPage() {
     [pendingRequests, today],
   );
   const rows = useMemo(() => filterWithdrawalRows(allRows, filters), [allRows, filters]);
+  const withdrawableLots = useMemo(() => buildWasteWithdrawableLots(today), [today]);
 
   /**
    * Solicitudes que Medio Ambiente devolvió para corrección, o `null` si no hay ninguna.
@@ -215,6 +218,41 @@ export function WasteWithdrawalRequestPage() {
     // aplica al conjunto nuevo. Es lo que hace `WarehouseIntakePage`.
     setPage(1);
     setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleCorrection(row: WasteWithdrawalRow) {
+    const lot = withdrawableLots.find((candidate) => candidate.wasteTypeName === row.wasteType);
+    const carrier = WASTE_CARRIER_OPTIONS.find((candidate) => candidate.label === row.recipient);
+
+    /*
+     * Los mocks actuales no tienen un endpoint de detalle que reconstruya el borrador.
+     * Sólo se abre directamente el paso SIDREP cuando la fila puede mapearse sin
+     * inventar datos; si el contrato futuro devuelve un lote o transportista que el
+     * catálogo local no conoce, el formulario base permite resolverlo explícitamente.
+     */
+    if (!lot || !carrier) {
+      navigate('/waste/solicitud-retiro/nueva');
+      return;
+    }
+
+    const sessionRejection = row.requestNumber ? rejections[row.requestNumber] : undefined;
+
+    beginCorrection(
+      {
+        lot,
+        quantity: row.quantity,
+        carrier: carrier.value,
+        carrierLabel: carrier.label,
+        sector: null,
+      },
+      {
+        requestNumber: row.requestNumber,
+        rejectedByName: row.rejectedByName,
+        rejectionReason: sessionRejection?.reason ?? row.rejectionReason,
+        rejectedAt: sessionRejection?.rejectedAt.toISOString() ?? row.rejectedAt,
+      },
+    );
+    navigate('/waste/solicitud-retiro/nueva/sidrep');
   }
 
   return (
@@ -281,20 +319,8 @@ export function WasteWithdrawalRequestPage() {
                 pageSize={WASTE_WITHDRAWAL_PAGE_SIZE}
                 totalRows={rows.length}
                 onPageChange={setPage}
-                /*
-                  "Corregir" de la fila rechazada (nodo `4278:18538`) lleva AL MISMO LUGAR
-                  que el aviso de formulario inconcluso: al paso donde quedó el borrador, y
-                  al formulario base si no hay ninguno que retomar. Es la misma decisión ya
-                  escrita en `resolveWasteWithdrawalDraftProgress`, así que se reusa en vez
-                  de elegir una ruta propia que pudiera discrepar.
-
-                  SIN ENDPOINT NO PUEDE PRECARGAR LA SOLICITUD RECHAZADA: quien corrige una
-                  solicitud que este navegador no envió cae en el formulario vacío. Queda
-                  anotado; es el mismo límite que el resto del flujo.
-                */
-                onCorrect={() =>
-                  navigate(draftProgress?.route ?? '/waste/solicitud-retiro/nueva')
-                }
+                /* `4278:18537` → solicitud peligrosa `4278:18591`, con su rechazo. */
+                onCorrect={handleCorrection}
               />
             </div>
             {/*

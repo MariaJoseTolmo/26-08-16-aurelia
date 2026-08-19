@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+
+const loadCompiledModule = createRequire(__filename);
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -36,7 +39,10 @@ function validateDto(spec: DtoSpec): void {
     `${spec.className} must not reference the physical contracts build path`,
   );
 
-  const dtoModule = require(compiledDtoPath) as Record<string, SwaggerDtoClass | undefined>;
+  const dtoModule = loadCompiledModule(compiledDtoPath) as Record<
+    string,
+    SwaggerDtoClass | undefined
+  >;
   const dto = dtoModule[spec.className];
   assert(dto, `Compiled ${spec.className} must be loadable`);
 
