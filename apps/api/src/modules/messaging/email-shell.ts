@@ -204,9 +204,14 @@ export interface EmailShellInput {
   /** Párrafos del cuerpo, ya escapados. */
   paragraphs: string[];
   notice: EmailShellNotice;
-  ctaLabel: string;
-  /** Destino del botón, ya escapado. */
-  ctaUrl: string;
+  /**
+   * Rótulo del botón. Es opcional porque algunos correos informativos terminan en el
+   * bloque de detalle y no dibujan una acción —por ejemplo, la solicitud de retiro
+   * aprobada `4288:22019`—. Si se informa, `ctaUrl` también es obligatorio.
+   */
+  ctaLabel?: string;
+  /** Destino del botón, ya escapado. Debe viajar junto con `ctaLabel`. */
+  ctaUrl?: string;
   /**
    * Reglas CSS extra para el `<style>` del `<head>`.
    *
@@ -236,6 +241,20 @@ export const EMAIL_SHELL_FOOTER_LINES = [
 
 export function renderEmailShell(input: EmailShellInput): string {
   const m = input.metrics;
+
+  let cta = '';
+  if (input.ctaLabel !== undefined || input.ctaUrl !== undefined) {
+    if (!input.ctaLabel || !input.ctaUrl) {
+      throw new TypeError('ctaLabel and ctaUrl must be provided together');
+    }
+    cta = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin-top:${m.ctaMarginTop}px;${m.ctaMarginBottom ? `margin-bottom:${m.ctaMarginBottom}px;` : ''}">
+                <tr>
+                  <td align="center" bgcolor="#c8a064" style="height:45px;border-radius:8px;background:#c8a064;">
+                    <a href="${input.ctaUrl}" target="_blank" rel="noopener noreferrer" style="display:block;padding:13px 20px;color:#ffffff;font-size:14px;line-height:19px;font-weight:700;letter-spacing:.42px;text-align:center;">${input.ctaLabel}</a>
+                  </td>
+                </tr>
+              </table>`;
+  }
 
   /*
    * El hueco de bloques propios arrastra su propio salto de línea y su sangría: si
@@ -314,13 +333,7 @@ ${input.extraCss ?? ''}    }
                   </td>
                 </tr>
               </table>
-              ${extraBlocks}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin-top:${m.ctaMarginTop}px;${m.ctaMarginBottom ? `margin-bottom:${m.ctaMarginBottom}px;` : ''}">
-                <tr>
-                  <td align="center" bgcolor="#c8a064" style="height:45px;border-radius:8px;background:#c8a064;">
-                    <a href="${input.ctaUrl}" target="_blank" rel="noopener noreferrer" style="display:block;padding:13px 20px;color:#ffffff;font-size:14px;line-height:19px;font-weight:700;letter-spacing:.42px;text-align:center;">${input.ctaLabel}</a>
-                  </td>
-                </tr>
-              </table>
+              ${extraBlocks}${cta}
             </td>
           </tr>
           <tr>
