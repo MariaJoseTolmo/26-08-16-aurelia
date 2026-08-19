@@ -105,7 +105,7 @@ export function WasteFormModal({
   initialFocusRef,
   children,
   actions,
-}: WasteFormModalProps) {
+}: WasteFormModalProps): ReactNode {
   const titleId = useId();
   /*
    * La raíz cambia de etiqueta según `onSubmit`, así que la referencia se toma por
