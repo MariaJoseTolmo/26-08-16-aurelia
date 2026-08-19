@@ -76,7 +76,7 @@ export function WasteConfirmModal({
   onSubmit,
   children,
   actions,
-}: WasteConfirmModalProps) {
+}: WasteConfirmModalProps): ReactNode {
   const titleId = useId();
   const cardRef = useRef<HTMLFormElement | null>(null);
 
