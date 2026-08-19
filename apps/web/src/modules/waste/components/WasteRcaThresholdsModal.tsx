@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { resolveWasteAccumulationTone } from '@aurelia/contracts';
 import { WarehouseTableCaretIcon } from '../icons/WarehouseTableIcons';
@@ -83,7 +83,7 @@ export function WasteRcaThresholdsModal({
   bars,
   monthElapsedPercentage,
   onClose,
-}: WasteRcaThresholdsModalProps) {
+}: WasteRcaThresholdsModalProps): ReactNode {
   const [query, setQuery] = useState('');
   /*
    * Categorías abiertas, por rótulo.
